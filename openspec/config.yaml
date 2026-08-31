@@ -1,0 +1,107 @@
+schema: spec-driven
+
+context: |
+  Landscape TSI es una aplicacion empresarial para gobernar el catalogo y la
+  adopcion de tecnologias de seguridad de la informacion en organizaciones y
+  subsidiarias.
+
+  Plataforma y arquitectura:
+  - .NET 10.
+  - ASP.NET Core MVC.
+  - Entity Framework Core.
+  - SQL Server.
+  - Monolito modular con limites funcionales explicitos y dependencias
+    controladas entre modulos.
+  - Desarrollo basado en especificaciones (Spec-Driven Development): los
+    cambios funcionales, arquitectonicos y de datos se definen y aprueban en
+    OpenSpec antes de implementarse.
+  - Arquitectura centrada en la seguridad y principio de minimo privilegio.
+
+  Seguridad y gobierno:
+  - La autorizacion se basa en permisos atomicos concedidos mediante roles y
+    evaluados junto con politicas contextuales; una coincidencia de rol por si
+    sola no autoriza una accion.
+  - Los roles iniciales son Administrador, Arquitecto de Seguridad, Ingeniero
+    de TSI y Punto de Contacto del Gobierno.
+  - Aplicar separacion de funciones entre solicitante, evaluadores, aprobador
+    y administrador. Las acciones administrativas de emergencia deben estar
+    justificadas, limitadas en el tiempo y auditadas.
+  - Toda autorizacion sobre datos empresariales debe respetar el ambito de la
+    organizacion o subsidiaria, ademas de la propiedad y asignacion del caso.
+  - Las transiciones del flujo de adopcion deben ser explicitas, autorizadas,
+    justificadas cuando corresponda y registradas como eventos de auditoria
+    inmutables.
+
+  Referencias de arquitectura y datos:
+  - Existe una base de datos SQL Server en produccion. Su estructura actual es
+    una referencia y debe conservarse siempre que sea razonable; no se debe
+    rediseniar por motivos puramente esteticos.
+  - Cualquier inspeccion de produccion durante exploracion arquitectonica debe
+    limitarse a consultas de metadatos de solo lectura. Nunca se deben ejecutar
+    DDL, DML ni procedimientos almacenados, ni exponer credenciales.
+  - El modelo visual de referencia se encuentra en
+    "00 - definicion de landscape tsi/Modelado Catalogo Landscape TSI - depurado-MODELADO-CATALOGO.jpg".
+  - El analisis textual complementario se encuentra en
+    "docs/modelo-catalogo-landscape-tsi.md".
+
+  UI/UX:
+  - Aplicar principios de Material Design 3 con identidad visual empresarial.
+  - Diseno adaptable para escritorio, tableta y movil.
+  - Cumplir WCAG 2.2 nivel AA.
+  - Proporcionar paneles de control especificos para cada rol y su ambito
+    organizacional.
+  - Usar formularios y tablas adaptables, tarjetas y dialogos cuando resulten
+    apropiados para la tarea.
+  - Mostrar con claridad el estado actual del flujo, las acciones disponibles,
+    los responsables, las observaciones, las condiciones y el historial.
+  - No depender exclusivamente del color para comunicar estado, severidad o
+    resultado.
+
+rules:
+  proposal:
+    - Toda modificacion del esquema, restricciones, indices o datos de la base
+      de datos debe proponerse primero mediante un cambio OpenSpec.
+    - Identificar los modulos afectados, los limites del monolito modular y las
+      dependencias nuevas o modificadas.
+    - Incluir impactos de seguridad, autorizacion, segregacion de funciones,
+      alcance organizacional, auditoria y privacidad.
+    - Explicar la compatibilidad con la base de datos de produccion existente y
+      justificar cualquier divergencia respecto del modelo de referencia.
+  design:
+    - Definir permisos atomicos, politicas contextuales y restricciones por
+      estado para toda capacidad protegida.
+    - Documentar transiciones, precondiciones, datos obligatorios, evidencias,
+      justificaciones y eventos de auditoria del flujo de trabajo.
+    - Preservar las estructuras existentes cuando sean adecuadas y evitar
+      redisenios motivados solamente por uniformidad estetica.
+    - Tratar WCAG 2.2 AA, diseno adaptable y visualizacion del estado como
+      requisitos arquitectonicos de la interfaz.
+  specs:
+    - Expresar escenarios normales, denegaciones de autorizacion, restricciones
+      de segregacion de funciones y limites por organizacion o subsidiaria.
+    - Incluir escenarios de accesibilidad y comportamiento adaptable para las
+      capacidades con interfaz de usuario.
+  tasks:
+    - Separar claramente las tareas de aplicacion de las posibles migraciones o
+      cambios de datos.
+    - No incluir ejecucion de cambios sobre la base de datos de produccion como
+      una tarea automatica o implicita.
+
+operations:
+  apply:
+    guidance:
+      - Nunca modificar la base de datos de produccion o en vivo durante la
+        exploracion de arquitectura.
+      - No aplicar DDL, DML, migraciones ni procedimientos almacenados contra
+        produccion sin un cambio OpenSpec aprobado y una autorizacion operativa
+        explicita e independiente.
+      - No exponer credenciales, cadenas de conexion ni valores de secretos en
+        codigo, artefactos, registros o respuestas.
+      - Verificar los cambios con pruebas proporcionales al riesgo, incluyendo
+        autorizacion, segregacion de funciones, alcance organizacional,
+        auditoria, accesibilidad y diseno adaptable.
+  archive:
+    guidance:
+      - Confirmar que las especificaciones reflejan las decisiones finales de
+        seguridad, flujo de trabajo, UI/UX y compatibilidad de datos antes de
+        archivar un cambio.
