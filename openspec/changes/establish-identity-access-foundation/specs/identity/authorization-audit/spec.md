@@ -22,6 +22,17 @@ El sistema MUST registrar las autorizaciones empresariales de alto impacto, las 
 - **WHEN** una accion se deniega por separacion de funciones
 - **THEN** el sistema registra la regla aplicada sin almacenar secretos ni contenido innecesario
 
+### Requirement: Auditoria de autenticacion y bootstrap
+El sistema MUST registrar los resultados de autenticacion local y corporativa, bloqueos y ejecuciones de bootstrap con fecha, mecanismo, identificador seguro, resultado y correlacion, sin almacenar credenciales, hashes, secretos ni tokens completos.
+
+#### Scenario: Login local fallido
+- **WHEN** se rechaza un intento de autenticacion local
+- **THEN** el sistema registra el resultado y mecanismo sin contrasena y sin confirmar si el usuario existe
+
+#### Scenario: Bootstrap omitido
+- **WHEN** el bootstrap no se ejecuta por ambiente no autorizado, secreto ausente o usuario manual preexistente
+- **THEN** el sistema registra una condicion administrativa segura sin incluir el secreto
+
 ### Requirement: Inmutabilidad y disponibilidad
 Los eventos de auditoria MUST ser append-only para usuarios de la aplicacion y MUST permanecer disponibles segun la politica de retencion.
 

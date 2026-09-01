@@ -9,7 +9,7 @@ El fundamento atraviesa todos los modulos del monolito, debe integrarse con `TEm
 **Goals:**
 
 - Establecer un limite modular de Identidad y Acceso con contratos consumibles por los demas modulos.
-- Separar autenticacion federada, perfiles locales, permisos, alcance y evaluacion de politicas.
+- Unificar autenticacion corporativa y local, perfiles internos, permisos, alcance y evaluacion de politicas.
 - Aplicar denegacion predeterminada, minimo privilegio y segregacion de funciones.
 - Proponer persistencia compatible con SQL Server y con las tablas existentes.
 - Generar auditoria inmutable para decisiones y cambios de acceso.
@@ -17,7 +17,7 @@ El fundamento atraviesa todos los modulos del monolito, debe integrarse con `TEm
 
 **Non-Goals:**
 
-- Almacenar o validar contrasenas locales.
+- Almacenar contrasenas, secretos de bootstrap o tokens en texto claro.
 - Elegir de forma irreversible un proveedor corporativo especifico.
 - Implementar el workflow completo de adopcion en este cambio.
 - Redisenar las tablas actuales de catalogo, tecnologia u organizacion.
@@ -26,13 +26,21 @@ El fundamento atraviesa todos los modulos del monolito, debe integrarse con `TEm
 
 ## Decisions
 
-### 1. Autenticacion federada OIDC y perfil local minimo
+### 1. Autenticacion dual con identidad interna comun
 
-ASP.NET Core delegara la autenticacion a un proveedor OpenID Connect configurable. La identidad local se vinculara mediante la pareja estable emisor-sujeto; correo y nombre seran atributos descriptivos, no claves de identidad. El perfil local determinara habilitacion, roles y alcances.
+ASP.NET Core admitira OAuth/OpenID Connect corporativo y credenciales locales mediante ASP.NET Core Identity. Ambos mecanismos resolveran un unico `IamUsuario`; la pareja estable emisor-sujeto identificara el login externo y el nombre normalizado identificara la cuenta local. Correo y nombre visible no vincularan identidades por si solos. El perfil interno determinara habilitacion, roles y alcances.
 
-**Razon:** evita administrar secretos de usuario y desacopla la autorizacion empresarial del proveedor elegido.
+ASP.NET Core Identity sera responsable de hashing, security stamp, bloqueo, contador de fallos y validacion de contrasenas. No se usara su catalogo de roles como fuente paralela: `IamRol`, `IamPermiso`, `IamUsuarioRol` y las politicas de Landscape TSI seguiran siendo la unica autoridad empresarial.
 
-**Alternativas consideradas:** ASP.NET Core Identity con contrasenas locales se descarta por aumentar superficie de riesgo; usar solamente claims del proveedor se descarta porque no representa asignaciones por subsidiaria, vigencias ni historia local con suficiente control.
+```text
+OAuth/OIDC corporativo ----\
+                            > IamUsuario -> IamUsuarioRol -> IamRol -> IamPermiso
+ASP.NET Core Identity -----/
+```
+
+**Razon:** mantiene la experiencia corporativa y proporciona bootstrap/respaldo controlado sin duplicar autorizacion.
+
+**Alternativas consideradas:** OIDC exclusivo no cubre el arranque solicitado; roles de ASP.NET Core Identity en paralelo se descartan por divergencia; hashing propio se descarta porque aumenta el riesgo criptografico.
 
 ### 2. Modulo de Identidad y Acceso en el monolito modular
 
@@ -71,6 +79,7 @@ Se proponen tablas nuevas con prefijo de modulo o esquema logico coherente, suje
 | Entidad propuesta | Finalidad | Relaciones principales |
 |---|---|---|
 | `IamUsuario` | Perfil local vinculado a emisor/sujeto | Identidad externa unica; estado y vigencia |
+| `IamUsuarioLoginExterno` | Vinculo OAuth/OIDC | Usuario, proveedor, emisor y sujeto unicos |
 | `IamRol` | Paquete funcional de permisos | N:M con Usuario y Permiso |
 | `IamPermiso` | Capacidad atomica estable | Codigo unico |
 | `IamUsuarioRol` | Asignacion de rol con vigencia | Usuario N:M Rol; actor/aprobacion |
@@ -79,7 +88,7 @@ Se proponen tablas nuevas con prefijo de modulo o esquema logico coherente, suje
 | `IamAccesoEmergencia` | Elevacion temporal controlada | Usuario, alcance, incidente, aprobador y vencimiento |
 | `IamEventoAuditoriaAutorizacion` | Evento append-only | Actor, permiso, recurso, organizacion, decision y correlacion |
 
-Restricciones previstas: claves primarias, indices en todas las FK, unicidad para emisor-sujeto y codigo de permiso, pares unicos en tablas puente, vigencias coherentes y FK hacia `TEmpresaSubsidiaria`. No se propone cambiar columnas actuales. Las referencias a actores desde futuras solicitudes se definiran en el cambio del workflow, no aqui.
+`IamUsuario` incorporara los campos compatibles con ASP.NET Core Identity necesarios para usuario normalizado, hash, stamps, lockout y contador de fallos. La credencial sera opcional para identidades exclusivamente corporativas. Restricciones previstas: claves primarias, indices en todas las FK, unicidad para usuario normalizado, emisor-sujeto y codigo de permiso, pares unicos en tablas puente, vigencias coherentes y FK hacia `TEmpresaSubsidiaria`. No se propone cambiar columnas funcionales actuales. Las referencias a actores desde futuras solicitudes se definiran en el cambio del workflow, no aqui.
 
 **Alternativa considerada:** usar tablas generales actuales se descarta porque ninguna representa estos conceptos y sobrecargarlas dañaria su significado.
 
@@ -95,10 +104,42 @@ La navegacion, paneles, formularios, tablas, tarjetas y dialogos se compondran s
 
 **Razon:** reduce errores operativos y cumple WCAG 2.2 AA sin comunicar estados solo mediante color.
 
+### 9. Bootstrap administrativo idempotente y condicionado
+
+Un inicializador controlado buscara `jean` y `administrador` por nombre normalizado. Solo se habilitara mediante configuracion explicita en Development o un entorno inicial autorizado y obtendra la contrasena desde `BootstrapAdmin:Password`, enlazable por User Secrets o `LANDSCAPE_TSI_BOOTSTRAP_ADMIN_PASSWORD`. No existira valor predeterminado.
+
+Flujo:
+
+```text
+Inicio
+  -> ambiente/configuracion autorizados?
+     no -> omitir y auditar condicion segura
+     si -> secreto presente?
+        no -> omitir solo bootstrap y registrar instruccion administrativa
+        si -> por cada usuario
+           inexistente -> crear con Identity -> asignar rol -> auditar
+           creado antes por bootstrap -> no cambiar contrasena; asegurar rol idempotente
+           existente manual -> no cambiar ni elevar; advertir para revision
+```
+
+La marca de procedencia del bootstrap sera metadato interno auditable, no una inferencia basada solo en el nombre. La asignacion `Administrador del Sistema` concede los permisos aprobados de administracion de catalogos, usuarios, roles, consulta de auditoria y otras funciones administrativas; toda accion sigue su politica del servidor.
+
+**Razon:** evita contrasenas conocidas, duplicados y elevaciones silenciosas de cuentas preexistentes.
+
+**Alternativas consideradas:** seed EF con hash fijo, scripts SQL versionados y contrasena generada automaticamente se descartan porque exponen o vuelven irrecuperable el secreto.
+
+### 10. Pantalla y auditoria de autenticacion
+
+La pagina de acceso separara visual y semanticamente `Continuar con cuenta corporativa` del formulario Usuario/Contraseña/Ingresar. Usara Material Design 3, una columna en movil, orden de foco logico, etiquetas persistentes, resumen de errores accesible y mensajes que no permitan enumerar cuentas.
+
+Los eventos registraran login exitoso/fallido, mecanismo `Local` u `OAuth`, identificador seguro, instante, resultado y correlacion. No incluiran contraseña, hash, secreto, cookie ni token completo. El logout invalida la sesion local y solicita cierre federado cuando aplique.
+
 ## Risks / Trade-offs
 
 - **[Claims corporativos insuficientes o inestables]** -> validar emisor, sujeto y claims contractuales en un entorno no productivo antes de integrar; mantener mapeo configurable.
-- **[Bloqueo inicial por ausencia de administradores]** -> definir un procedimiento de bootstrap de una sola vez, auditable y revocable, separado de la operacion normal.
+- **[Secreto bootstrap ausente o expuesto]** -> no generar valores predeterminados; omitir solo el bootstrap, usar User Secrets/variable de entorno y rotar cualquier valor divulgado.
+- **[Cuenta local amplifica superficie de ataque]** -> lockout, politicas configurables, rate limiting, mensaje generico, auditoria y habilitacion controlada.
+- **[Coincidencia con usuario manual]** -> no cambiar contrasena ni rol; exigir revision administrativa.
 - **[Autoelevacion administrativa]** -> exigir aprobador distinto, cuenta administrativa separada y acceso de emergencia con caducidad.
 - **[Consultas sin filtro organizacional]** -> obligar a usar contratos de consulta acotados y pruebas negativas entre subsidiarias; no depender solo de filtros visuales.
 - **[Permisos excesivamente granulares]** -> mantener nomenclatura estable y catalogo gobernado; agrupar en roles sin perder atomicidad.
@@ -107,17 +148,17 @@ La navegacion, paneles, formularios, tablas, tarjetas y dialogos se compondran s
 
 ## Migration Plan
 
-1. Validar proveedor OIDC, emisor, sujeto, claims y procedimiento de bootstrap fuera de produccion.
+1. Validar proveedor OIDC, emisor, sujeto, claims, politica local y procedimiento de bootstrap fuera de produccion.
 2. Aprobar por OpenSpec el modelo fisico definitivo, nombres, restricciones, indices, retencion y rollback.
-3. Generar una migracion EF Core revisable que solo cree las nuevas estructuras y FK hacia `TEmpresaSubsidiaria`.
-4. Probar la migracion y su reversa sobre una copia sanitizada o entorno no productivo.
+3. Generar una migracion EF Core revisable que solo cree las nuevas estructuras Identity/IAM y FK hacia `TEmpresaSubsidiaria`.
+4. Probar la migracion y su reversa exclusivamente sobre `db-landscape-tsi-dev`, una copia sanitizada o una base desechable; nunca sobre `db-landscape-tsi`.
 5. Sembrar permisos atomicos y los cuatro roles iniciales mediante un proceso idempotente y auditable.
-6. Crear el primer Administrador mediante el procedimiento de bootstrap aprobado y deshabilitar ese mecanismo.
+6. Configurar un secreto nuevo fuera de Git y ejecutar el bootstrap de `jean` y `administrador` solo en el entorno autorizado; verificar idempotencia y despues deshabilitarlo cuando corresponda.
 7. Habilitar autenticacion y autorizacion por etapas, comenzando en modo de observacion para comparar decisiones esperadas.
 8. Activar denegacion obligatoria despues de validar asignaciones, alcances y paneles.
 9. Ejecutar en produccion solo mediante autorizacion operativa independiente, respaldo verificado y ventana aprobada.
 
-**Rollback:** deshabilitar la integracion OIDC/politicas mediante configuracion controlada, restaurar el modo anterior de acceso solo si fue aprobado para contingencia y revertir las nuevas estructuras unicamente si no contienen auditoria o asignaciones que deban conservarse. Nunca ejecutar automaticamente rollback destructivo en produccion.
+**Rollback:** deshabilitar por separado login local, bootstrap o integracion OIDC mediante configuracion controlada, conservar el modelo comun de autorizacion y revertir estructuras solo en desarrollo si no contienen auditoria o asignaciones que deban conservarse. Nunca ejecutar automaticamente rollback destructivo en produccion.
 
 ## Open Questions
 

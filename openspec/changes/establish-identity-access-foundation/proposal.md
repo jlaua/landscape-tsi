@@ -4,8 +4,9 @@ Landscape TSI necesita una identidad empresarial y una autorizacion consistente 
 
 ## What Changes
 
-- Introducir autenticacion federada mediante un proveedor OpenID Connect configurable, sin almacenar contrasenas locales en Landscape TSI.
-- Crear un perfil local de usuario vinculado a la identidad corporativa y administrar su estado, vigencia y datos minimos.
+- Introducir autenticacion dual: OAuth/OpenID Connect corporativo mediante un proveedor configurable y autenticacion local de respaldo mediante ASP.NET Core Identity.
+- Crear una identidad interna unica capaz de vincular una identidad corporativa, una credencial local opcional o ambas, y administrar su estado, vigencia y datos minimos.
+- Incorporar un bootstrap local idempotente y condicionado por ambiente para `jean` y `administrador`, sin contrasenas predeterminadas ni secretos versionados.
 - Definir los roles iniciales Administrador, Arquitecto de Seguridad, Ingeniero de TSI y Punto de Contacto del Gobierno (SPOC) como paquetes de permisos, no como la unica fuente de autorizacion.
 - Definir permisos atomicos para catalogo, tecnologia, adopcion, evaluacion, gobernanza, auditoria y administracion.
 - Evaluar politicas contextuales que combinen permiso, organizacion o subsidiaria, asignacion del caso, propiedad, estado del flujo y separacion de funciones.
@@ -30,9 +31,9 @@ Landscape TSI necesita una identidad empresarial y una autorizacion consistente 
 ## Impact
 
 - **Modulos:** se introduce un modulo de Identidad y Acceso con contratos consumidos por Catalogo, Tecnologia, Organizacion, Adopcion, Evaluacion, Gobernanza, Informes y Administracion dentro del monolito modular.
-- **Aplicacion:** ASP.NET Core MVC requerira autenticacion OIDC, autorizacion por politicas, manejo de sesiones, filtros de alcance y servicios de auditoria. Entity Framework Core administrara el modelo local de autorizacion.
-- **Base de datos:** se anticipan nuevas tablas para usuario, rol, permiso, membresia de rol, alcance organizacional y auditoria de autorizacion, ademas de claves e indices asociados. La propuesta no altera las 25 tablas funcionales actuales salvo referencias opcionales futuras hacia actores; cualquier DDL requerira revision y autorizacion operativa independiente.
+- **Aplicacion:** ASP.NET Core MVC requerira autenticacion OIDC y ASP.NET Core Identity, autorizacion por politicas, manejo comun de sesiones, filtros de alcance y servicios de auditoria. Entity Framework Core administrara el modelo local de autenticacion y autorizacion.
+- **Base de datos:** se anticipan nuevas estructuras para usuario Identity, login externo, rol funcional, permiso, membresia de rol, alcance organizacional y auditoria, ademas de claves e indices asociados. La propuesta no altera las 25 tablas funcionales actuales salvo referencias opcionales futuras hacia actores; cualquier DDL requerira revision y autorizacion operativa independiente y nunca se ejecutara contra `db-landscape-tsi` desde este cambio.
 - **Seguridad:** minimo privilegio, denegacion predeterminada, separacion entre administracion y decisiones empresariales, control de cuatro ojos para elevaciones y acciones de emergencia auditadas.
-- **Privacidad:** se almacenara solo el identificador externo y perfil minimo necesario; no se persistiran contrasenas ni tokens de acceso en texto claro.
-- **UI/UX:** se necesitaran inicio/cierre de sesion accesibles, navegacion y paneles segun permisos, administracion adaptable de usuarios y roles, mensajes claros de acceso denegado y cumplimiento de WCAG 2.2 AA.
+- **Privacidad:** se almacenaran identificadores externos, perfil minimo y exclusivamente hashes de contrasena producidos por ASP.NET Core Identity; nunca contrasenas, secretos ni tokens de acceso en texto claro.
+- **UI/UX:** se necesitara una pantalla de acceso empresarial Material Design 3 con alternativas corporativa y local, inicio/cierre de sesion accesibles, navegacion y paneles segun permisos, administracion adaptable de usuarios y roles y cumplimiento de WCAG 2.2 AA.
 - **Dependencias:** proveedor OIDC corporativo configurable; la seleccion concreta del proveedor y sus reclamaciones se validara antes de implementar integraciones de produccion.

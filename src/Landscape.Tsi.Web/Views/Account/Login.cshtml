@@ -1,0 +1,43 @@
+@model Landscape.Tsi.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Acceso";
+}
+
+<div class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+        <div class="brand-mark" aria-hidden="true">L</div>
+        <p class="eyebrow">LANDSCAPE TSI</p>
+        <h1 id="login-title">Bienvenido</h1>
+        <p class="supporting-text">Ingrese con su cuenta corporativa o utilice el acceso local autorizado.</p>
+
+        @if (Model.OAuthEnabled)
+        {
+            <form asp-action="CorporateLogin" method="post">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button class="md-button md-button-tonal full-width" type="submit">Continuar con cuenta corporativa</button>
+            </form>
+            <div class="login-divider"><span>o</span></div>
+        }
+
+        <form asp-action="Login" method="post" novalidate>
+            <input asp-for="ReturnUrl" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert" aria-live="assertive" tabindex="-1"></div>
+            <div class="md-field">
+                <label asp-for="UserName"></label>
+                <input asp-for="UserName" autocomplete="username" autofocus />
+                <span asp-validation-for="UserName" class="field-error"></span>
+            </div>
+            <div class="md-field">
+                <label asp-for="Password"></label>
+                <input asp-for="Password" autocomplete="current-password" />
+                <span asp-validation-for="Password" class="field-error"></span>
+            </div>
+            <button class="md-button md-button-filled full-width" type="submit">Ingresar</button>
+        </form>
+        <p class="security-note">El acceso está protegido y las acciones administrativas quedan auditadas.</p>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
