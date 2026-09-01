@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de alto nivel — Landscape TSI",
+    "output": "landscape-tsi-overview.html",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 760],
+    "views": [
+      {
+        "id": "entry-security",
+        "label": "Entrada y seguridad",
+        "focus": ["actors", "oidc", "mvc", "authorization"],
+        "note": "Identidad federada y decisión por permisos, políticas y alcance."
+      },
+      {
+        "id": "business-modules",
+        "label": "Módulos de dominio",
+        "focus": ["application", "securityCatalog", "technologyCatalog", "adoptionWorkflow"],
+        "note": "La capa de aplicación coordina los módulos del dominio TSI."
+      },
+      {
+        "id": "data-observability",
+        "label": "Datos y capacidades transversales",
+        "focus": ["infrastructure", "sqlServer"],
+        "note": "EF Core, auditoría, alertas y reporting acceden a SQL Server desde infraestructura."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "actors",
+      "type": "external",
+      "label": "Usuarios y roles",
+      "sublabel": "4 roles iniciales",
+      "pos": [35, 330],
+      "size": [185, 78]
+    },
+    {
+      "id": "oidc",
+      "type": "external",
+      "label": "Proveedor de identidad",
+      "sublabel": "OpenID Connect configurable",
+      "pos": [35, 105],
+      "size": [185, 76]
+    },
+    {
+      "id": "mvc",
+      "type": "frontend",
+      "label": "ASP.NET Core MVC",
+      "sublabel": "Interfaz web y endpoints",
+      "tag": ".NET 10",
+      "pos": [285, 330],
+      "size": [190, 82]
+    },
+    {
+      "id": "authorization",
+      "type": "security",
+      "label": "Autorización por políticas",
+      "sublabel": "Roles • Permisos • Ámbito • SoD",
+      "pos": [520, 105],
+      "size": [220, 86]
+    },
+    {
+      "id": "application",
+      "type": "backend",
+      "label": "Capa de Aplicación",
+      "sublabel": "Casos de uso, comandos y consultas",
+      "pos": [520, 330],
+      "size": [205, 82]
+    },
+    {
+      "id": "securityCatalog",
+      "type": "backend",
+      "label": "Catálogo de Seguridad",
+      "sublabel": "Dominios • bloques • capacidades",
+      "pos": [790, 220],
+      "size": [215, 76]
+    },
+    {
+      "id": "technologyCatalog",
+      "type": "backend",
+      "label": "Catálogo de Tecnología",
+      "sublabel": "Tecnologías TSI y cobertura",
+      "pos": [790, 345],
+      "size": [215, 76]
+    },
+    {
+      "id": "adoptionWorkflow",
+      "type": "backend",
+      "label": "Flujo de Adopción TSI",
+      "sublabel": "Estados, evaluación y gobernanza",
+      "pos": [790, 470],
+      "size": [215, 76]
+    },
+    {
+      "id": "infrastructure",
+      "type": "backend",
+      "label": "Capa de Infraestructura",
+      "sublabel": "EF Core • Auditoría • Alertas • Reporting",
+      "pos": [1035, 330],
+      "size": [215, 100]
+    },
+    {
+      "id": "sqlServer",
+      "type": "database",
+      "label": "SQL Server",
+      "sublabel": "Base existente + IAM propuesto",
+      "pos": [1035, 555],
+      "size": [215, 82]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Límite de confianza — Identidad externa",
+      "wraps": ["oidc"],
+      "pad": 22
+    },
+    {
+      "kind": "region",
+      "label": "Límite de la aplicación Landscape TSI — Monolito modular",
+      "wraps": ["mvc", "authorization", "application", "securityCatalog", "technologyCatalog", "adoptionWorkflow", "infrastructure"],
+      "pad": 28
+    },
+    {
+      "kind": "region",
+      "label": "Capa de Dominio",
+      "wraps": ["securityCatalog", "technologyCatalog", "adoptionWorkflow"],
+      "pad": 18
+    },
+    {
+      "kind": "security-group",
+      "label": "Límite de datos — SQL Server",
+      "wraps": ["sqlServer"],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "actorsToMvc",
+      "from": "actors",
+      "to": "mvc",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mvcToOidc",
+      "from": "mvc",
+      "to": "oidc",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "mvcToAuthorization",
+      "from": "mvc",
+      "to": "authorization",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "mvcToApplication",
+      "from": "mvc",
+      "to": "application",
+      "variant": "emphasis"
+    },
+    {
+      "id": "authorizationToApplication",
+      "from": "authorization",
+      "to": "application",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "applicationToSecurityCatalog",
+      "from": "application",
+      "to": "securityCatalog"
+    },
+    {
+      "id": "applicationToTechnologyCatalog",
+      "from": "application",
+      "to": "technologyCatalog"
+    },
+    {
+      "id": "applicationToAdoption",
+      "from": "application",
+      "to": "adoptionWorkflow"
+    },
+    {
+      "id": "applicationToInfrastructure",
+      "from": "application",
+      "to": "infrastructure",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [[622.5, 445], [1015, 445], [1015, 380]]
+    },
+    {
+      "id": "securityCatalogToInfrastructure",
+      "from": "securityCatalog",
+      "to": "infrastructure"
+    },
+    {
+      "id": "technologyCatalogToInfrastructure",
+      "from": "technologyCatalog",
+      "to": "infrastructure"
+    },
+    {
+      "id": "adoptionToInfrastructure",
+      "from": "adoptionWorkflow",
+      "to": "infrastructure"
+    },
+    {
+      "id": "infrastructureToSql",
+      "from": "infrastructure",
+      "to": "sqlServer",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Aplicación",
+      "items": [
+        "ASP.NET Core MVC sobre .NET 10",
+        "Monolito modular con capas y contratos controlados"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Seguridad",
+      "items": [
+        "Administrador • Arquitecto de Seguridad • Ingeniero TSI • SPOC",
+        "OIDC + perfil local, sin contraseñas locales",
+        "Permisos, políticas, alcance organizacional y separación de funciones"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Datos y gobierno",
+      "items": [
+        "SQL Server existente se conserva como referencia",
+        "Auditoría, alertas y reporting atraviesan los módulos"
+      ]
+    }
+  ]
+}

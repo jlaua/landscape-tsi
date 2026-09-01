@@ -40,9 +40,29 @@ context: |
     limitarse a consultas de metadatos de solo lectura. Nunca se deben ejecutar
     DDL, DML ni procedimientos almacenados, ni exponer credenciales.
   - El modelo visual de referencia se encuentra en
-    "00 - definicion de landscape tsi/Modelado Catalogo Landscape TSI - depurado-MODELADO-CATALOGO.jpg".
+    "00 - definicion de landscape tsi/Modelado Catalogo Landscape TSI - Flujos de trabajo-MODELADO-CATALOGO.jpg".
   - El analisis textual complementario se encuentra en
     "docs/modelo-catalogo-landscape-tsi.md".
+
+  Catalogos maestros autoritativos:
+  - SQL Server es la fuente de verdad para los catalogos existentes de estado
+    de adopcion TSI, fase de adopcion, estado de capacidad y cobertura de
+    funcionalidad.
+  - Los objetos fisicos autoritativos son dbo.TMEstadoAdopcionTSI,
+    dbo.TEstadoFaseAdopcion, dbo.TMEstadoCapacidad y
+    dbo.TMEstadoFuncionalidad.
+  - Sus identificadores existentes deben preservarse mientras participen en
+    relaciones de la base de datos.
+  - La aplicacion debe obtener estos valores mediante servicios o consultas de
+    catalogo. Las vistas MVC no deben hardcodear identificadores ni etiquetas.
+  - Las migraciones de aplicacion no deben eliminar, renombrar, reemplazar,
+    recrear, sembrar ni modificar automaticamente estos catalogos.
+  - Cualquier nuevo valor o cambio de significado requiere un cambio OpenSpec
+    aprobado y autorizacion operativa independiente.
+  - Los estados de estos catalogos no son estados del workflow de una Solicitud
+    de Adopcion.
+  - La referencia detallada se encuentra en
+    "docs/architecture/catalogos-maestros.md".
 
   UI/UX:
   - Aplicar principios de Material Design 3 con identidad visual empresarial.
@@ -70,6 +90,10 @@ rules:
   design:
     - Definir permisos atomicos, politicas contextuales y restricciones por
       estado para toda capacidad protegida.
+    - Diferenciar explicitamente Estado de Solicitud, Estado de Adopcion TSI,
+      Fase de Adopcion, Estado de Capacidad y Cobertura de Funcionalidad.
+    - Identificar para cada formulario el servicio de catalogo utilizado y la
+      validacion del identificador realizada en el servidor.
     - Documentar transiciones, precondiciones, datos obligatorios, evidencias,
       justificaciones y eventos de auditoria del flujo de trabajo.
     - Preservar las estructuras existentes cuando sean adecuadas y evitar
@@ -86,6 +110,8 @@ rules:
       cambios de datos.
     - No incluir ejecucion de cambios sobre la base de datos de produccion como
       una tarea automatica o implicita.
+    - Verificar que toda migracion propuesta carezca de DDL y DML contra los
+      catalogos maestros autoritativos.
 
 operations:
   apply:
@@ -97,6 +123,9 @@ operations:
         explicita e independiente.
       - No exponer credenciales, cadenas de conexion ni valores de secretos en
         codigo, artefactos, registros o respuestas.
+      - No ejecutar inserciones, actualizaciones, eliminaciones ni reseeding
+        sobre catalogos maestros existentes sin aprobacion OpenSpec y
+        autorizacion operativa independiente.
       - Verificar los cambios con pruebas proporcionales al riesgo, incluyendo
         autorizacion, segregacion de funciones, alcance organizacional,
         auditoria, accesibilidad y diseno adaptable.

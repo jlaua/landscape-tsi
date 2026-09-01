@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura general de Landscape TSI",
+    "output": "01-landscape-tsi-overview.html",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 780],
+    "views": [
+      {"id":"entry","label":"Usuarios y seguridad","focus":["actors","oidc","presentation","authorization"],"note":"Identidad federada y autorización del lado servidor."},
+      {"id":"domain","label":"Capacidades de negocio","focus":["application","securityCatalog","technologyCatalog","adoption"],"note":"La aplicación coordina los módulos funcionales del dominio."},
+      {"id":"data","label":"Infraestructura y datos","focus":["infrastructure","efcore","sqlServer"],"note":"Persistencia, auditoría, alertas, notificaciones y reporting."}
+    ]
+  },
+  "components": [
+    {"id":"actors","type":"external","label":"Usuarios y roles","sublabel":"4 roles iniciales","pos":[30,340],"size":[180,78]},
+    {"id":"oidc","type":"external","label":"Proveedor de identidad","sublabel":"OpenID Connect configurable","pos":[30,105],"size":[180,76]},
+    {"id":"presentation","type":"frontend","label":"Capa de Presentación","sublabel":"ASP.NET Core MVC • .NET 10","pos":[270,340],"size":[200,82]},
+    {"id":"authorization","type":"security","label":"Autenticación y autorización","sublabel":"Permisos • políticas • ámbito • SoD","pos":[510,105],"size":[220,86]},
+    {"id":"application","type":"backend","label":"Capa de Aplicación","sublabel":"Casos de uso y coordinación","pos":[510,340],"size":[210,82]},
+    {"id":"securityCatalog","type":"backend","label":"Catálogo de Seguridad","sublabel":"Dominios • bloques • capacidades","pos":[770,215],"size":[215,76]},
+    {"id":"technologyCatalog","type":"backend","label":"Catálogo Tecnológico","sublabel":"Tecnologías TSI y cobertura","pos":[770,340],"size":[215,76]},
+    {"id":"adoption","type":"backend","label":"Adopción de Tecnologías","sublabel":"Solicitud • evaluación • gobierno","pos":[770,465],"size":[215,76]},
+    {"id":"infrastructure","type":"backend","label":"Capa de Infraestructura","sublabel":"Auditoría • notificaciones • reporting","pos":[1035,280],"size":[215,92]},
+    {"id":"efcore","type":"backend","label":"Entity Framework Core","sublabel":"Persistencia del monolito modular","pos":[1035,435],"size":[215,76]},
+    {"id":"sqlServer","type":"database","label":"SQL Server","sublabel":"Base funcional existente + IAM propuesto","pos":[1035,590],"size":[215,82]}
+  ],
+  "boundaries": [
+    {"kind":"security-group","label":"Límite de confianza — identidad externa","wraps":["oidc"],"pad":22},
+    {"kind":"region","label":"Límite de Landscape TSI — monolito modular","wraps":["presentation","authorization","application","securityCatalog","technologyCatalog","adoption","infrastructure","efcore"],"pad":28},
+    {"kind":"region","label":"Capa de Dominio","wraps":["securityCatalog","technologyCatalog","adoption"],"pad":18},
+    {"kind":"security-group","label":"Límite de datos","wraps":["sqlServer"],"pad":22}
+  ],
+  "connections": [
+    {"id":"actorsPresentation","from":"actors","to":"presentation","variant":"emphasis"},
+    {"id":"presentationOidc","from":"presentation","to":"oidc","label":"inicio de sesión OIDC","variant":"security","fromSide":"top","toSide":"right"},
+    {"id":"presentationAuthorization","from":"presentation","to":"authorization","label":"acción protegida","variant":"security","fromSide":"top","toSide":"left"},
+    {"id":"presentationApplication","from":"presentation","to":"application","variant":"emphasis"},
+    {"id":"authorizationApplication","from":"authorization","to":"application","label":"decisión del servidor","variant":"security","fromSide":"bottom","toSide":"top"},
+    {"id":"applicationSecurity","from":"application","to":"securityCatalog"},
+    {"id":"applicationTechnology","from":"application","to":"technologyCatalog"},
+    {"id":"applicationAdoption","from":"application","to":"adoption"},
+    {"id":"securityInfrastructure","from":"securityCatalog","to":"infrastructure"},
+    {"id":"technologyInfrastructure","from":"technologyCatalog","to":"infrastructure"},
+    {"id":"adoptionInfrastructure","from":"adoption","to":"infrastructure"},
+    {"id":"infrastructureEf","from":"infrastructure","to":"efcore","variant":"emphasis","fromSide":"bottom","toSide":"top"},
+    {"id":"efSql","from":"efcore","to":"sqlServer","label":"SQL","labelAt":[1143,525],"variant":"security","fromSide":"bottom","toSide":"top"}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"Plataforma","items":[".NET 10, ASP.NET Core MVC y Entity Framework Core","Monolito modular con dependencias controladas"]},
+    {"dot":"rose","title":"Seguridad","items":["Administrador • Arquitecto de Seguridad • Ingeniero TSI • SPOC","Autorización por permisos, políticas, ámbito y segregación"]},
+    {"dot":"emerald","title":"Capacidades transversales","items":["Auditoría append-only para autorización","Notificaciones, alertas y reporting permanecen dentro de infraestructura"]}
+  ]
+}
