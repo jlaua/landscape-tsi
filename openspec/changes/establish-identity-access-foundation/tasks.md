@@ -27,44 +27,44 @@
 
 - [ ] 4.1 Integrar el desafio y retorno OIDC de ASP.NET Core, y verificar inicio satisfactorio, rechazo del proveedor, callback invalido y proteccion de correlacion.
 - [x] 4.2 Integrar ASP.NET Core Identity para login local con hashing, politica configurable, lockout y proteccion de fuerza bruta, y verificar exito, credenciales invalidas, bloqueo y ausencia de texto plano.
-- [ ] 4.3 Implementar vinculacion unica por emisor-sujeto y usuario normalizado hacia una identidad interna comun, y verificar que correo o nombre visible no vinculen una identidad diferente ni existan roles paralelos.
+- [x] 4.3 Implementar vinculacion unica por emisor-sujeto y usuario normalizado hacia una identidad interna comun, y verificar que correo o nombre visible no vinculen una identidad diferente ni existan roles paralelos.
 - [x] 4.4 Implementar la pantalla dual Material Design 3 con acceso corporativo y formulario local, y verificar responsive, teclado, foco, mensajes genericos y WCAG 2.2 AA.
 - [x] 4.5 Implementar cierre local y federado, expiracion y reevaluacion de cuentas suspendidas, y verificar que una sesion invalidada no ejecute acciones protegidas.
 - [x] 4.6 Configurar cookies seguras, proteccion antifalsificacion y manejo seguro de errores, y verificar atributos de cookie y escenarios CSRF mediante pruebas de integracion.
-- [ ] 4.7 Verificar que contrasenas, hashes, secretos y tokens no se incluyan en logs, auditoria o mensajes, usando pruebas y exploracion automatizada de salidas.
+- [x] 4.7 Verificar que contrasenas, hashes, secretos y tokens no se incluyan en logs, auditoria o mensajes, usando pruebas y exploracion automatizada de salidas.
 
 ## 5. Usuarios, roles y permisos
 
-- [ ] 5.1 Implementar casos de uso para alta, consulta, suspension y reactivacion de usuarios, y verificar estado, vigencia, denegacion predeterminada e historial mediante pruebas.
+- [x] 5.1 Implementar casos de uso para alta, consulta, suspension y reactivacion de usuarios, y verificar estado, vigencia, denegacion predeterminada e historial mediante pruebas.
 - [ ] 5.2 Implementar consulta y administracion controlada de roles y permisos, y verificar que cada rol inicial contenga exactamente los permisos aprobados por la matriz.
-- [ ] 5.3 Implementar asignacion y revocacion de roles con solicitante, aprobador, ejecutor, justificacion y vigencia, y verificar que el beneficiario no pueda aprobar su propia elevacion.
+- [x] 5.3 Implementar asignacion y revocacion de roles con solicitante, aprobador, ejecutor, justificacion y vigencia, y verificar que el beneficiario no pueda aprobar su propia elevacion.
 - [x] 5.4 Implementar invalidacion o reevaluacion de permisos efectivos despues de un cambio, y verificar que una sesion existente no conserve acceso revocado.
 - [x] 5.5 Implementar bootstrap idempotente de `jean` y `administrador` desde User Secrets o `LANDSCAPE_TSI_BOOTSTRAP_ADMIN_PASSWORD`, y verificar creacion, rol `Administrador del Sistema`, repeticion sin duplicados, no sobrescritura de contrasena y proteccion de usuarios manuales.
 - [x] 5.6 Restringir bootstrap a Development o entorno inicial expresamente autorizado, y verificar secreto ausente, produccion sin habilitacion y mensaje administrativo seguro sin contrasena predeterminada.
 
 ## 6. Alcance y autorizacion por politicas
 
-- [ ] 6.1 Implementar asignaciones por subsidiaria y alcance corporativo explicito, y verificar accesos permitidos y denegados entre al menos dos subsidiarias.
-- [ ] 6.2 Implementar el calculo de permisos efectivos combinando roles, vigencias y alcance, y verificar denegacion cuando falte cualquiera de las condiciones.
-- [ ] 6.3 Implementar politicas de propiedad, asignacion de caso y estado del flujo mediante contratos extensibles, y verificar decisiones positivas y negativas con recursos simulados.
-- [ ] 6.4 Implementar reglas de separacion para autoaprobacion, autovalidacion, excepcion propia y autoelevacion, y verificar que cada combinacion incompatible sea denegada y auditada.
-- [ ] 6.5 Implementar acceso `BREAK_GLASS` con incidente, justificacion, aprobador, alcance y vencimiento, y verificar expiracion automatica, alerta y ausencia de autoridad empresarial permanente.
+- [x] 6.1 Implementar asignaciones por subsidiaria y alcance corporativo explicito, y verificar accesos permitidos y denegados entre al menos dos subsidiarias.
+- [x] 6.2 Implementar el calculo de permisos efectivos combinando roles, vigencias y alcance, y verificar denegacion cuando falte cualquiera de las condiciones.
+- [x] 6.3 Implementar politicas de propiedad, asignacion de caso y estado del flujo mediante contratos extensibles, y verificar decisiones positivas y negativas con recursos simulados.
+- [x] 6.4 Implementar reglas de separacion para autoaprobacion, autovalidacion, excepcion propia y autoelevacion, y verificar que cada combinacion incompatible sea denegada y auditada.
+- [x] 6.5 Implementar acceso `BREAK_GLASS` con incidente, justificacion, aprobador, alcance y vencimiento, y verificar expiracion automatica, alerta y ausencia de autoridad empresarial permanente.
 - [x] 6.6 Aplicar autorizacion del lado servidor a todos los endpoints protegidos creados por este cambio, y verificar que solicitudes HTTP manipuladas no eludan controles de interfaz.
 
 ## 7. Auditoria de autorizacion
 
 - [ ] 7.1 Implementar el registro append-only de cambios de usuario, rol, permiso, alcance y emergencia, y verificar actor, beneficiario, antes/despues, justificacion, aprobacion y correlacion.
-- [ ] 7.2 Implementar auditoria de login local/OAuth, bootstrap, decisiones de alto impacto, denegaciones e intentos privilegiados, y verificar fecha, mecanismo, resultado y ausencia de contrasenas, hashes, secretos o tokens completos.
-- [ ] 7.3 Garantizar atomicidad entre mutaciones empresariales y sus eventos de auditoria cuando corresponda, y verificar rollback conjunto ante un fallo inducido.
-- [ ] 7.4 Implementar consulta acotada por `Audit.View` y `AUDIT_SCOPE`, y verificar denegacion sin filtracion para organizaciones no autorizadas.
-- [ ] 7.5 Impedir edicion y eliminacion de eventos desde la aplicacion, y verificar que no existan comandos, endpoints ni permisos ordinarios capaces de mutarlos.
+- [x] 7.2 Implementar auditoria de login local/OAuth, bootstrap, decisiones de alto impacto, denegaciones e intentos privilegiados, y verificar fecha, mecanismo, resultado y ausencia de contrasenas, hashes, secretos o tokens completos.
+- [x] 7.3 Garantizar atomicidad entre mutaciones empresariales y sus eventos de auditoria cuando corresponda, y verificar rollback conjunto ante un fallo inducido.
+- [x] 7.4 Implementar consulta acotada por `Audit.View` y `AUDIT_SCOPE`, y verificar denegacion sin filtracion para organizaciones no autorizadas.
+- [x] 7.5 Impedir edicion y eliminacion de eventos desde la aplicacion, y verificar que no existan comandos, endpoints ni permisos ordinarios capaces de mutarlos.
 
 ## 8. Interfaz de administracion y acceso
 
 - [x] 8.1 Crear experiencias de inicio, cierre y acceso denegado con Material Design 3, y verificar navegacion por teclado, foco visible, contraste y mensajes comprensibles bajo WCAG 2.2 AA.
-- [ ] 8.2 Crear pantallas adaptables de usuarios, roles, permisos, alcances y vigencias, y verificar su comportamiento en escritorio, tableta y movil.
-- [ ] 8.3 Mostrar acciones y navegacion segun capacidades efectivas sin usar la interfaz como frontera de seguridad, y verificar que cada control visible corresponda con la decision del servidor.
-- [ ] 8.4 Crear una consulta adaptable de auditoria con filtros autorizados, y verificar lectura mediante tecnologia de asistencia y ausencia de comunicacion basada solo en color.
+- [x] 8.2 Crear pantallas adaptables de usuarios, roles, permisos, alcances y vigencias, y verificar su comportamiento en escritorio, tableta y movil.
+- [x] 8.3 Mostrar acciones y navegacion segun capacidades efectivas sin usar la interfaz como frontera de seguridad, y verificar que cada control visible corresponda con la decision del servidor.
+- [x] 8.4 Crear una consulta adaptable de auditoria con filtros autorizados, y verificar lectura mediante tecnologia de asistencia y ausencia de comunicacion basada solo en color.
 - [ ] 8.5 Proporcionar confirmaciones reforzadas para suspension, elevacion, revocacion y acceso de emergencia, y verificar que soliciten justificacion y expongan claramente el impacto.
 
 ## 9. Pruebas de seguridad y calidad

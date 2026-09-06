@@ -1,6 +1,10 @@
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Application.Catalogs;
+using Landscape.Tsi.Application.Reporting;
 using Landscape.Tsi.Domain.Identity;
+using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Infrastructure.Identity;
+using Landscape.Tsi.Infrastructure.Reporting;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -14,8 +18,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("IdentityDatabase")
-            ?? DevelopmentSqlConnection.FromEnvironment();
+        var connectionString = configuration.GetConnectionString("LandscapeTsiDb");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
@@ -47,7 +50,22 @@ public static class DependencyInjection
 
         services.Configure<BootstrapAdminOptions>(configuration.GetSection(BootstrapAdminOptions.SectionName));
         services.AddScoped<IIdentityAccessService, IdentityAccessService>();
+        services.AddScoped<IExternalIdentityService, ExternalIdentityService>();
+        services.AddScoped<IEffectiveAccessService, EffectiveAccessService>();
+        services.AddSingleton<IResourcePolicyEvaluator, ResourcePolicyEvaluator>();
+        services.AddScoped<ISeparationOfDutiesEvaluator, SeparationOfDutiesEvaluator>();
+        services.AddScoped<IBreakGlassService, BreakGlassService>();
+        services.AddScoped<IIdentityUserAdministration, IdentityUserAdministration>();
+        services.AddScoped<IRoleStore<IamRol>, LandscapeRoleStore>();
+        services.AddScoped<RoleManager<IamRol>>();
+        services.AddScoped<ILocalUserAdministration, LocalUserAdministration>();
+        services.AddScoped<IUserRoleAssignmentService, UserRoleAssignmentService>();
+        services.AddScoped<IAuthorizationAuditQuery, AuthorizationAuditQuery>();
+        services.AddScoped<IIdentityAdministrationOverview, IdentityAdministrationOverviewService>();
         services.AddScoped<IAuthenticationAuditWriter, AuthenticationAuditWriter>();
+        services.AddScoped<IDominioService, DominioService>();
+        services.AddScoped<ICatalogManagementService, CatalogManagementService>();
+        services.AddScoped<IReportingService, CatalogReportingService>();
         services.AddScoped<LandscapeCookieAuthenticationEvents>();
         services.AddScoped<BootstrapAdminInitializer>();
         return services;
@@ -70,7 +88,7 @@ public static class DependencyInjection
         var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
         if (!string.Equals(builder.InitialCatalog, "db-landscape-tsi-dev", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("IdentityDatabase solo puede apuntar a db-landscape-tsi-dev durante esta implementación.");
+            throw new InvalidOperationException("LandscapeTsiDb solo puede apuntar a db-landscape-tsi-dev durante esta implementación.");
         }
     }
 }

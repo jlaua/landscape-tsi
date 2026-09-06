@@ -1,0 +1,134 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.DominioPageViewModel
+@{
+    ViewData["Title"] = "Dominios";
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li>
+        <li aria-current="page"><span aria-hidden="true">/</span> Dominio</li>
+    </ol>
+</nav>
+
+<section class="catalog-shell" aria-labelledby="domain-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">TABLA MAESTRA</p>
+            <h1 id="domain-title">Dominio</h1>
+            <p class="supporting-text">Consulte y mantenga los dominios de seguridad registrados.</p>
+        </div>
+        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+        {
+            <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-domain-modal">
+                Crear dominio
+            </button>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="app-alert app-alert-success" role="status">@successMessage</div>
+    }
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="app-alert app-alert-error" role="alert">@errorMessage</div>
+    }
+
+    <form class="filter-bar" method="get" asp-action="Domain" data-loading-form>
+        <div class="md-field">
+            <label for="domain-search">Buscar</label>
+            <input id="domain-search" name="search" value="@Model.Search" type="search" class="form-control"
+                   placeholder="Dominio, descripción, referencia…" />
+        </div>
+        <div class="md-field page-size-field">
+            <label for="page-size">Filas</label>
+            <select id="page-size" name="pageSize" class="form-select">
+                @foreach (var size in new[] { 10, 25, 50 })
+                {
+                    <option value="@size" selected="@(Model.Result.PageSize == size)">@size</option>
+                }
+            </select>
+        </div>
+        <button class="md-button md-button-tonal" type="submit">Buscar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="md-button md-button-text" asp-action="Domain">Limpiar</a>
+        }
+        <span class="loading-status" role="status" aria-live="polite" hidden>Consultando…</span>
+    </form>
+
+    @if (Model.Result.Items.Count == 0)
+    {
+        <div class="empty-state" role="status">
+            <div class="empty-state-icon" aria-hidden="true">⌕</div>
+            <h2>Sin resultados</h2>
+            <p>No se encontraron dominios con los criterios indicados.</p>
+        </div>
+    }
+    else
+    {
+        <p class="result-count" aria-live="polite">@Model.Result.TotalCount registro(s) encontrado(s)</p>
+        <div class="responsive-table" role="region" aria-label="Dominios registrados" tabindex="0">
+            <table>
+                <thead>
+                    <tr><th>Dominio</th><th>Descripción</th><th>Subdominio CVT</th><th><span class="visually-hidden">Acciones</span></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Result.Items)
+                {
+                    <tr>
+                        <td data-label="Dominio">@(item.Dominio ?? "—")</td>
+                        <td data-label="Descripción">@(item.DescripcionDominio ?? "—")</td>
+                        <td data-label="Subdominio CVT">@(item.SubDominioCvt ?? "—")</td>
+                        <td data-label="Acciones" class="table-actions">
+                            <a class="md-button md-button-text" asp-action="DomainDetails" asp-route-id="@item.Id"
+                               aria-label="Ver detalle de @(item.Dominio ?? "dominio sin nombre")">Ver detalle</a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="pagination-shell" aria-label="Paginación de dominios">
+            <span>Página @Model.Result.Page de @Model.Result.TotalPages</span>
+            <div>
+                @if (Model.Result.Page > 1)
+                {
+                    <a class="md-button md-button-text" asp-action="Domain" asp-route-search="@Model.Search"
+                       asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize">Anterior</a>
+                }
+                @if (Model.Result.Page < Model.Result.TotalPages)
+                {
+                    <a class="md-button md-button-text" asp-action="Domain" asp-route-search="@Model.Search"
+                       asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize">Siguiente</a>
+                }
+            </div>
+        </nav>
+    }
+</section>
+
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+{
+    <div class="modal fade" id="create-domain-modal" tabindex="-1" aria-labelledby="create-domain-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <form method="post" asp-action="CreateDomain" data-confirm-message="¿Desea crear este dominio?" data-loading-form>
+                    <div class="modal-header">
+                        <div><p class="eyebrow">NUEVO REGISTRO</p><h2 class="modal-title" id="create-domain-title">Crear dominio</h2></div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <partial name="_DominioFields" model="Model.Create" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

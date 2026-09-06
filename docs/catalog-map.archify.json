@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Mapa del Catálogo Landscape TSI",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 820]
+  },
+  "components": [
+    { "id": "dominio", "type": "database", "label": "Dominio", "pos": [40, 90], "size": [190, 68] },
+    { "id": "buildingBlock", "type": "database", "label": "Building Block", "pos": [290, 90], "size": [190, 68] },
+    { "id": "capacidad", "type": "database", "label": "Capacidad de Seguridad", "pos": [540, 90], "size": [190, 68] },
+    { "id": "funcionalidad", "type": "database", "label": "Funcionalidad", "pos": [790, 90], "size": [190, 68] },
+    { "id": "faseAdopcion", "type": "database", "label": "Fase de Adopción", "pos": [290, 220], "size": [190, 68] },
+    { "id": "estadoCapacidad", "type": "database", "label": "Estado de Capacidad", "pos": [540, 220], "size": [190, 68] },
+    { "id": "estadoFuncionalidad", "type": "database", "label": "Estado de Funcionalidad", "pos": [790, 220], "size": [190, 68] },
+    { "id": "familia", "type": "database", "label": "Familia", "pos": [40, 430], "size": [190, 68] },
+    { "id": "estadoAdopcion", "type": "database", "label": "Estado de Adopción TSI", "pos": [40, 540], "size": [190, 68] },
+    { "id": "posturaRoadmap", "type": "database", "label": "Postura Roadmap", "pos": [40, 650], "size": [190, 68] },
+    { "id": "tecnologia", "type": "database", "label": "Tecnología TSI", "pos": [340, 540], "size": [190, 68] },
+    { "id": "casosUso", "type": "database", "label": "Casos de Uso", "pos": [640, 540], "size": [190, 68] },
+    { "id": "empresa", "type": "database", "label": "Empresa / Subsidiaria", "pos": [900, 430], "size": [190, 68] },
+    { "id": "ciso", "type": "database", "label": "CISO", "pos": [900, 540], "size": [190, 68] },
+    { "id": "modalidadLaboral", "type": "database", "label": "Modalidad Laboral", "pos": [900, 650], "size": [190, 68] },
+    { "id": "tipoOperacion", "type": "database", "label": "Tipo de Operación", "pos": [900, 735], "size": [190, 68] }
+  ],
+  "connections": [
+    { "id": "dominio-building", "from": "dominio", "to": "buildingBlock", "label": "clasifica", "variant": "emphasis" },
+    { "id": "fase-building", "from": "faseAdopcion", "to": "buildingBlock", "label": "define fase" },
+    { "id": "building-capacidad", "from": "buildingBlock", "to": "capacidad", "label": "agrupa" },
+    { "id": "estado-capacidad", "from": "estadoCapacidad", "to": "capacidad", "label": "define estado" },
+    { "id": "capacidad-funcionalidad", "from": "capacidad", "to": "funcionalidad", "label": "contiene", "variant": "emphasis" },
+    { "id": "estado-funcionalidad", "from": "estadoFuncionalidad", "to": "funcionalidad", "label": "define estado" },
+    { "id": "familia-tecnologia", "from": "familia", "to": "tecnologia", "label": "clasifica", "labelAt": [320, 505] },
+    { "id": "adopcion-tecnologia", "from": "estadoAdopcion", "to": "tecnologia", "label": "define adopción", "labelAt": [400, 625] },
+    { "id": "roadmap-tecnologia", "from": "posturaRoadmap", "to": "tecnologia", "label": "define postura" },
+    { "id": "tecnologia-casos", "from": "tecnologia", "to": "casosUso", "label": "habilita" },
+    { "id": "empresa-ciso", "from": "empresa", "to": "ciso", "label": "asigna CISO", "labelAt": [995, 520] },
+    { "id": "building-tecnologia", "from": "buildingBlock", "to": "tecnologia", "label": "asociación N:M", "variant": "dashed", "fromSide": "left", "toSide": "left", "via": [[260, 124], [260, 574]] }
+  ]
+}

@@ -1,9 +1,70 @@
-﻿@{
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogMapViewModel
+@{
     ViewData["Title"] = "Inicio";
 }
-
-<div class="text-center">
+<section class="home-hero" aria-labelledby="home-title">
     <p class="eyebrow">LANDSCAPE TSI</p>
-    <h1 class="display-4">Gobierno de tecnologías de seguridad</h1>
-    <p>Su identidad fue autenticada. Las capacidades disponibles se determinan mediante permisos y políticas del servidor.</p>
-</div>
+    <h1 id="home-title">Gobierno de tecnologías de seguridad</h1>
+    <p>Explore las entidades del catálogo y sus relaciones verificadas en la base de desarrollo.</p>
+</section>
+
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogView))
+{
+    <section id="catalog-map" class="catalog-map-shell" aria-labelledby="catalog-map-title">
+        <div class="page-heading">
+            <div>
+                <p class="eyebrow">VISTA LÓGICA</p>
+                <h2 id="catalog-map-title">Mapa del Catálogo Landscape TSI</h2>
+                <p class="supporting-text">Las flechas representan relaciones verificadas mediante claves foráneas. Seleccione una entidad para administrarla.</p>
+            </div>
+            <div class="map-controls" role="group" aria-label="Controles de escala del mapa">
+                <button type="button" class="md-button md-button-text" data-map-zoom="out" aria-label="Reducir mapa">−</button>
+                <button type="button" class="md-button md-button-text" data-map-zoom="reset">100 %</button>
+                <button type="button" class="md-button md-button-text" data-map-zoom="in" aria-label="Ampliar mapa">+</button>
+            </div>
+        </div>
+
+        <div class="catalog-map-viewport" tabindex="0" aria-label="Mapa navegable de entidades">
+            <div class="catalog-map-canvas" data-catalog-map>
+                <svg class="catalog-map-connections" aria-hidden="true">
+                    <defs><marker id="catalog-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>
+                </svg>
+                <div class="catalog-map-groups">
+                @foreach (var group in Model.Groups)
+                {
+                    <details class="catalog-map-group" open>
+                        <summary><span>@group.Key</span><span class="group-count">@group.Count() entidades</span></summary>
+                        <div class="catalog-map-nodes">
+                        @foreach (var catalog in group)
+                        {
+                            var isDomain = catalog.Code == "dominio";
+                            <a class="catalog-map-node" data-catalog-code="@catalog.Code"
+                               asp-controller="MasterTables" asp-action="@(isDomain ? "Domain" : "Catalog")"
+                               asp-route-catalogRoute="@(isDomain ? null : catalog.Route)">
+                                <span class="map-node-mark" aria-hidden="true">@catalog.Name.Substring(0, 1)</span>
+                                <span>@catalog.Name</span>
+                            </a>
+                        }
+                        </div>
+                    </details>
+                }
+                </div>
+            </div>
+        </div>
+
+        <details class="relationship-summary">
+            <summary>Relaciones representadas (@Model.Relations.Count)</summary>
+            <ul>
+            @foreach (var relation in Model.Relations)
+            {
+                var parent = Model.Catalogs.Single(catalog => catalog.Code == relation.ParentCatalogCode);
+                var child = Model.Catalogs.Single(catalog => catalog.Code == relation.ChildCatalogCode);
+                <li data-map-relation data-from="@relation.ParentCatalogCode" data-to="@relation.ChildCatalogCode" data-type="@relation.Type">
+                    <strong>@parent.Name</strong> → <strong>@child.Name</strong>: @relation.Type
+                </li>
+            }
+            </ul>
+        </details>
+    </section>
+}

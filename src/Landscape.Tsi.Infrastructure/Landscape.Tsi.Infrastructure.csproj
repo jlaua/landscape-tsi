@@ -19,6 +19,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>landscape-tsi-web-development</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

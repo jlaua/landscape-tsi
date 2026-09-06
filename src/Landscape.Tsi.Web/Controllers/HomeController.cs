@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Web.Models;
 
 using Microsoft.AspNetCore.Authorization;
@@ -10,10 +11,11 @@ namespace Landscape.Tsi.Web.Controllers;
 [Authorize]
 public class HomeController : Controller
 {
-    public IActionResult Index()
+    public IActionResult Index() => View(new CatalogMapViewModel
     {
-        return View();
-    }
+        Catalogs = MasterCatalogRegistry.Catalogs,
+        Relations = MasterCatalogRegistry.Relations
+    });
 
     public IActionResult Privacy()
     {

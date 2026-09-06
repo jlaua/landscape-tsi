@@ -1,0 +1,39 @@
+@model Landscape.Tsi.Web.Models.AuditQueryViewModel
+@{
+    ViewData["Title"] = "Auditoría";
+}
+<section class="admin-shell" aria-labelledby="audit-title">
+    <p class="eyebrow">TRAZABILIDAD</p>
+    <h1 id="audit-title">Auditoría de autorización</h1>
+    <p class="supporting-text">Los resultados se limitan a su permiso y alcance organizacional efectivo.</p>
+
+    <form method="get" class="filter-bar" aria-label="Filtros de auditoría">
+        <div class="md-field">
+            <label for="empresaSubsidiariaId">Identificador de subsidiaria</label>
+            <input id="empresaSubsidiariaId" name="empresaSubsidiariaId" type="number" min="1" required value="@Model.EmpresaSubsidiariaId" />
+        </div>
+        <button class="md-button md-button-filled" type="submit">Consultar eventos</button>
+    </form>
+
+    @if (Model.EmpresaSubsidiariaId.HasValue)
+    {
+        <p role="status">@Model.Events.Count evento(s) autorizado(s) para la subsidiaria @Model.EmpresaSubsidiariaId.</p>
+        <div class="responsive-table" role="region" aria-label="Eventos de auditoría autorizados" tabindex="0">
+            <table>
+                <thead><tr><th>Fecha UTC</th><th>Actor</th><th>Acción</th><th>Resultado</th><th>Alcance</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Events)
+                {
+                    <tr>
+                        <td data-label="Fecha UTC"><time datetime="@item.OccurredAtUtc.ToString("O")">@item.OccurredAtUtc.ToString("u")</time></td>
+                        <td data-label="Actor">@(item.ActorUserId?.ToString() ?? "Sistema")</td>
+                        <td data-label="Acción">@item.EventType</td>
+                        <td data-label="Resultado"><span class="status-text">@item.Result</span></td>
+                        <td data-label="Alcance">Subsidiaria @item.EmpresaSubsidiariaId</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

@@ -1,0 +1,31 @@
+@model Landscape.Tsi.Web.Models.DominioFormModel
+<div class="form-grid">
+    <div class="md-field form-grid-wide">
+        <label asp-for="Dominio">Dominio</label>
+        <input asp-for="Dominio" class="form-control" />
+    </div>
+    <div class="md-field form-grid-wide">
+        <label asp-for="DescripcionDominio">Descripción del dominio</label>
+        <textarea asp-for="DescripcionDominio" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="md-field">
+        <label asp-for="Referencias">Referencias</label>
+        <textarea asp-for="Referencias" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="md-field">
+        <label asp-for="SubDominioCvt">Subdominio CVT</label>
+        <textarea asp-for="SubDominioCvt" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="md-field">
+        <label asp-for="HomologacionDimensionSegunCiber">Homologación según CIBER</label>
+        <textarea asp-for="HomologacionDimensionSegunCiber" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="md-field">
+        <label asp-for="HomologacionDimensionSegunLineamiento">Homologación según lineamiento</label>
+        <textarea asp-for="HomologacionDimensionSegunLineamiento" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="md-field form-grid-wide">
+        <label asp-for="Ejemplos">Ejemplos</label>
+        <textarea asp-for="Ejemplos" class="form-control" rows="3"></textarea>
+    </div>
+</div>

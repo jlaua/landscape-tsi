@@ -1,0 +1,21 @@
+@using Landscape.Tsi.Application.Catalogs
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+@{ ViewData["Title"] = $"Detalle de {Model.Definition.Name}"; var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Record = Model.Record, Options = Model.Options }; }
+<nav aria-label="Ruta de navegación"><ol class="breadcrumb-list"><li><a asp-controller="Home" asp-action="Index">Inicio</a></li><li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li><li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li><li><span aria-hidden="true">/</span> <a asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">@Model.Definition.Name</a></li><li aria-current="page"><span aria-hidden="true">/</span> Detalle</li></ol></nav>
+<section class="catalog-shell" aria-labelledby="catalog-record-title">
+    <div class="page-heading"><div><p class="eyebrow">DETALLE</p><h1 id="catalog-record-title">@(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? "Registro sin nombre")</h1></div><div class="heading-actions"><a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Volver al listado</a>
+    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { if (Model.Definition.EditorMode == CatalogEditorMode.Page) { <a class="md-button md-button-filled" asp-action="CatalogEditForm" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">Editar</a> } else { <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#edit-catalog-modal">Editar</button> } }</div></div>
+    @if (TempData["SuccessMessage"] is string success) { <div class="app-alert app-alert-success" role="status">@success</div> }
+    @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
+    <dl class="detail-grid">@foreach (var column in Model.Definition.Columns) { <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)"><dt>@column.Label</dt><dd>@(Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—")</dd></div> }</dl>
+</section>
+@if (Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+{
+    <div class="modal fade" id="edit-catalog-modal" tabindex="-1" aria-labelledby="edit-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <form method="post" asp-action="EditCatalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" data-confirm-message="¿Desea guardar los cambios?" data-loading-form>
+            <div class="modal-header"><div><p class="eyebrow">MANTENIMIENTO</p><h2 class="modal-title" id="edit-catalog-title">Editar @Model.Definition.Name</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body"><partial name="_CatalogFields" model="editorModel" /></div><div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar cambios</button></div>
+        </form>
+    </div></div></div>
+}

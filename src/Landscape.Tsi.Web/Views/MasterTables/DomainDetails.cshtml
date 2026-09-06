@@ -1,0 +1,74 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.DominioDetailViewModel
+@{
+    ViewData["Title"] = "Detalle de dominio";
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-action="Domain">Dominio</a></li>
+        <li aria-current="page"><span aria-hidden="true">/</span> Detalle</li>
+    </ol>
+</nav>
+
+<section class="catalog-shell" aria-labelledby="domain-detail-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">DETALLE DEL DOMINIO</p>
+            <h1 id="domain-detail-title">@(Model.Record.Dominio ?? "Dominio sin nombre")</h1>
+        </div>
+        <div class="heading-actions">
+            <a class="md-button md-button-text" asp-action="Domain">Volver al listado</a>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#edit-domain-modal">Editar</button>
+            }
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="app-alert app-alert-success" role="status">@successMessage</div>
+    }
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="app-alert app-alert-error" role="alert">@errorMessage</div>
+    }
+
+    <dl class="detail-grid">
+        <div class="detail-field detail-field-wide"><dt>Descripción del dominio</dt><dd>@ValueOrDash(Model.Record.DescripcionDominio)</dd></div>
+        <div class="detail-field"><dt>Referencias</dt><dd>@ValueOrDash(Model.Record.Referencias)</dd></div>
+        <div class="detail-field"><dt>Subdominio CVT</dt><dd>@ValueOrDash(Model.Record.SubDominioCvt)</dd></div>
+        <div class="detail-field"><dt>Homologación según CIBER</dt><dd>@ValueOrDash(Model.Record.HomologacionDimensionSegunCiber)</dd></div>
+        <div class="detail-field"><dt>Homologación según lineamiento</dt><dd>@ValueOrDash(Model.Record.HomologacionDimensionSegunLineamiento)</dd></div>
+        <div class="detail-field detail-field-wide"><dt>Ejemplos</dt><dd>@ValueOrDash(Model.Record.Ejemplos)</dd></div>
+    </dl>
+</section>
+
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+{
+    <div class="modal fade" id="edit-domain-modal" tabindex="-1" aria-labelledby="edit-domain-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <form method="post" asp-action="EditDomain" asp-route-id="@Model.Record.Id"
+                      data-confirm-message="¿Desea guardar los cambios de este dominio?" data-loading-form>
+                    <div class="modal-header">
+                        <div><p class="eyebrow">MANTENIMIENTO</p><h2 class="modal-title" id="edit-domain-title">Editar dominio</h2></div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body"><partial name="_DominioFields" model="Model.Edit" /></div>
+                    <div class="modal-footer">
+                        <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@functions {
+    private static string ValueOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+}

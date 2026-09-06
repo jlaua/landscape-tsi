@@ -24,6 +24,38 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Inicio</a>
                         </li>
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                Landscape.Tsi.Application.Identity.Permissions.UserManage) ||
+                            User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                        {
+                            <li class="nav-item dropdown">
+                                <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Administración
+                                </button>
+                                <ul class="dropdown-menu">
+                                    @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                        Landscape.Tsi.Application.Identity.Permissions.UserManage))
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="Administration" asp-action="Users">Usuarios</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Administration" asp-action="Index">Identidad y acceso</a></li>
+                                    }
+                                    @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                        Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Index">Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Index">Reportería</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                            Landscape.Tsi.Application.Identity.Permissions.AuditView))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Audit" asp-action="Index">Auditoría</a>
+                            </li>
+                        }
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item ms-sm-auto d-flex align-items-center gap-2">

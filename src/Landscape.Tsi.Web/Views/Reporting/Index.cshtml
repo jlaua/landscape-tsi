@@ -1,0 +1,26 @@
+@using Landscape.Tsi.Application.Catalogs
+@{
+    ViewData["Title"] = "Reportería";
+    var groups = MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Group).Distinct().OrderBy(group => group).ToArray();
+}
+<nav class="breadcrumbs" aria-label="Migas de pan"><a asp-controller="Home" asp-action="Index">Inicio</a><span aria-hidden="true">›</span><span>Reportería</span></nav>
+<section class="page-heading" aria-labelledby="report-title">
+    <div><p class="eyebrow">ANÁLISIS</p><h1 id="report-title">Reportería de catálogos</h1><p class="supporting-text">Resumen de registros disponibles por catálogo. Los datos se actualizan sin recargar la página.</p></div>
+</section>
+<section class="report-card" aria-labelledby="report-chart-title">
+    <div class="report-toolbar">
+        <label for="report-group">Grupo funcional</label>
+        <select id="report-group" class="form-select" data-report-filter>
+            <option value="">Todos los grupos</option>
+            @foreach (var group in groups) { <option value="@group">@group</option> }
+        </select>
+        <span class="loading-status" data-report-status role="status" aria-live="polite">Preparando datos…</span>
+    </div>
+    <h2 id="report-chart-title">Registros por catálogo</h2>
+    <div class="report-chart-wrap"><canvas id="catalog-report-chart" aria-label="Gráfico de registros por catálogo"></canvas></div>
+    <div class="report-table-wrap"><table class="data-table"><caption class="visually-hidden">Datos del gráfico de registros por catálogo</caption><thead><tr><th scope="col">Catálogo</th><th scope="col">Grupo</th><th scope="col">Registros</th></tr></thead><tbody data-report-table></tbody></table></div>
+</section>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/reporting.js" asp-append-version="true"></script>
+}

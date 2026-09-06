@@ -68,14 +68,16 @@ if (oauthEnabled)
                 var subject = context.Principal?.FindFirst("sub")?.Value;
                 var issuer = context.Principal?.FindFirst("iss")?.Value ?? options.Authority;
                 var users = context.HttpContext.RequestServices.GetRequiredService<UserManager<IamUsuario>>();
+                var externalIdentities = context.HttpContext.RequestServices.GetRequiredService<IExternalIdentityService>();
                 var audit = context.HttpContext.RequestServices.GetRequiredService<IAuthenticationAuditWriter>();
-                var user = !string.IsNullOrWhiteSpace(subject)
-                    ? await users.FindByLoginAsync($"OIDC:{issuer}", subject)
+                var userId = !string.IsNullOrWhiteSpace(subject) && !string.IsNullOrWhiteSpace(issuer)
+                    ? await externalIdentities.ResolveActiveUserIdAsync(issuer, subject)
                     : null;
+                var user = userId.HasValue ? await users.FindByIdAsync(userId.Value.ToString()) : null;
 
                 if (user is not { IsActive: true })
                 {
-                    await audit.WriteAsync("Login", "OAuth", "Failed", subject, context.HttpContext.TraceIdentifier);
+                    await audit.WriteAsync("Login", "OAuth", "Failed", AuditIdentifier.ProtectExternalSubject(subject), context.HttpContext.TraceIdentifier);
                     context.Fail("La identidad corporativa no está vinculada a un usuario activo.");
                     return;
                 }

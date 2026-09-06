@@ -55,6 +55,8 @@ public sealed class BootstrapAdminInitializer(
         await dbContext.SaveChangesAsync(cancellationToken);
         var administratorRole = await dbContext.BusinessRoles
             .SingleAsync(x => x.Code == SystemRoles.AdministratorCode, cancellationToken);
+        var securityArchitectRole = await dbContext.BusinessRoles
+            .SingleAsync(x => x.Code == SystemRoles.SecurityArchitectCode, cancellationToken);
 
         foreach (var entry in Permissions.AdministratorPermissions)
         {
@@ -68,6 +70,14 @@ public sealed class BootstrapAdminInitializer(
             if (!await dbContext.RolePermissions.AnyAsync(x => x.RoleId == administratorRole.Id && x.PermissionId == permission.Id, cancellationToken))
             {
                 dbContext.RolePermissions.Add(new IamRolPermiso { Role = administratorRole, Permission = permission });
+            }
+
+            if (Permissions.SecurityArchitectPermissions.Contains(entry.Key) &&
+                !await dbContext.RolePermissions.AnyAsync(
+                    x => x.RoleId == securityArchitectRole.Id && x.PermissionId == permission.Id,
+                    cancellationToken))
+            {
+                dbContext.RolePermissions.Add(new IamRolPermiso { Role = securityArchitectRole, Permission = permission });
             }
         }
 

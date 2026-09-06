@@ -33,6 +33,14 @@ public static class Permissions
     public const string UserManage = "Administration.UserManage";
     public const string RoleManage = "Administration.RoleManage";
     public const string AuditView = "Audit.View";
+    public const string UsersView = "Usuarios.Ver";
+    public const string UsersCreate = "Usuarios.Crear";
+    public const string UsersEdit = "Usuarios.Editar";
+    public const string UsersActivate = "Usuarios.Activar";
+    public const string UsersDeactivate = "Usuarios.Desactivar";
+    public const string UsersResetPassword = "Usuarios.RestablecerPassword";
+    public const string UsersAssignRoles = "Usuarios.AsignarRoles";
+    public const string UsersAuditView = "Usuarios.VerAuditoria";
 
     public static readonly IReadOnlyDictionary<string, string> AdministratorPermissions =
         new Dictionary<string, string>(StringComparer.Ordinal)
@@ -44,6 +52,22 @@ public static class Permissions
             [UserManage] = "Administrar usuarios",
             [RoleManage] = "Administrar roles y permisos",
             [AuditView] = "Consultar auditoría autorizada"
+            ,[UsersView] = "Consultar usuarios locales"
+            ,[UsersCreate] = "Crear usuarios locales"
+            ,[UsersEdit] = "Editar usuarios locales"
+            ,[UsersActivate] = "Activar usuarios locales"
+            ,[UsersDeactivate] = "Desactivar usuarios locales"
+            ,[UsersResetPassword] = "Restablecer contraseñas locales"
+            ,[UsersAssignRoles] = "Asignar roles a usuarios locales"
+            ,[UsersAuditView] = "Consultar auditoría de usuarios locales"
+        };
+
+    public static readonly IReadOnlySet<string> SecurityArchitectPermissions =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            CatalogView,
+            CatalogCreate,
+            CatalogEdit
         };
 }
 

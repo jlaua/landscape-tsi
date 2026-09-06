@@ -1,3 +1,4 @@
+using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Domain.Identity;
 
 using Microsoft.AspNetCore.Identity;
@@ -14,9 +15,25 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<IamUsuarioRol> UserRoles => Set<IamUsuarioRol>();
     public DbSet<IamRolPermiso> RolePermissions => Set<IamRolPermiso>();
     public DbSet<IamEventoAutenticacion> AuthenticationEvents => Set<IamEventoAutenticacion>();
+    public DbSet<IamUsuarioLoginExterno> ExternalLogins => Set<IamUsuarioLoginExterno>();
     public DbSet<IamUsuarioOrganizacion> UserOrganizations => Set<IamUsuarioOrganizacion>();
     public DbSet<IamAccesoEmergencia> EmergencyAccess => Set<IamAccesoEmergencia>();
     public DbSet<IamEventoAuditoriaAutorizacion> AuthorizationAuditEvents => Set<IamEventoAuditoriaAutorizacion>();
+    public DbSet<TmDominio> Domains => Set<TmDominio>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        EnsureAuditIsAppendOnly();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuditIsAppendOnly();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -35,6 +52,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.Property(x => x.Subject).HasMaxLength(512);
             entity.HasIndex(x => new { x.Issuer, x.Subject }).IsUnique();
             entity.HasIndex(x => x.UserId);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<IdentityUserToken<Guid>>().ToTable("IamUsuarioToken");
 
@@ -152,5 +170,34 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.HasIndex(x => x.BeneficiaryUserId);
             entity.HasIndex(x => x.EmpresaSubsidiariaId);
         });
+
+        builder.Entity<TmDominio>(entity =>
+        {
+            entity.ToTable("TMDominio", "dbo", table => table.ExcludeFromMigrations());
+            entity.HasKey(x => x.Id).HasName("PK_TDominio");
+            entity.Property(x => x.Id).HasColumnName("iddominio").ValueGeneratedOnAdd();
+            entity.Property(x => x.Dominio).HasColumnName("dominio");
+            entity.Property(x => x.DescripcionDominio).HasColumnName("descripcionDominio");
+            entity.Property(x => x.Referencias).HasColumnName("referencias");
+            entity.Property(x => x.HomologacionDimensionSegunCiber).HasColumnName("homologacionDimensionSegunCiber");
+            entity.Property(x => x.HomologacionDimensionSegunLineamiento).HasColumnName("homologacionDimensionSegunLineamiento");
+            entity.Property(x => x.SubDominioCvt).HasColumnName("subDominioCVT");
+            entity.Property(x => x.Ejemplos).HasColumnName("Ejemplos");
+        });
+    }
+
+    private void EnsureAuditIsAppendOnly()
+    {
+        var forbidden = ChangeTracker.Entries()
+            .Where(entry => entry.Entity is IamEventoAuditoriaAutorizacion or IamEventoAutenticacion)
+            .Where(entry => entry.State is EntityState.Modified or EntityState.Deleted)
+            .Select(entry => entry.Metadata.DisplayName())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (forbidden.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Los eventos de auditoría son append-only: {string.Join(", ", forbidden)}.");
+        }
     }
 }

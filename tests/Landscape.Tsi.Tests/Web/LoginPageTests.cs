@@ -87,13 +87,53 @@ public sealed class LoginPageTests
         Assert.Equal("/", response.Headers.Location?.OriginalString);
         var home = await client.GetAsync("/");
         home.EnsureSuccessStatusCode();
-        Assert.Contains("Cerrar sesión", await home.Content.ReadAsStringAsync());
+        var homeHtml = await home.Content.ReadAsStringAsync();
+        Assert.Contains("Cerrar sesión", homeHtml);
+        Assert.Contains("Administración", homeHtml);
+        Assert.Contains("Mapa del Catálogo Landscape TSI", homeHtml);
+        Assert.Contains("data-catalog-code=\"building-block\"", homeHtml);
+        Assert.DoesNotContain("TBuildingBlock", homeHtml);
         var administration = await client.GetAsync("/Administration");
         administration.EnsureSuccessStatusCode();
+        var administrationHtml = await administration.Content.ReadAsStringAsync();
+        Assert.Contains("jean", administrationHtml);
+        Assert.Contains("Administrador del Sistema", administrationHtml);
+        Assert.Contains("Audit.View", administrationHtml);
+        Assert.Contains("Sin alcance asignado", administrationHtml);
+        Assert.Contains("Vigencia", administrationHtml);
+        var masterTables = await client.GetAsync("/Administration/MasterTables");
+        masterTables.EnsureSuccessStatusCode();
+        var masterTablesHtml = WebUtility.HtmlDecode(await masterTables.Content.ReadAsStringAsync());
+        Assert.Contains("Administración de Tablas Maestras", masterTablesHtml);
+        Assert.Contains("Dominio", masterTablesHtml);
+        Assert.Contains("Building Block", masterTablesHtml);
+        Assert.Contains("Tecnología TSI", masterTablesHtml);
+        var domains = await client.GetAsync("/Administration/MasterTables/Domain");
+        domains.EnsureSuccessStatusCode();
+        Assert.Contains("Sin resultados", await domains.Content.ReadAsStringAsync());
 
         await using var scope = factory.Services.CreateAsyncScope();
         var audit = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         Assert.Contains(audit.AuthenticationEvents, x => x.EventType == "Login" && x.Result == "Succeeded");
+        var securityArchitectPermissions = await audit.RolePermissions
+            .Where(assignment => assignment.Role.Code == SystemRoles.SecurityArchitectCode)
+            .Select(assignment => assignment.Permission.Code)
+            .ToListAsync();
+        Assert.Contains(Permissions.CatalogView, securityArchitectPermissions);
+        Assert.Contains(Permissions.CatalogCreate, securityArchitectPermissions);
+        Assert.Contains(Permissions.CatalogEdit, securityArchitectPermissions);
+    }
+
+    [Fact]
+    public async Task MasterCatalog_RedirectsAnonymousUserBeforeDataAccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
     }
 
     [Fact]
@@ -105,16 +145,23 @@ public sealed class LoginPageTests
         var token = WebUtility.HtmlDecode(Regex.Match(loginPage,
             "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value);
 
+        var attemptedPassword = $"Aa1!{Guid.NewGuid():N}";
         var response = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["UserName"] = $"missing-{Guid.NewGuid():N}",
-            ["Password"] = $"Aa1!{Guid.NewGuid():N}",
+            ["Password"] = attemptedPassword,
             ["__RequestVerificationToken"] = token
         }));
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Contains("Usuario o contrase&#xF1;a incorrectos.", html);
         Assert.Contains("aria-live=\"assertive\"", html);
+        Assert.DoesNotContain(attemptedPassword, html, StringComparison.Ordinal);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.DoesNotContain(dbContext.AuthenticationEvents, item =>
+            item.UserIdentifier == attemptedPassword || item.CorrelationId == attemptedPassword);
     }
 
     [Fact]
@@ -317,6 +364,61 @@ public sealed class LoginPageTests
 
         Assert.Equal(HttpStatusCode.Redirect, protectedResponse.StatusCode);
         Assert.Equal("/Account/AccessDenied", protectedResponse.Headers.Location?.AbsolutePath);
+        var home = await client.GetStringAsync("/");
+        Assert.DoesNotContain("href=\"/Administration\"", home, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AuditPage_FiltersAuthorizedSubsidiaryAndHidesUnauthorizedScope()
+    {
+        var password = $"Aa1!{Guid.NewGuid():N}";
+        await using var factory = CreateFactory(new Dictionary<string, string?>
+        {
+            ["BootstrapAdmin:Enabled"] = "true",
+            ["BootstrapAdmin:Password"] = password
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost")
+        });
+        var (token, _) = await GetLoginTokenAsync(client);
+        await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["UserName"] = "jean",
+            ["Password"] = password,
+            ["__RequestVerificationToken"] = token
+        }));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var manager = scope.ServiceProvider.GetRequiredService<UserManager<IamUsuario>>();
+            var user = await manager.FindByNameAsync("jean");
+            var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            dbContext.UserOrganizations.Add(new IamUsuarioOrganizacion
+            {
+                UserId = user!.Id,
+                EmpresaSubsidiariaId = 101,
+                ApprovedByUserId = Guid.NewGuid()
+            });
+            dbContext.AuthorizationAuditEvents.Add(new IamEventoAuditoriaAutorizacion
+            {
+                EmpresaSubsidiariaId = 101,
+                EventType = "AuthorizedEvent",
+                Result = "Succeeded",
+                CorrelationId = "web-audit"
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var allowed = await client.GetAsync("/Audit?empresaSubsidiariaId=101");
+        var allowedHtml = await allowed.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        Assert.Contains("AuthorizedEvent", allowedHtml);
+        Assert.Contains("aria-label=\"Eventos de auditoría autorizados\"", allowedHtml);
+
+        var denied = await client.GetAsync("/Audit?empresaSubsidiariaId=202");
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.DoesNotContain("AuthorizedEvent", await denied.Content.ReadAsStringAsync());
     }
 
     private static WebApplicationFactory<Program> CreateFactory(IReadOnlyDictionary<string, string?>? overrides = null)
@@ -325,6 +427,7 @@ public sealed class LoginPageTests
         {
             ["BootstrapAdmin:Enabled"] = "false",
             ["Authentication:OAuth:Enabled"] = "false",
+            ["ConnectionStrings:LandscapeTsiDb"] = string.Empty,
             ["Identity:InMemoryDatabaseName"] = $"web-test-{Guid.NewGuid():N}"
         };
         if (overrides is not null)

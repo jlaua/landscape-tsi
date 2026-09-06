@@ -1,0 +1,44 @@
+@model IReadOnlyList<Landscape.Tsi.Application.Catalogs.MasterCatalogDefinition>
+@{
+    ViewData["Title"] = "Administración de Tablas Maestras";
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li>
+        <li><span aria-hidden="true">/</span> Administración</li>
+        <li aria-current="page"><span aria-hidden="true">/</span> Tablas Maestras</li>
+    </ol>
+</nav>
+
+<section class="catalog-shell" aria-labelledby="catalog-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">ADMINISTRACIÓN</p>
+            <h1 id="catalog-title">Administración de Tablas Maestras</h1>
+            <p class="supporting-text">Seleccione un catálogo para consultar o mantener su información.</p>
+        </div>
+    </div>
+
+    <div class="catalog-grid" aria-label="Catálogos disponibles">
+        @foreach (var catalog in Model)
+        {
+            <article class="catalog-card @(catalog.Enabled ? "catalog-card-enabled" : "catalog-card-pending")">
+                <div class="catalog-icon" aria-hidden="true">@catalog.Name.Substring(0, 1)</div>
+                <div>
+                    <h2>@catalog.Name</h2>
+                    @if (catalog.Code == "dominio")
+                    {
+                        <p>Disponible para consulta y mantenimiento.</p>
+                        <a class="md-button md-button-tonal" asp-action="Domain">Administrar</a>
+                    }
+                    else
+                    {
+                        <p>Disponible para consulta y mantenimiento.</p>
+                        <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="@catalog.Route">Administrar</a>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+</section>
