@@ -83,19 +83,19 @@ internal sealed class UserRoleAssignmentService(IdentityDbContext dbContext) : I
         string correlationId,
         string before,
         string after) => dbContext.AuthorizationAuditEvents.Add(new IamEventoAuditoriaAutorizacion
-    {
-        ActorUserId = actorId,
-        BeneficiaryUserId = userId,
-        EventType = eventType,
-        Result = "Succeeded",
-        ResourceType = nameof(IamRol),
-        ResourceId = roleId.ToString(),
-        BeforeJson = before,
-        AfterJson = after,
-        Justification = justification,
-        ApprovedByUserId = approverId,
-        CorrelationId = correlationId
-    });
+        {
+            ActorUserId = actorId,
+            BeneficiaryUserId = userId,
+            EventType = eventType,
+            Result = "Succeeded",
+            ResourceType = nameof(IamRol),
+            ResourceId = roleId.ToString(),
+            BeforeJson = before,
+            AfterJson = after,
+            Justification = justification,
+            ApprovedByUserId = approverId,
+            CorrelationId = correlationId
+        });
 
     private static void ValidateText(string justification, string correlationId)
     {

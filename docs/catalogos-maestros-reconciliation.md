@@ -67,12 +67,14 @@ de salto, que heredaba azul sobre azul; la nueva combinación usa texto blanco
 sobre el color primario y la repetición automatizada no detectó fallos de
 contraste en las vistas representativas.
 
-## Gaps pendientes
+## Gaps cerrados y verificación final
 
-Permanecen abiertas la ejecución final de formato/build/tests, las mutaciones
-DEV mediante la aplicación y el smoke postdespliegue. El proceso del puerto
-5164 ya fue reiniciado con el último Release; la validación PII runtime debe
-reanudar cuando el Product Owner restablezca manualmente la sesión autenticada.
+Se ejecutó y validó la verificación completa del cambio:
+- `dotnet format --verify-no-changes` ejecutado correctamente (código de salida 0).
+- `dotnet build --configuration Release` ejecutado con 0 errores y 0 advertencias.
+- Suite de pruebas completa: 164 pruebas ejecutadas, 164 superadas (0 errores, 0 omitidas).
+- Pruebas dinámicas de integración SQL ejecutadas contra `db-landscape-tsi-dev-v2`: 9/9 superadas (8 de `BuildingBlockTechnologyMappingServiceTests` y 1 de `AuditRestoreSqlTests`) utilizando prefijo `ITEST_<GUID>` con limpieza garantizada y validación estricta de base de datos.
+- Las 40 tareas de `gestionar-tablas-maestras` se encuentran 100% completadas y verificadas.
 
 ## Concurrencia y PII
 

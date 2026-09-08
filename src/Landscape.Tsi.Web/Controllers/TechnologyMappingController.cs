@@ -1,7 +1,9 @@
 using System.Security.Claims;
+
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Web.Models;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,10 +44,14 @@ public sealed class TechnologyMappingController(IBuildingBlockTechnologyMappingS
     public async Task<IActionResult> Unassigned(UnassignedTechnologyQuery query, CancellationToken cancellationToken)
     {
         var page = await service.ListUnassignedAsync(query, cancellationToken);
-        return View(new UnassignedTechnologiesViewModel { Query = query, Page = page with
+        return View(new UnassignedTechnologiesViewModel
         {
-            Items = page.Items.Select(item => item with { DetailRoute = Url.Action("CatalogDetails", "MasterTables", new { catalogRoute = "tecnologia-tsi", id = item.Id }) ?? "#" }).ToArray()
-        }});
+            Query = query,
+            Page = page with
+            {
+                Items = page.Items.Select(item => item with { DetailRoute = Url.Action("CatalogDetails", "MasterTables", new { catalogRoute = "tecnologia-tsi", id = item.Id }) ?? "#" }).ToArray()
+            }
+        });
     }
 
     [HttpGet("Technology/{technologyId:int}/Relations")]
@@ -127,7 +133,8 @@ public sealed class TechnologyMappingController(IBuildingBlockTechnologyMappingS
     }
 
     [HttpPost("BuildingBlock/{buildingBlockId:int}/Technology/{technologyId:int}/Associate")]
-    [Authorize(Policy = Permissions.CatalogEdit)] [ValidateAntiForgeryToken]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Associate(int buildingBlockId, int technologyId, string? returnUrl, CancellationToken cancellationToken)
     {
         var actor = ActorId(); if (actor is null) return Forbid();
@@ -136,7 +143,8 @@ public sealed class TechnologyMappingController(IBuildingBlockTechnologyMappingS
     }
 
     [HttpPost("BuildingBlock/{buildingBlockId:int}/Technology/{technologyId:int}/Disassociate")]
-    [Authorize(Policy = Permissions.CatalogEdit)] [ValidateAntiForgeryToken]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Disassociate(int buildingBlockId, int technologyId, string? returnUrl, CancellationToken cancellationToken)
     {
         var actor = ActorId(); if (actor is null) return Forbid();

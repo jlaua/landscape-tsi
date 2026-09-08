@@ -38,10 +38,16 @@ public sealed class AuditController(IAuthorizationAuditQuery query, IAuditRestor
             var options = await query.GetFilterOptionsAsync(userId, cancellationToken);
             return View(new AuditQueryViewModel
             {
-                Search = search, Action = actionType, Entity = entity, ActorUserId = actorUserId,
+                Search = search,
+                Action = actionType,
+                Entity = entity,
+                ActorUserId = actorUserId,
                 EmpresaSubsidiariaId = empresaSubsidiariaId,
-                FromUtc = fromUtc, ToUtc = toUtc, Page = dashboard.Page,
-                PageSize = dashboard.PageSize, TotalCount = dashboard.TotalCount,
+                FromUtc = fromUtc,
+                ToUtc = toUtc,
+                Page = dashboard.Page,
+                PageSize = dashboard.PageSize,
+                TotalCount = dashboard.TotalCount,
                 DashboardEvents = dashboard.Items.Select(item => item with { Entity = AuditEntityRegistry.DisplayName(item.Entity) }).ToArray(),
                 EntityOptions = options.Entities,
                 UserOptions = options.Users,
@@ -59,9 +65,17 @@ public sealed class AuditController(IAuthorizationAuditQuery query, IAuditRestor
             logger.LogError(exception, "Error SQL consultando auditoría. TraceIdentifier={TraceIdentifier}", HttpContext.TraceIdentifier);
             return View(new AuditQueryViewModel
             {
-                Search = search, Action = actionType, Entity = entity, ActorUserId = actorUserId,
-                EmpresaSubsidiariaId = empresaSubsidiariaId, FromUtc = fromUtc, ToUtc = toUtc,
-                DateFrom = effectiveFrom, DateTo = effectiveTo, Page = Math.Max(1, page), PageSize = 25,
+                Search = search,
+                Action = actionType,
+                Entity = entity,
+                ActorUserId = actorUserId,
+                EmpresaSubsidiariaId = empresaSubsidiariaId,
+                FromUtc = fromUtc,
+                ToUtc = toUtc,
+                DateFrom = effectiveFrom,
+                DateTo = effectiveTo,
+                Page = Math.Max(1, page),
+                PageSize = 25,
                 QueryError = "No fue posible consultar la auditoría en este momento. Intente nuevamente."
             });
         }

@@ -1,10 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Identity;
 using Landscape.Tsi.Infrastructure.Identity;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -56,13 +58,13 @@ FROM dbo.TBuildingBlock b
 LEFT JOIN dbo.TMDominio d ON d.iddominio=b.idDominio
 LEFT JOIN dbo.TEstadoFaseAdopcion p ON p.idEstadoFaseAdopcion=b.idEstadoFaseDeAdopcionBuildingBlock " + filters + $@"
 ORDER BY {order} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY");
-            Add(command, "@search", search);
-            Add(command, "@familyId", (object?)query.FamilyId ?? DBNull.Value);
-            Add(command, "@domainId", (object?)query.DomainId ?? DBNull.Value);
-            Add(command, "@phaseId", (object?)query.PhaseId ?? DBNull.Value);
-            Add(command, "@state", state);
-            Add(command, "@offset", (page - 1) * pageSize);
-            Add(command, "@pageSize", pageSize);
+        Add(command, "@search", search);
+        Add(command, "@familyId", (object?)query.FamilyId ?? DBNull.Value);
+        Add(command, "@domainId", (object?)query.DomainId ?? DBNull.Value);
+        Add(command, "@phaseId", (object?)query.PhaseId ?? DBNull.Value);
+        Add(command, "@state", state);
+        Add(command, "@offset", (page - 1) * pageSize);
+        Add(command, "@pageSize", pageSize);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {

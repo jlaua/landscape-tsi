@@ -1,10 +1,12 @@
+using System.Security.Claims;
+
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Application.Reporting;
 using Landscape.Tsi.Web.Models;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Landscape.Tsi.Web.Controllers;
 

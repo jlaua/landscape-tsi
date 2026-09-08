@@ -1,8 +1,10 @@
+using System.Data;
+using System.Data.Common;
+
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Reporting;
 using Landscape.Tsi.Infrastructure.Identity;
-using System.Data;
-using System.Data.Common;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Infrastructure.Reporting;

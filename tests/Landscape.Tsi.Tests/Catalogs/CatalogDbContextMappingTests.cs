@@ -1,5 +1,6 @@
 using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Catalogs;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Tests.Catalogs;
@@ -15,14 +16,22 @@ public sealed class CatalogDbContextMappingTests
 
         var expected = new Dictionary<Type, string>
         {
-            [typeof(TmDominio)] = "TMDominio", [typeof(TBuildingBlock)] = "TBuildingBlock",
-            [typeof(TCapacidadSeguridad)] = "TCapacidadDeSeguridad", [typeof(TMEstadoCapacidad)] = "TMEstadoCapacidad",
-            [typeof(TFuncionalidad)] = "TFuncionalidad", [typeof(TMEstadoFuncionalidad)] = "TMEstadoFuncionalidad",
-            [typeof(TEstadoFaseAdopcion)] = "TEstadoFaseAdopcion", [typeof(TTecnologiaTSI)] = "TTecnologiaTSI",
-            [typeof(TMFamilia)] = "TMFamilia", [typeof(TCasosDeUso)] = "TCasosDeUso",
-            [typeof(TEmpresaSubsidiaria)] = "TEmpresaSubsidiaria", [typeof(TCiso)] = "TCISO",
-            [typeof(TMPosturaRoadmap)] = "TMPosturaRoadmap", [typeof(TMEstadoAdopcionTSI)] = "TMEstadoAdopcionTSI",
-            [typeof(TModalidadLaboral)] = "TModalidadLaboral", [typeof(TTipoOperacion)] = "TTipoOperacion"
+            [typeof(TmDominio)] = "TMDominio",
+            [typeof(TBuildingBlock)] = "TBuildingBlock",
+            [typeof(TCapacidadSeguridad)] = "TCapacidadDeSeguridad",
+            [typeof(TMEstadoCapacidad)] = "TMEstadoCapacidad",
+            [typeof(TFuncionalidad)] = "TFuncionalidad",
+            [typeof(TMEstadoFuncionalidad)] = "TMEstadoFuncionalidad",
+            [typeof(TEstadoFaseAdopcion)] = "TEstadoFaseAdopcion",
+            [typeof(TTecnologiaTSI)] = "TTecnologiaTSI",
+            [typeof(TMFamilia)] = "TMFamilia",
+            [typeof(TCasosDeUso)] = "TCasosDeUso",
+            [typeof(TEmpresaSubsidiaria)] = "TEmpresaSubsidiaria",
+            [typeof(TCiso)] = "TCISO",
+            [typeof(TMPosturaRoadmap)] = "TMPosturaRoadmap",
+            [typeof(TMEstadoAdopcionTSI)] = "TMEstadoAdopcionTSI",
+            [typeof(TModalidadLaboral)] = "TModalidadLaboral",
+            [typeof(TTipoOperacion)] = "TTipoOperacion"
         };
 
         Assert.Equal(expected.Count, context.Model.GetEntityTypes().Count());

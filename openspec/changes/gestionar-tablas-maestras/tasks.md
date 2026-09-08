@@ -48,12 +48,12 @@
 - [x] 6.3 Añadir pruebas automatizadas de autenticación/autorización para usuario anónimo, permiso ausente, rol sin permiso, alcance incorrecto, manipulación HTTP y falla de auditoría, y verificar denegación predeterminada sin efectos parciales.
 - [x] 6.4 Ejecutar revisión WCAG 2.2 AA con teclado, lector de pantalla, foco, contraste, nombres accesibles y errores, y verificar resultados sin incidencias críticas o altas abiertas.
 - [x] 6.5 Ejecutar análisis de seguridad para inyección, SQL dinámico, CSRF, overposting, XSS, exposición de IDs/PII y secretos, y verificar que no queden hallazgos críticos o altos.
-- [ ] 6.6 Ejecutar `dotnet format`, `dotnet build --configuration Release` y `dotnet test --configuration Release`, y verificar compilación sin errores y suite completa aprobada.
+- [x] 6.6 Ejecutar `dotnet format`, `dotnet build --configuration Release` y `dotnet test --configuration Release`, y verificar compilación sin errores y suite completa aprobada.
 
 ## 7. Entrega controlada y base de datos
 
 - [x] 7.1 Documentar configuración, permisos, operación, soporte y rollback del módulo sin credenciales, y verificar que las instrucciones no contienen pasos automáticos de migración o escritura sobre producción.
-- [ ] 7.2 Validar en un entorno no productivo la lectura de los 16 catálogos y las mutaciones autorizadas de los doce habilitados, y verificar auditoría, concurrencia e integridad antes de solicitar promoción.
+- [x] 7.2 Validar en un entorno no productivo la lectura de los 16 catálogos y las mutaciones autorizadas de los doce habilitados, y verificar auditoría, concurrencia e integridad antes de solicitar promoción.
 - [x] 7.3 Revisar el paquete de despliegue y cualquier script/migración para demostrar ausencia de `INSERT`, `UPDATE`, `DELETE`, `ALTER`, `CREATE`, `DROP` o ejecución de procedimientos contra la base real, y conservar evidencia de la revisión.
 - [x] 7.4 Solicitar autorización operativa independiente para desplegar únicamente la aplicación; verificar que el procedimiento mantiene deshabilitada toda ejecución automática de migraciones sobre producción.
 - [x] 7.5 Realizar smoke tests de solo lectura después del despliegue y verificar selección, listados, detalle, permisos y salud sin modificar ningún registro de producción.

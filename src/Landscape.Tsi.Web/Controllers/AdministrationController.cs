@@ -1,6 +1,7 @@
+using System.Security.Claims;
+
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Web.Models;
-using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -3,8 +3,8 @@ using System.Text.Json;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Identity;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Infrastructure.Identity;
 

@@ -84,12 +84,22 @@ public sealed class DominioServiceTests
         Assert.Equal(12, MasterCatalogRegistry.Relations.Count);
         var expectedColumnCounts = new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            ["dominio"] = 7, ["building-block"] = 6, ["capacidad-seguridad"] = 4,
-            ["estado-capacidad"] = 2, ["funcionalidad"] = 4, ["estado-funcionalidad"] = 2,
-            ["fase-adopcion"] = 2, ["tecnologia-tsi"] = 16, ["familia"] = 2,
-            ["casos-uso"] = 3, ["empresa-subsidiaria"] = 7, ["ciso"] = 5,
-            ["postura-roadmap"] = 2, ["estado-adopcion-tsi"] = 2,
-            ["modalidad-laboral"] = 2, ["tipo-operacion"] = 2
+            ["dominio"] = 7,
+            ["building-block"] = 6,
+            ["capacidad-seguridad"] = 4,
+            ["estado-capacidad"] = 2,
+            ["funcionalidad"] = 4,
+            ["estado-funcionalidad"] = 2,
+            ["fase-adopcion"] = 2,
+            ["tecnologia-tsi"] = 16,
+            ["familia"] = 2,
+            ["casos-uso"] = 3,
+            ["empresa-subsidiaria"] = 7,
+            ["ciso"] = 5,
+            ["postura-roadmap"] = 2,
+            ["estado-adopcion-tsi"] = 2,
+            ["modalidad-laboral"] = 2,
+            ["tipo-operacion"] = 2
         };
         Assert.All(MasterCatalogRegistry.Catalogs, catalog =>
             Assert.Equal(expectedColumnCounts[catalog.Code], catalog.Columns.Count));

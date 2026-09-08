@@ -56,16 +56,26 @@ public static class Permissions
             [UserManage] = "Administrar usuarios",
             [RoleManage] = "Administrar roles y permisos",
             [AuditView] = "Consultar auditoría autorizada"
-            ,[AuditoriaVer] = "Consultar trazabilidad de operaciones"
-            ,[AuditoriaRestaurar] = "Restaurar eliminaciones auditadas"
-            ,[UsersView] = "Consultar usuarios locales"
-            ,[UsersCreate] = "Crear usuarios locales"
-            ,[UsersEdit] = "Editar usuarios locales"
-            ,[UsersActivate] = "Activar usuarios locales"
-            ,[UsersDeactivate] = "Desactivar usuarios locales"
-            ,[UsersResetPassword] = "Restablecer contraseñas locales"
-            ,[UsersAssignRoles] = "Asignar roles a usuarios locales"
-            ,[UsersAuditView] = "Consultar auditoría de usuarios locales"
+            ,
+            [AuditoriaVer] = "Consultar trazabilidad de operaciones"
+            ,
+            [AuditoriaRestaurar] = "Restaurar eliminaciones auditadas"
+            ,
+            [UsersView] = "Consultar usuarios locales"
+            ,
+            [UsersCreate] = "Crear usuarios locales"
+            ,
+            [UsersEdit] = "Editar usuarios locales"
+            ,
+            [UsersActivate] = "Activar usuarios locales"
+            ,
+            [UsersDeactivate] = "Desactivar usuarios locales"
+            ,
+            [UsersResetPassword] = "Restablecer contraseñas locales"
+            ,
+            [UsersAssignRoles] = "Asignar roles a usuarios locales"
+            ,
+            [UsersAuditView] = "Consultar auditoría de usuarios locales"
         };
 
     public static readonly IReadOnlySet<string> SecurityArchitectPermissions =

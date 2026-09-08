@@ -113,7 +113,8 @@ internal sealed class AuthorizationAuditQuery(
             0, item.OccurredAtUtc, item.ActionType, item.Status, item.PhysicalTableName ?? item.EntityCode,
             item.RootRecordId.HasValue ? item.RootRecordId.Value.ToString() : null, item.RootDisplayName,
             item.ActorUserId, item.ActorUserNameSnapshot, item.EmpresaSubsidiariaId,
-            item.AffectedRecordCount, item.ActionType == "DELETE") { OperationId = item.OperationId }).ToListAsync(cancellationToken);
+            item.AffectedRecordCount, item.ActionType == "DELETE")
+        { OperationId = item.OperationId }).ToListAsync(cancellationToken);
         var merged = authorizationItems.Concat(operationItems).OrderByDescending(item => item.OccurredAtUtc).ToArray();
         var total = merged.Length;
         var items = merged.Skip((page - 1) * size).Take(size).ToList();

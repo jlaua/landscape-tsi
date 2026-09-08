@@ -1,11 +1,11 @@
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Domain.Identity;
 using Landscape.Tsi.Infrastructure;
 using Landscape.Tsi.Infrastructure.Identity;
 
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Landscape.Tsi.Domain.Identity;
-using Microsoft.AspNetCore.Identity;
 
 namespace Landscape.Tsi.Tests.Identity;
 

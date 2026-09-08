@@ -1,7 +1,10 @@
 using System.Net;
 using System.Security.Claims;
+using System.Text.Encodings.Web;
+
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Application.Reporting;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -11,7 +14,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Text.Encodings.Web;
 
 namespace Landscape.Tsi.Tests.Web;
 

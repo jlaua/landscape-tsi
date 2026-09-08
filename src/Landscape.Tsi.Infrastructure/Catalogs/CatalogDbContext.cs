@@ -1,7 +1,9 @@
+using System.Linq.Expressions;
+
 using Landscape.Tsi.Domain.Catalogs;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System.Linq.Expressions;
 
 namespace Landscape.Tsi.Infrastructure.Catalogs;
 

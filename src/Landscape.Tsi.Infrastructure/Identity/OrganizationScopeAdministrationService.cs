@@ -1,6 +1,8 @@
 using System.Text.Json;
+
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Identity;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Infrastructure.Identity;
@@ -41,9 +43,16 @@ internal sealed class OrganizationScopeAdministrationService(IdentityDbContext d
         dbContext.UserOrganizations.Add(scope);
         dbContext.AuthorizationAuditEvents.Add(new IamEventoAuditoriaAutorizacion
         {
-            ActorUserId = command.RequestedByUserId, BeneficiaryUserId = command.UserId, ApprovedByUserId = command.ApprovedByUserId,
-            EventType = "OrganizationScopeAssigned", Result = "Succeeded", ResourceType = nameof(IamUsuarioOrganizacion), ResourceId = scope.Id.ToString(),
-            AfterJson = JsonSerializer.Serialize(new { scope.IsCorporateScope, scope.ValidFromUtc, scope.ValidUntilUtc }), Justification = command.Justification, CorrelationId = command.CorrelationId
+            ActorUserId = command.RequestedByUserId,
+            BeneficiaryUserId = command.UserId,
+            ApprovedByUserId = command.ApprovedByUserId,
+            EventType = "OrganizationScopeAssigned",
+            Result = "Succeeded",
+            ResourceType = nameof(IamUsuarioOrganizacion),
+            ResourceId = scope.Id.ToString(),
+            AfterJson = JsonSerializer.Serialize(new { scope.IsCorporateScope, scope.ValidFromUtc, scope.ValidUntilUtc }),
+            Justification = command.Justification,
+            CorrelationId = command.CorrelationId
         });
         await dbContext.SaveChangesAsync(cancellationToken);
     }
