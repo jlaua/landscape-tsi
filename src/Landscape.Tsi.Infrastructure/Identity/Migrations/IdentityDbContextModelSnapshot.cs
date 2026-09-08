@@ -22,6 +22,221 @@ namespace Landscape.Tsi.Infrastructure.Identity.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Landscape.Tsi.Domain.Catalogs.TmDominio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("iddominio");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DescripcionDominio")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("descripcionDominio");
+
+                    b.Property<string>("Dominio")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("dominio");
+
+                    b.Property<string>("Ejemplos")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("Ejemplos");
+
+                    b.Property<string>("HomologacionDimensionSegunCiber")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("homologacionDimensionSegunCiber");
+
+                    b.Property<string>("HomologacionDimensionSegunLineamiento")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("homologacionDimensionSegunLineamiento");
+
+                    b.Property<string>("Referencias")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("referencias");
+
+                    b.Property<string>("SubDominioCvt")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("subDominioCVT");
+
+                    b.HasKey("Id")
+                        .HasName("PK_TDominio");
+
+                    b.ToTable("TMDominio", "dbo", t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditDeletedRecordSnapshot", b =>
+                {
+                    b.Property<long>("SnapshotId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SnapshotId"));
+
+                    b.Property<int>("DeleteOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("EntityCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ForeignKeysJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsRoot")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PhysicalTableName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PrimaryKeyJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RestoreOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RowDataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("SnapshotId");
+
+                    b.HasIndex("OperationId", "PhysicalTableName", "DeleteOrder");
+
+                    b.ToTable("RecordSnapshot", "audit");
+                });
+
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditOperation", b =>
+                {
+                    b.Property<Guid>("OperationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorUserNameSnapshot")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("AffectedRecordCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<int?>("EmpresaSubsidiariaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PhysicalTableName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("ReversesOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RootDisplayName")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<long?>("RootRecordId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("OperationId");
+
+                    b.HasIndex("ActionType");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("EmpresaSubsidiariaId");
+
+                    b.HasIndex("EntityCode");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.HasIndex("ReversesOperationId");
+
+                    b.ToTable("Operation", "audit");
+                });
+
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditRecordKeyMap", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NewPrimaryKeyJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OldPrimaryKeyJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PhysicalTableName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId", "PhysicalTableName");
+
+                    b.ToTable("RecordKeyMap", "audit");
+                });
+
             modelBuilder.Entity("Landscape.Tsi.Domain.Identity.EmpresaSubsidiariaReference", b =>
                 {
                     b.Property<int>("Id")
@@ -510,6 +725,28 @@ namespace Landscape.Tsi.Infrastructure.Identity.Migrations
                     b.ToTable("IamUsuarioToken", (string)null);
                 });
 
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditDeletedRecordSnapshot", b =>
+                {
+                    b.HasOne("Landscape.Tsi.Domain.Identity.AuditOperation", "Operation")
+                        .WithMany("Snapshots")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditRecordKeyMap", b =>
+                {
+                    b.HasOne("Landscape.Tsi.Domain.Identity.AuditOperation", "Operation")
+                        .WithMany("KeyMaps")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
             modelBuilder.Entity("Landscape.Tsi.Domain.Identity.IamAccesoEmergencia", b =>
                 {
                     b.HasOne("Landscape.Tsi.Domain.Identity.EmpresaSubsidiariaReference", "EmpresaSubsidiaria")
@@ -549,11 +786,13 @@ namespace Landscape.Tsi.Infrastructure.Identity.Migrations
 
             modelBuilder.Entity("Landscape.Tsi.Domain.Identity.IamUsuarioLoginExterno", b =>
                 {
-                    b.HasOne("Landscape.Tsi.Domain.Identity.IamUsuario", null)
+                    b.HasOne("Landscape.Tsi.Domain.Identity.IamUsuario", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Landscape.Tsi.Domain.Identity.IamUsuarioOrganizacion", b =>
@@ -609,6 +848,13 @@ namespace Landscape.Tsi.Infrastructure.Identity.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Landscape.Tsi.Domain.Identity.AuditOperation", b =>
+                {
+                    b.Navigation("KeyMaps");
+
+                    b.Navigation("Snapshots");
                 });
 
             modelBuilder.Entity("Landscape.Tsi.Domain.Identity.IamPermiso", b =>

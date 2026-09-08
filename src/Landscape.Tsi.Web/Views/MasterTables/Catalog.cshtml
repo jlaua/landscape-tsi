@@ -16,7 +16,7 @@
 <section class="catalog-shell" aria-labelledby="catalog-detail-title">
     <div class="page-heading">
         <div><p class="eyebrow">TABLA MAESTRA</p><h1 id="catalog-detail-title">@Model.Definition.Name</h1><p class="supporting-text">Consulte y mantenga la información registrada.</p></div>
-        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+        @if (!Model.Definition.IsReadOnly && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
         {
             @if (Model.Definition.EditorMode == CatalogEditorMode.Page)
             {
@@ -54,10 +54,10 @@
         </div></nav>
     }
 </section>
-@if (Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+@if (!Model.Definition.IsReadOnly && Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
 {
-    <div class="modal fade" id="create-catalog-modal" tabindex="-1" aria-labelledby="create-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
-        <form method="post" asp-action="CreateCatalog" asp-route-catalogRoute="@Model.Definition.Route" data-confirm-message="¿Desea crear este registro?" data-loading-form>
+    <div class="modal fade @(Model.Definition.UsesResponsiveDrawer ? "catalog-editor-drawer" : null)" id="create-catalog-modal" tabindex="-1" aria-labelledby="create-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <form method="post" asp-action="CreateCatalog" asp-route-catalogRoute="@Model.Definition.Route" data-confirm-message="¿Desea crear este registro?" data-loading-form data-protect-unsaved="@(Model.Definition.UsesResponsiveDrawer ? "true" : null)">
             <div class="modal-header"><div><p class="eyebrow">NUEVO REGISTRO</p><h2 class="modal-title" id="create-catalog-title">Crear @Model.Definition.Name</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
             <div class="modal-body"><partial name="_CatalogFields" model="editorModel" /></div>
             <div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar</button></div>

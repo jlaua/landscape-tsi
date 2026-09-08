@@ -6,6 +6,16 @@ namespace Landscape.Tsi.Infrastructure.Identity;
 
 internal sealed class EffectiveAccessService(IdentityDbContext dbContext) : IEffectiveAccessService
 {
+    public Task<bool> HasActiveCorporateScopeAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var utcNow = DateTime.UtcNow;
+        return dbContext.UserOrganizations
+            .Where(scope => scope.UserId == userId && scope.IsCorporateScope)
+            .Where(scope => scope.ValidFromUtc <= utcNow)
+            .Where(scope => scope.ValidUntilUtc == null || scope.ValidUntilUtc > utcNow)
+            .AnyAsync(cancellationToken);
+    }
+
     public async Task<bool> IsAuthorizedAsync(
         Guid userId,
         string permission,

@@ -4,7 +4,7 @@ namespace Landscape.Tsi.Infrastructure.Identity;
 
 public static class DevelopmentSqlConnection
 {
-    public const string ApprovedDatabase = "db-landscape-tsi-dev";
+    public const string ExpectedDatabaseEnvironmentVariable = "DatabaseSafety__ExpectedDatabaseName";
 
     private static readonly string[] VariableNames =
     [
@@ -16,7 +16,7 @@ public static class DevelopmentSqlConnection
 
     public static string? FromEnvironment() => FromSource(Environment.GetEnvironmentVariable);
 
-    public static string? FromSource(Func<string, string?> valueSource)
+    public static string? FromSource(Func<string, string?> valueSource, string? expectedDatabaseName = null)
     {
         var values = VariableNames.ToDictionary(name => name, valueSource, StringComparer.Ordinal);
         if (values.Values.All(string.IsNullOrWhiteSpace))
@@ -31,10 +31,11 @@ public static class DevelopmentSqlConnection
         }
 
         var database = values["LANDSCAPE_TSI_DEV_SQL_DATABASE"]!;
-        if (!string.Equals(database, ApprovedDatabase, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException($"Solo se permite la base de desarrollo {ApprovedDatabase}.");
-        }
+        var configuredExpectedDatabase = expectedDatabaseName
+            ?? valueSource(ExpectedDatabaseEnvironmentVariable);
+        DatabaseSafetyValidator.Validate(
+            new SqlConnectionStringBuilder { InitialCatalog = database }.ConnectionString,
+            configuredExpectedDatabase);
 
         return new SqlConnectionStringBuilder
         {

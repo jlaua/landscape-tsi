@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Landscape TSI — Mapa lógico del catálogo",
+    "output": "landscape-logical-catalog-map.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "domain", "type": "database", "label": "Dominio", "sublabel": "M · TMDominio", "tag": "Arquitectura de seguridad", "pos": [60, 250], "size": [170, 70] },
+    { "id": "building-block", "type": "database", "label": "Building Block", "sublabel": "T · TBuildingBlock", "tag": "Arquitectura de seguridad", "pos": [300, 250], "size": [190, 70] },
+    { "id": "capacity", "type": "database", "label": "Capacidad de Seguridad", "sublabel": "T · TCapacidadDeSeguridad", "tag": "Arquitectura de seguridad", "pos": [570, 250], "size": [210, 70] },
+    { "id": "functionality", "type": "database", "label": "Funcionalidad", "sublabel": "T · TFuncionalidad", "tag": "Arquitectura de seguridad", "pos": [830, 250], "size": [180, 70] },
+    { "id": "adoption-phase", "type": "database", "label": "Fase de Adopción", "sublabel": "T · TEstadoFaseAdopcion", "tag": "Arquitectura de seguridad", "pos": [300, 80], "size": [190, 70] },
+    { "id": "capacity-state", "type": "database", "label": "Estado de Capacidad", "sublabel": "M · TMEstadoCapacidad", "tag": "Arquitectura de seguridad", "pos": [570, 80], "size": [210, 70] },
+    { "id": "functionality-state", "type": "database", "label": "Estado de Funcionalidad", "sublabel": "M · TMEstadoFuncionalidad", "tag": "Arquitectura de seguridad", "pos": [830, 80], "size": [210, 70] },
+    { "id": "technology", "type": "database", "label": "Tecnología TSI", "sublabel": "T · TTecnologiaTSI", "tag": "Tecnología", "pos": [570, 470], "size": [190, 70] },
+    { "id": "use-case", "type": "database", "label": "Casos de Uso", "sublabel": "T · TCasosDeUso", "tag": "Tecnología", "pos": [830, 470], "size": [180, 70] },
+    { "id": "family", "type": "database", "label": "Familia", "sublabel": "M · TMFamilia", "tag": "Arquitectura de seguridad", "pos": [300, 470], "size": [170, 70] },
+    { "id": "roadmap-posture", "type": "database", "label": "Postura Roadmap", "sublabel": "M · TMPosturaRoadmap", "tag": "Arquitectura de seguridad", "pos": [60, 700], "size": [190, 70] },
+    { "id": "adoption-state", "type": "database", "label": "Estado de Adopción TSI", "sublabel": "M · TMEstadoAdopcionTSI", "tag": "Arquitectura de seguridad", "pos": [300, 700], "size": [220, 70] },
+    { "id": "company", "type": "database", "label": "Empresa / Subsidiaria", "sublabel": "T · TEmpresaSubsidiaria", "tag": "Organización", "pos": [1000, 360], "size": [210, 70] },
+    { "id": "ciso", "type": "database", "label": "CISO", "sublabel": "T · TCISO", "tag": "Organización", "pos": [1000, 570], "size": [170, 70] },
+    { "id": "bb-tech-bridge", "type": "database", "label": "Building Block ↔ Tecnología", "sublabel": "T · TBuildingBlockVsTTecnologiaTSI", "tag": "Puente N:M · sin PK/UNIQUE", "pos": [570, 650], "size": [250, 70] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Arquitectura de seguridad", "wraps": ["domain", "building-block", "capacity", "functionality", "adoption-phase", "capacity-state", "functionality-state", "family", "roadmap-posture", "adoption-state"] },
+    { "kind": "region", "label": "Tecnología", "wraps": ["technology", "use-case", "bb-tech-bridge"] },
+    { "kind": "region", "label": "Organización", "wraps": ["company", "ciso"] }
+  ],
+  "connections": [
+    { "id": "domain-building", "from": "domain", "to": "building-block", "label": "1:N", "variant": "emphasis" },
+    { "id": "phase-building", "from": "adoption-phase", "to": "building-block", "label": "1:N", "fromSide": "bottom", "toSide": "top", "labelDy": 20 },
+    { "id": "building-capacity", "from": "building-block", "to": "capacity", "label": "1:N", "variant": "emphasis" },
+    { "id": "capacity-state", "from": "capacity-state", "to": "capacity", "label": "1:N", "fromSide": "bottom", "toSide": "top", "labelDy": 20 },
+    { "id": "capacity-functionality", "from": "capacity", "to": "functionality", "label": "1:N", "variant": "emphasis" },
+    { "id": "functionality-state", "from": "functionality-state", "to": "functionality", "label": "1:N", "fromSide": "bottom", "toSide": "top", "labelDy": 20 },
+    { "id": "family-technology", "from": "family", "to": "technology", "label": "1:N" },
+    { "id": "roadmap-technology", "from": "roadmap-posture", "to": "technology", "label": "1:N", "fromSide": "top", "toSide": "bottom" },
+    { "id": "adoption-state-technology", "from": "adoption-state", "to": "technology", "label": "1:N", "fromSide": "top", "toSide": "bottom" },
+    { "id": "technology-usecase", "from": "technology", "to": "use-case", "label": "1:N" },
+    { "id": "company-ciso", "from": "company", "to": "ciso", "label": "1:N", "fromSide": "bottom", "toSide": "top", "labelDy": 20 },
+    { "id": "building-technology", "from": "building-block", "to": "technology", "label": "N:M · vía puente", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelDy": 28 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Modelo lógico", "items": ["Las entidades muestran nombre funcional y tabla física", "Las relaciones proceden de FK verificadas"] },
+    { "dot": "emerald", "title": "Clasificación", "items": ["M identifica tablas maestras", "T identifica entidades transaccionales"] },
+    { "dot": "rose", "title": "Deuda técnica", "items": ["TBuildingBlockVsTTecnologiaTSI es puente N:M", "La tabla puente continúa sin PK/UNIQUE"] }
+  ]
+}

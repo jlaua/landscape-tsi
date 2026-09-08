@@ -13,9 +13,9 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Landscape.Tsi.Infrastructure.Catalogs;
 
-public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICatalogManagementService
+public sealed class CatalogManagementService(IdentityDbContext dbContext, IAuditTrailService auditTrail) : ICatalogManagementService
 {
-    public async Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null)
     {
         EnsureWhitelisted(definition);
         page = Math.Max(1, page);
@@ -32,7 +32,7 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
             page = Math.Min(page, totalPages);
 
             var selectSql = $"SELECT {BuildSelect(definition)} FROM {Table(definition)} c {joins} {where.Clause} " +
-                $"ORDER BY c.{Quote(definition.DisplayColumn.PhysicalName)}, c.{Quote(definition.PrimaryKeyColumn)} " +
+                $"ORDER BY {BuildOrderBy(definition, sortColumn, sortDirection)} " +
                 "OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
             await using var command = CreateCommand(selectSql, where.SearchValue);
             AddParameter(command, "@offset", (page - 1) * pageSize);
@@ -44,6 +44,75 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
         {
             await CloseConnectionAsync();
         }
+    }
+
+    public async Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        EnsureWhitelisted(definition);
+        EnsureForeignKey(definition, foreignKey);
+        page = Math.Max(1, page);
+        pageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var joins = BuildJoins(definition);
+            var where = BuildSearch(definition, search);
+            var relationClause = string.IsNullOrEmpty(where.Clause) ? "WHERE" : $"{where.Clause} AND";
+            var predicate = $"{relationClause} c.{Quote(foreignKey.PhysicalName)} = @parentId";
+            var countSql = $"SELECT COUNT_BIG(*) FROM {Table(definition)} c {joins} {predicate}";
+            await using var countCommand = CreateCommand(countSql, where.SearchValue);
+            AddParameter(countCommand, "@parentId", parentId);
+            var totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+            page = Math.Min(page, totalPages);
+            var selectSql = $"SELECT {BuildSelect(definition)} FROM {Table(definition)} c {joins} {predicate} " +
+                $"ORDER BY c.{Quote(definition.DisplayColumn.PhysicalName)}, c.{Quote(definition.PrimaryKeyColumn)} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+            await using var command = CreateCommand(selectSql, where.SearchValue);
+            AddParameter(command, "@parentId", parentId);
+            AddParameter(command, "@offset", (page - 1) * pageSize);
+            AddParameter(command, "@pageSize", pageSize);
+            return new CatalogPageResult(await ReadRowsAsync(command, definition, cancellationToken), page, pageSize, totalCount);
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task<IReadOnlyList<CatalogRelationBucket>> GetRelationCountsAsync(MasterCatalogDefinition parent, MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, CancellationToken cancellationToken = default)
+    {
+        EnsureWhitelisted(parent);
+        EnsureWhitelisted(child);
+        EnsureForeignKey(child, foreignKey);
+        var sql = $"SELECT p.{Quote(parent.PrimaryKeyColumn)}, p.{Quote(parent.DisplayColumn.PhysicalName)}, COUNT(c.{Quote(child.PrimaryKeyColumn)}) " +
+            $"FROM {Table(parent)} p LEFT JOIN {Table(child)} c ON c.{Quote(foreignKey.PhysicalName)} = p.{Quote(parent.PrimaryKeyColumn)} " +
+            $"GROUP BY p.{Quote(parent.PrimaryKeyColumn)}, p.{Quote(parent.DisplayColumn.PhysicalName)} " +
+            $"ORDER BY p.{Quote(parent.DisplayColumn.PhysicalName)}, p.{Quote(parent.PrimaryKeyColumn)}";
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = CreateCommand(sql);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var result = new List<CatalogRelationBucket>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.Add(new CatalogRelationBucket(reader.GetInt32(0), reader.IsDBNull(1) ? "Sin nombre" : reader.GetValue(1).ToString()!, reader.GetInt32(2)));
+            }
+            return result;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task<int> GetRelatedCountAsync(MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, int parentId, CancellationToken cancellationToken = default)
+    {
+        EnsureWhitelisted(child);
+        EnsureForeignKey(child, foreignKey);
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var sql = $"SELECT COUNT_BIG(*) FROM {Table(child)} c WHERE c.{Quote(foreignKey.PhysicalName)} = @parentId";
+            await using var command = CreateCommand(sql);
+            AddParameter(command, "@parentId", parentId);
+            return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        }
+        finally { await CloseConnectionAsync(); }
     }
 
     public async Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default)
@@ -113,8 +182,24 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
     private async Task<int> SaveAsync(MasterCatalogDefinition definition, int? id, IReadOnlyDictionary<string, string?> values, Guid actorUserId, string correlationId, CancellationToken cancellationToken)
     {
         EnsureWhitelisted(definition);
-        var normalized = NormalizeValues(definition, values);
+        if (definition.IsReadOnly)
+        {
+            throw new CatalogValidationException($"El catálogo {definition.Name} es de solo lectura.");
+        }
         var before = id.HasValue ? await GetAsync(definition, id.Value, cancellationToken) : null;
+        var normalized = CatalogCommandValidator.Normalize(definition, values);
+        if (before is not null)
+        {
+            foreach (var column in definition.Columns)
+            {
+                normalized[column.Code] = CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(
+                    definition,
+                    column.Code,
+                    normalized[column.Code],
+                    before.Values.GetValueOrDefault(column.Code));
+            }
+        }
+        await ValidateForeignKeysAsync(definition, normalized, cancellationToken);
         await OpenConnectionAsync(cancellationToken);
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         try
@@ -137,6 +222,20 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
                 id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
             }
 
+            var displayName = normalized.TryGetValue(definition.DisplayColumn.Code, out var displayValue)
+                ? displayValue?.ToString()
+                : null;
+            if (id.HasValue && before is null)
+            {
+                await auditTrail.RecordCreateAsync(definition.Code, definition.PhysicalTable, id.Value, displayName,
+                    actorUserId, correlationId, $"Creación de {definition.Name}.", 1, cancellationToken);
+            }
+            else if (id.HasValue)
+            {
+                await auditTrail.RecordUpdateAsync(definition.Code, definition.PhysicalTable, id.Value, displayName,
+                    actorUserId, correlationId, $"Actualización de {definition.Name}.", cancellationToken);
+            }
+
             dbContext.AuthorizationAuditEvents.Add(new IamEventoAuditoriaAutorizacion
             {
                 ActorUserId = actorUserId,
@@ -145,8 +244,8 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
                 Result = "Succeeded",
                 ResourceType = definition.Name,
                 ResourceId = id.Value.ToString(CultureInfo.InvariantCulture),
-                BeforeJson = before is null ? null : JsonSerializer.Serialize(before.DisplayValues),
-                AfterJson = JsonSerializer.Serialize(normalized),
+                BeforeJson = before is null ? null : JsonSerializer.Serialize(RedactSensitiveValues(definition, before.DisplayValues.ToDictionary(item => item.Key, item => (object?)item.Value, StringComparer.Ordinal))),
+                AfterJson = JsonSerializer.Serialize(RedactSensitiveValues(definition, normalized)),
                 CorrelationId = correlationId
             });
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -164,30 +263,30 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
         }
     }
 
-    private static Dictionary<string, object?> NormalizeValues(MasterCatalogDefinition definition, IReadOnlyDictionary<string, string?> values)
+    private static IReadOnlyDictionary<string, object?> RedactSensitiveValues(MasterCatalogDefinition definition, IReadOnlyDictionary<string, object?> values)
     {
-        var normalized = new Dictionary<string, object?>(StringComparer.Ordinal);
-        foreach (var column in definition.Columns)
+        if (!string.Equals(definition.Code, "ciso", StringComparison.Ordinal)) return values;
+        return values.ToDictionary(item => item.Key, item => item.Key is "email" or "telefono" ? "[REDACTED]" : item.Value, StringComparer.Ordinal);
+    }
+
+    private async Task ValidateForeignKeysAsync(MasterCatalogDefinition definition, IReadOnlyDictionary<string, object?> values, CancellationToken cancellationToken)
+    {
+        var foreignKeys = definition.Columns.Where(column => column.Type == CatalogFieldType.ForeignKey && values[column.Code] is not null).ToArray();
+        if (foreignKeys.Length == 0) return;
+        await OpenConnectionAsync(cancellationToken);
+        try
         {
-            values.TryGetValue(column.Code, out var input);
-            if (string.IsNullOrWhiteSpace(input))
+            foreach (var column in foreignKeys)
             {
-                normalized[column.Code] = null;
-                continue;
+                var referenced = MasterCatalogRegistry.GetByCode(column.ReferenceCatalogCode!)!;
+                var sql = $"SELECT COUNT_BIG(*) FROM {Table(referenced)} WHERE {Quote(referenced.PrimaryKeyColumn)} = @id";
+                await using var command = CreateCommand(sql);
+                AddParameter(command, "@id", values[column.Code]!);
+                var exists = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) > 0;
+                if (!exists) throw new CatalogValidationException($"Seleccione un valor válido para {column.Label}.");
             }
-
-            normalized[column.Code] = column.Type switch
-            {
-                CatalogFieldType.ForeignKey when int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var foreignKey) => foreignKey,
-                CatalogFieldType.DateTime when DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var date) => date,
-                CatalogFieldType.Text => input.Trim(),
-                CatalogFieldType.ForeignKey => throw new CatalogValidationException($"Seleccione un valor válido para {column.Label}."),
-                CatalogFieldType.DateTime => throw new CatalogValidationException($"Ingrese una fecha válida para {column.Label}."),
-                _ => input.Trim()
-            };
         }
-
-        return normalized;
+        finally { await CloseConnectionAsync(); }
     }
 
     private static string BuildSelect(MasterCatalogDefinition definition)
@@ -274,11 +373,12 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
                 var rawValue = reader[rawName] is DBNull ? null : reader[rawName];
                 values[column.Code] = rawValue;
                 var displayValue = reader[column.Code] is DBNull ? null : reader[column.Code];
-                display[column.Code] = displayValue switch
+                var formattedDisplayValue = displayValue switch
                 {
                     DateTime date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     _ => displayValue?.ToString()
                 };
+                display[column.Code] = CatalogDisplayPrivacy.Protect(definition, column.Code, formattedDisplayValue);
             }
 
             rows.Add(new CatalogRow(Convert.ToInt32(reader["__id"], CultureInfo.InvariantCulture), values, display));
@@ -332,6 +432,21 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext) : ICat
         {
             throw new InvalidOperationException("El catálogo no pertenece a la lista blanca administrable.");
         }
+    }
+
+    private static void EnsureForeignKey(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey)
+    {
+        if (definition.Columns.All(column => !ReferenceEquals(column, foreignKey) || column.Type != CatalogFieldType.ForeignKey))
+        {
+            throw new InvalidOperationException("La relación solicitada no pertenece al catálogo permitido.");
+        }
+    }
+
+    private static string BuildOrderBy(MasterCatalogDefinition definition, string? sortColumn, string? sortDirection)
+    {
+        var column = definition.Columns.SingleOrDefault(item => item.Code == sortColumn && definition.ListColumnCodes.Contains(item.Code, StringComparer.Ordinal)) ?? definition.DisplayColumn;
+        var direction = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+        return $"c.{Quote(column.PhysicalName)} {direction}, c.{Quote(definition.PrimaryKeyColumn)} ASC";
     }
 
     private static string Table(MasterCatalogDefinition definition) => $"[dbo].{Quote(definition.PhysicalTable)}";

@@ -128,6 +128,22 @@ La marca de procedencia del bootstrap sera metadato interno auditable, no una in
 
 **Alternativas consideradas:** seed EF con hash fijo, scripts SQL versionados y contrasena generada automaticamente se descartan porque exponen o vuelven irrecuperable el secreto.
 
+### 10. Recuperacion administrativa CLI con allowlist de ambientes
+
+La utilidad `tools/Landscape.Tsi.PasswordReset` sera una herramienta aislada de recuperacion excepcional y no un endpoint de la aplicacion. Cargara `ConnectionStrings:LandscapeTsiDb` mediante la misma configuracion de la aplicacion (appsettings por ambiente, variables de entorno y User Secrets), pero validara una politica explicita antes de construir el alcance operativo:
+
+| Ambiente | Base autorizada actualmente | Resultado |
+|---|---|---|
+| Development | `db-landscape-tsi-dev` | Permitido |
+| Staging | `db-landscape-tsi-dev` | Permitido |
+| Production | Ninguna | Rechazado hasta aprobacion y configuracion explicita |
+
+La politica no aceptara nombres de base proporcionados por argumentos o entrada del usuario. El servidor, base y ambiente se mostraran de forma sanitizada antes de continuar. Para Staging se exigira escribir exactamente `RESET jean`; Production tendra una confirmacion aun mas estricta cuando exista una base autorizada. La contraseña se capturara dos veces sin eco y solo se entregara a `UserManager`, que ejecutara `FindByNameAsync`, `GeneratePasswordResetTokenAsync`, `ResetPasswordAsync` y `UpdateSecurityStampAsync` cuando corresponda.
+
+La utilidad no realizara SQL directo ni modificara `PasswordHash`, `SecurityStamp`, `ConcurrencyStamp` o tablas puente. La auditoria append-only conservara actor tecnico, usuario afectado, ambiente, servidor, base, instante UTC, accion y resultado en el payload existente, sin credenciales, hashes ni tokens. El permiso web permanente `Usuarios.RestablecerPassword` seguira siendo la ruta normal para `SYSTEM_ADMINISTRATOR`; la CLI no sustituye esa capacidad.
+
+**Alternativas consideradas:** aceptar cualquier base de la cadena de conexion, recibir la contraseña como argumento o crear un endpoint publico se descartan por riesgo de operacion accidental, filtracion y bypass.
+
 ### 10. Pantalla y auditoria de autenticacion
 
 La pagina de acceso separara visual y semanticamente `Continuar con cuenta corporativa` del formulario Usuario/Contraseña/Ingresar. Usara Material Design 3, una columna en movil, orden de foco logico, etiquetas persistentes, resumen de errores accesible y mensajes que no permitan enumerar cuentas.
@@ -144,6 +160,7 @@ Los eventos registraran login exitoso/fallido, mecanismo `Local` u `OAuth`, iden
 - **[Consultas sin filtro organizacional]** -> obligar a usar contratos de consulta acotados y pruebas negativas entre subsidiarias; no depender solo de filtros visuales.
 - **[Permisos excesivamente granulares]** -> mantener nomenclatura estable y catalogo gobernado; agrupar en roles sin perder atomicidad.
 - **[Auditoria dentro de la misma base]** -> proteger acceso y considerar exportacion inmutable externa como evolucion posterior; la primera fase garantiza append-only desde la aplicacion.
+- **[Ejecucion CLI contra el ambiente equivocado]** -> allowlist de ambiente/base, rechazo explicito de Production sin autorizacion, presentacion previa de metadatos sanitizados y confirmacion textual reforzada.
 - **[Migracion sobre una base permisiva]** -> crear estructuras aisladas y validar en copia o entorno controlado; no modificar produccion desde el flujo de desarrollo.
 
 ## Migration Plan

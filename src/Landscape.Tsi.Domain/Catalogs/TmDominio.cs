@@ -1,8 +1,7 @@
 namespace Landscape.Tsi.Domain.Catalogs;
 
-public sealed class TmDominio
+public sealed class TmDominio : MasterCatalogEntity
 {
-    public int Id { get; set; }
     public string? Dominio { get; set; }
     public string? DescripcionDominio { get; set; }
     public string? Referencias { get; set; }

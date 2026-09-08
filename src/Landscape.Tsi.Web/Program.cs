@@ -9,11 +9,21 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.EventLog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// EventLog is disabled only for local Development runs so that its provider
+// cannot wrap or obscure the original database exception. Console logging
+// remains enabled, and Production logging is unchanged.
+if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
+{
+    builder.Logging.AddFilter<EventLogLoggerProvider>(_ => false);
+}
+
 var bootstrapPassword = Environment.GetEnvironmentVariable("LANDSCAPE_TSI_BOOTSTRAP_ADMIN_PASSWORD");
-if (!string.IsNullOrWhiteSpace(bootstrapPassword))
+if (!string.IsNullOrWhiteSpace(bootstrapPassword) &&
+    string.IsNullOrWhiteSpace(builder.Configuration["BootstrapAdmin:Password"]))
 {
     builder.Configuration["BootstrapAdmin:Password"] = bootstrapPassword;
 }

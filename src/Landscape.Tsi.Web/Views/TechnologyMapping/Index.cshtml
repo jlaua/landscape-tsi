@@ -1,0 +1,67 @@
+@model Landscape.Tsi.Web.Models.TechnologyMappingViewModel
+@using System.Text.Json
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = "Mapeo de Tecnologías TSI";
+}
+<section class="admin-shell" aria-labelledby="mapping-title">
+    <nav aria-label="Ruta de navegación"><ol class="breadcrumb-list"><li><a asp-controller="Home" asp-action="Index">Inicio</a></li><li>Administración</li><li aria-current="page">Mapeo de Tecnologías TSI</li></ol></nav>
+    <p class="eyebrow">ADMINISTRACIÓN</p><h1 id="mapping-title">Mapeo de Tecnologías TSI</h1>
+    <p class="supporting-text">Administre la jerarquía Building Block → Tecnologías TSI sin modificar las entidades principales.</p>
+    <nav class="mapping-view-switch" aria-label="Vista de mapeo"><a class="md-button md-button-tonal" asp-action="Index" aria-current="page">Por Building Block</a><a class="md-button md-button-text" asp-action="Unassigned">Tecnologías sin asignar</a></nav>
+    <div class="kpi-grid" aria-label="Indicadores de cobertura">
+        <div class="kpi-card"><span>Building Blocks</span><strong>@Model.Page.Kpis.TotalBuildingBlocks</strong></div>
+        <div class="kpi-card"><span>Con Tecnología</span><strong>@Model.Page.Kpis.BuildingBlocksWithTechnology</strong></div>
+        <div class="kpi-card"><span>Sin Tecnología</span><strong>@Model.Page.Kpis.BuildingBlocksWithoutTechnology</strong></div>
+        <div class="kpi-card"><span>Tecnologías TSI</span><strong>@Model.Page.Kpis.TotalTechnologies</strong></div>
+        <div class="kpi-card"><span>Relaciones</span><strong>@Model.Page.Kpis.TotalRelations</strong></div>
+        <div class="kpi-card"><span>Cobertura</span><strong>@Model.Page.Kpis.CoveragePercentage.ToString("0.##")%</strong></div>
+    </div>
+    <form method="get" asp-action="Index" class="filter-bar" aria-label="Filtros de mapeo">
+        <div class="md-field"><label for="Search">Buscar Building Block</label><input id="Search" name="Search" value="@Model.Query.Search" type="search" /></div>
+        <div class="md-field"><label for="DomainId">Dominio</label><select id="DomainId" name="DomainId"><option value="">Todos</option>@foreach(var domain in Model.Page.Domains){<option value="@domain.Id" selected="@(Model.Query.DomainId == domain.Id ? "selected" : null)">@domain.Name</option>}</select></div>
+        <div class="md-field"><label for="PhaseId">Fase de adopción</label><select id="PhaseId" name="PhaseId"><option value="">Todas</option>@foreach(var phase in Model.Page.Phases){<option value="@phase.Id" selected="@(Model.Query.PhaseId == phase.Id ? "selected" : null)">@phase.Name</option>}</select></div>
+        <div class="md-field"><label for="MappingState">Estado de mapeo</label><select id="MappingState" name="MappingState"><option value="">Todos</option><option value="Mapped" selected="@(Model.Query.MappingState == "Mapped" ? "selected" : null)">Con Tecnología</option><option value="Unmapped" selected="@(Model.Query.MappingState == "Unmapped" || Model.Query.OnlyPending ? "selected" : null)">Sin Tecnología</option></select></div>
+        <div class="md-field"><label for="FamilyId">Familia</label><select id="FamilyId" name="FamilyId"><option value="">Todas</option>@foreach (var family in Model.Page.Families) { <option value="@family.Id" selected="@(Model.Query.FamilyId == family.Id ? "selected" : null)">@family.Name</option> }</select></div>
+        <div class="md-field"><label for="SortBy">Ordenar por</label><select id="SortBy" name="SortBy"><option value="building-block">Building Block</option><option value="domain" selected="@(Model.Query.SortBy == "domain" ? "selected" : null)">Dominio</option><option value="phase" selected="@(Model.Query.SortBy == "phase" ? "selected" : null)">Fase</option><option value="technologies" selected="@(Model.Query.SortBy == "technologies" ? "selected" : null)">Cantidad de Tecnologías</option><option value="status" selected="@(Model.Query.SortBy == "status" ? "selected" : null)">Estado</option></select></div>
+        <div class="md-field"><label for="SortDirection">Dirección</label><select id="SortDirection" name="SortDirection"><option value="asc">Ascendente</option><option value="desc" selected="@(Model.Query.SortDirection == "desc" ? "selected" : null)">Descendente</option></select></div>
+        <label class="map-check"><input type="checkbox" name="OnlyPending" value="true" checked="@(Model.Query.OnlyPending ? "checked" : null)" /> Solo Building Blocks sin tecnología</label>
+        <button class="md-button md-button-filled" type="submit">Filtrar</button>
+    </form>
+    <div class="responsive-table" role="region" aria-label="Building Blocks y Tecnologías TSI relacionadas" tabindex="0">
+        <table><thead><tr><th>Building Block</th><th>Dominio</th><th>Fase de adopción</th><th>Tecnologías TSI</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+        @if (Model.Page.Items.Count == 0) { <tr><td colspan="6">No existen Building Blocks para los filtros seleccionados.</td></tr> }
+        @foreach (var item in Model.Page.Items) { <tr><td data-label="Building Block"><a href="@item.DetailRoute">@item.BuildingBlockName</a></td><td data-label="Dominio">@(item.DomainName ?? "No definido")</td><td data-label="Fase">@(item.PhaseName ?? "No definido")</td><td data-label="Tecnologías TSI"><details><summary>@item.Technologies.Count @(item.Technologies.Count == 1 ? "tecnología" : "tecnologías")</summary>@if(item.Technologies.Count == 0){<p>Sin Tecnologías TSI relacionadas.</p>}else{<ul class="mapping-child-list">@foreach(var technology in item.Technologies){<li><a href="@technology.DetailRoute">@technology.Name</a><small>Familia: @(technology.FamilyName ?? "Sin familia") · Estado: @(technology.AdoptionStateName ?? "No definido")</small>@if(User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)){<form method="post" asp-action="Disassociate" asp-route-buildingBlockId="@item.BuildingBlockId" asp-route-technologyId="@technology.Id" class="inline-form" onsubmit="return confirm('Se eliminará únicamente esta relación. ¿Desea continuar?');"><button class="md-button md-button-text" type="submit">Desasociar</button></form>}</li>}</ul>}@if(User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)){<a class="md-button md-button-text" href="@item.ManageRoute">+ Asociar tecnología</a>}</details></td><td data-label="Estado"><span class="mapping-badge @(item.IsMapped ? "mapping-badge--mapped" : "mapping-badge--unmapped")">@(item.IsMapped ? "Mapeado" : "Pendiente")</span></td><td data-label="Acciones"><a class="md-button md-button-text" href="@item.DetailRoute">Ver Building Block</a>@if(User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)){<a class="md-button md-button-text" href="@item.ManageRoute">Administrar tecnologías</a>}</td></tr> }
+        </tbody></table>
+    </div>
+    <nav class="pagination" aria-label="Paginación de Building Blocks"><span>@Model.Page.TotalCount Building Blocks</span>@if(Model.Page.Page > 1){<a asp-route-Page="@(Model.Page.Page-1)" asp-route-Search="@Model.Query.Search" asp-route-DomainId="@Model.Query.DomainId" asp-route-PhaseId="@Model.Query.PhaseId" asp-route-FamilyId="@Model.Query.FamilyId" asp-route-MappingState="@Model.Query.MappingState" asp-route-OnlyPending="@Model.Query.OnlyPending" asp-route-SortBy="@Model.Query.SortBy" asp-route-SortDirection="@Model.Query.SortDirection">Anterior</a>}<span>Página @Model.Page.Page de @Model.TotalPages</span>@if(Model.Page.Page < Model.TotalPages){<a asp-route-Page="@(Model.Page.Page+1)" asp-route-Search="@Model.Query.Search" asp-route-DomainId="@Model.Query.DomainId" asp-route-PhaseId="@Model.Query.PhaseId" asp-route-FamilyId="@Model.Query.FamilyId" asp-route-MappingState="@Model.Query.MappingState" asp-route-OnlyPending="@Model.Query.OnlyPending" asp-route-SortBy="@Model.Query.SortBy" asp-route-SortDirection="@Model.Query.SortDirection">Siguiente</a>}</nav>
+
+    <section class="report-card family-building-block-report" aria-labelledby="family-report-title">
+        <p class="eyebrow">ANÁLISIS DERIVADO</p>
+        <h2 id="family-report-title">Building Blocks por Familia</h2>
+        <p class="supporting-text">Cada Building Block se cuenta una sola vez por Familia, aunque tenga varias Tecnologías TSI de esa Familia.</p>
+        <div class="report-kpi-grid" aria-label="Indicadores de familias y relaciones">
+            <div class="report-kpi"><span class="report-kpi-value">@Model.FamilyReport.Indicators.BuildingBlocksWithoutTechnology</span><span class="report-kpi-label">Building Blocks sin Tecnología TSI</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.FamilyReport.Indicators.TechnologiesWithoutBuildingBlock</span><span class="report-kpi-label">Tecnologías sin Building Block</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.FamilyReport.Indicators.BuildingBlocksWithMultipleFamilies</span><span class="report-kpi-label">Building Blocks en varias Familias</span></div>
+        </div>
+        <div class="report-chart-wrap family-report-chart-wrap"><canvas id="family-building-block-chart" aria-label="Building Blocks por Familia"></canvas></div>
+        <p id="family-report-status" class="supporting-text" role="status">Seleccione una barra para explorar los Building Blocks de una Familia.</p>
+        <div id="family-report-detail" data-family-report-detail>
+            @if (Model.FamilyReport.SelectedFamilyId is null)
+            {
+                <p class="empty-state">Seleccione una Familia para ver sus Building Blocks.</p>
+            }
+            else
+            {
+                <partial name="_FamilyBuildingBlockRows" model="Model" />
+            }
+        </div>
+        <script id="family-report-data" type="application/json">@Html.Raw(JsonSerializer.Serialize(Model.FamilyReport.Buckets, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))</script>
+    </section>
+</section>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/reporting.js" asp-append-version="true"></script>
+    <script src="~/js/technology-mapping.js" asp-append-version="true"></script>
+}

@@ -13,8 +13,8 @@ public class HomeController : Controller
 {
     public IActionResult Index() => View(new CatalogMapViewModel
     {
-        Catalogs = MasterCatalogRegistry.Catalogs,
-        Relations = MasterCatalogRegistry.Relations
+        Entities = MasterCatalogRegistry.EntityMetadata,
+        Relationships = MasterCatalogRegistry.LogicalRelationships
     });
 
     public IActionResult Privacy()

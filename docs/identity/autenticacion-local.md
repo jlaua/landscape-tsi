@@ -28,7 +28,7 @@ Si falta el secreto, la aplicación continúa arrancando y omite solamente el bo
 
 ## Base de datos permitida
 
-Sin `ConnectionStrings:IdentityDatabase`, el arranque local usa almacenamiento en memoria y no toca SQL Server. Si se configura SQL Server durante esta implementación, el catálogo de la conexión debe llamarse exactamente `db-landscape-tsi-dev`; cualquier otro nombre detiene el arranque. Las migraciones se generan para revisión y no se ejecutan automáticamente.
+Sin `ConnectionStrings:LandscapeTsiDb`, el arranque local usa almacenamiento en memoria y no toca SQL Server. Si se configura SQL Server, `DatabaseSafety:ExpectedDatabaseName` debe declarar el catálogo esperado para el ambiente; la aplicación compara ese valor con `Initial Catalog` mediante igualdad exacta y detiene el arranque ante cualquier diferencia. En Azure puede establecerse, por ejemplo, mediante `DatabaseSafety__ExpectedDatabaseName=db-landscape-tsi-dev-v2`. Las migraciones se generan para revisión y no se ejecutan automáticamente.
 
 Está prohibido aplicar migraciones o ejecutar DDL/DML contra `db-landscape-tsi`.
 

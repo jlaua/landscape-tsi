@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Landscape.Tsi.Infrastructure.Catalogs;
 
-public sealed class DominioService(IdentityDbContext dbContext) : IDominioService
+public sealed class DominioService(IdentityDbContext dbContext, IAuditTrailService? auditTrail = null) : IDominioService
 {
     public async Task<PagedResult<DominioRecord>> ListAsync(
         string? search,
@@ -88,6 +88,9 @@ public sealed class DominioService(IdentityDbContext dbContext) : IDominioServic
             Apply(entity, command);
             dbContext.Domains.Add(entity);
             await dbContext.SaveChangesAsync(cancellationToken);
+            if (auditTrail is not null)
+                await auditTrail.RecordCreateAsync("dominio", "TMDominio", entity.Id, entity.Dominio, actorUserId,
+                    correlationId, "Creación de Dominio.", 1, cancellationToken);
             AddAudit("MasterCatalog.Created", Permissions.CatalogCreate, entity.Id, actorUserId,
                 correlationId, null, ToRecord(entity), "Succeeded");
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -140,6 +143,9 @@ public sealed class DominioService(IdentityDbContext dbContext) : IDominioServic
             var before = ToRecord(entity);
             Apply(entity, command);
             var after = ToRecord(entity);
+            if (auditTrail is not null)
+                await auditTrail.RecordUpdateAsync("dominio", "TMDominio", entity.Id, entity.Dominio, actorUserId,
+                    correlationId, "Actualización de Dominio.", cancellationToken);
             AddAudit("MasterCatalog.Updated", Permissions.CatalogEdit, entity.Id, actorUserId,
                 correlationId, before, after, "Succeeded");
             await dbContext.SaveChangesAsync(cancellationToken);

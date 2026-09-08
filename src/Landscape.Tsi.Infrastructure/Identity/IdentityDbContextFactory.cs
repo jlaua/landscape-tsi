@@ -16,14 +16,14 @@ public sealed class IdentityDbContextFactory : IDesignTimeDbContextFactory<Ident
             .SetBasePath(webProjectPath)
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile($"appsettings.{environment}.json", optional: true)
-            .AddEnvironmentVariables()
             .AddUserSecrets<IdentityDbContextFactory>(optional: true)
+            .AddEnvironmentVariables()
             .Build();
         var connectionString = configuration.GetConnectionString("LandscapeTsiDb")
             ?? throw new InvalidOperationException(
                 "Configure ConnectionStrings:LandscapeTsiDb para usar IdentityDbContext en tiempo de diseño.");
 
-        EnsureDevelopmentDatabase(connectionString);
+        DatabaseSafetyValidator.Validate(connectionString, configuration);
         var options = new DbContextOptionsBuilder<IdentityDbContext>()
             .UseSqlServer(connectionString)
             .Options;
@@ -48,13 +48,4 @@ public sealed class IdentityDbContextFactory : IDesignTimeDbContextFactory<Ident
         throw new InvalidOperationException("No se encontró el proyecto Landscape.Tsi.Web para cargar su configuración.");
     }
 
-    private static void EnsureDevelopmentDatabase(string connectionString)
-    {
-        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
-        if (!string.Equals(builder.InitialCatalog, DevelopmentSqlConnection.ApprovedDatabase, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"LandscapeTsiDb solo puede apuntar a {DevelopmentSqlConnection.ApprovedDatabase} durante esta implementación.");
-        }
-    }
 }

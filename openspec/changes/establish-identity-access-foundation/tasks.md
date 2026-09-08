@@ -54,6 +54,7 @@
 ## 7. Auditoria de autorizacion
 
 - [ ] 7.1 Implementar el registro append-only de cambios de usuario, rol, permiso, alcance y emergencia, y verificar actor, beneficiario, antes/despues, justificacion, aprobacion y correlacion.
+  - Avance: la administración de alcance corporativo/subsidiario registra `OrganizationScopeAssigned` y `OrganizationScopeRevoked` con actor, beneficiario, aprobador, justificación y correlación; queda pendiente cerrar la matriz completa de eventos IAM y su verificación integral.
 - [x] 7.2 Implementar auditoria de login local/OAuth, bootstrap, decisiones de alto impacto, denegaciones e intentos privilegiados, y verificar fecha, mecanismo, resultado y ausencia de contrasenas, hashes, secretos o tokens completos.
 - [x] 7.3 Garantizar atomicidad entre mutaciones empresariales y sus eventos de auditoria cuando corresponda, y verificar rollback conjunto ante un fallo inducido.
 - [x] 7.4 Implementar consulta acotada por `Audit.View` y `AUDIT_SCOPE`, y verificar denegacion sin filtracion para organizaciones no autorizadas.
@@ -83,3 +84,5 @@
 - [x] 10.2 Documentar configuracion por ambiente, `dotnet user-secrets set "BootstrapAdmin:Password" "<secreto>"`, variable de entorno, rotacion, monitoreo y alertas sin valores reales, y verificar el procedimiento en un entorno no productivo.
 - [ ] 10.3 Preparar scripts de migracion y rollback para revision operativa sin ejecutarlos en produccion, y verificar correspondencia exacta con la migracion aprobada.
 - [ ] 10.4 Realizar una revision final de seguridad, privacidad, segregacion, auditoria, accesibilidad y compatibilidad con la base existente, y verificar que los hallazgos bloqueantes esten cerrados antes de solicitar despliegue.
+- [x] 10.5 Actualizar la utilidad `tools/Landscape.Tsi.PasswordReset` con la allowlist Development/Staging/Production, metadatos sanitizados, confirmacion reforzada y rechazo de Production sin base autorizada; verificar que no acepte bases arbitrarias ni exponga credenciales.
+- [ ] 10.6 Verificar el reset excepcional con `UserManager` y auditoria tecnica en una base autorizada no productiva, sin ejecutar todavia el reset solicitado para `jean` en esta revision.

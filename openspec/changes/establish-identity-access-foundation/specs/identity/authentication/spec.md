@@ -59,6 +59,21 @@ El sistema MUST NOT almacenar contrasenas, secretos de bootstrap ni tokens feder
 - **WHEN** se crea o cambia una contrasena local
 - **THEN** solo se persiste el hash generado por ASP.NET Core Identity y ningun log o evento contiene la contrasena
 
+### Requirement: Recuperacion administrativa local fuera de la interfaz
+La utilidad administrativa aislada MUST operar solo con una politica explicita de ambiente y base autorizada, MUST utilizar `UserManager` para recuperar la cuenta local y MUST rechazar cualquier ambiente o base no declarados. MUST solicitar la nueva contraseña interactivamente, sin argumentos, eco, almacenamiento ni registro.
+
+#### Scenario: Recuperacion en Development o Staging autorizado
+- **WHEN** la utilidad se ejecuta en Development con `db-landscape-tsi-dev` o en Staging con la misma base explicitamente autorizada
+- **THEN** muestra ambiente, servidor, base y usuario, solicita confirmacion reforzada fuera de Development y ejecuta `FindByNameAsync`, `GeneratePasswordResetTokenAsync` y `ResetPasswordAsync` mediante ASP.NET Core Identity
+
+#### Scenario: Production sin base autorizada
+- **WHEN** la utilidad se ejecuta con `ASPNETCORE_ENVIRONMENT=Production` sin una entrada productiva explicita en la politica
+- **THEN** rechaza la operacion antes de buscar al usuario o solicitar la contraseña
+
+#### Scenario: Credencial no expuesta
+- **WHEN** se completa o falla una recuperacion administrativa
+- **THEN** la contraseña, confirmacion, hash y token no aparecen en consola, logs, argumentos, archivos ni auditoria
+
 ### Requirement: Bootstrap administrativo condicionado
 El sistema MUST poder crear idempotentemente los usuarios locales `jean` y `administrador` con el rol funcional `Administrador del Sistema` solo en entornos expresamente autorizados y solo cuando la contrasena se obtiene de User Secrets o `LANDSCAPE_TSI_BOOTSTRAP_ADMIN_PASSWORD`.
 

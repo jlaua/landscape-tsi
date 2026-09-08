@@ -2,69 +2,50 @@
 @model Landscape.Tsi.Web.Models.CatalogMapViewModel
 @{
     ViewData["Title"] = "Inicio";
+    var groups = Model.Entities
+        .Where(entity => entity.IsAdministrable)
+        .Select(entity => entity.Group)
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
 }
 <section class="home-hero" aria-labelledby="home-title">
     <p class="eyebrow">LANDSCAPE TSI</p>
     <h1 id="home-title">Gobierno de tecnologías de seguridad</h1>
-    <p>Explore las entidades del catálogo y sus relaciones verificadas en la base de desarrollo.</p>
+    <p>Explore las entidades del catálogo y sus relaciones verificadas.</p>
 </section>
 
 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogView))
 {
-    <section id="catalog-map" class="catalog-map-shell" aria-labelledby="catalog-map-title">
+    <section class="catalog-map-shell" aria-labelledby="catalog-map-title">
         <div class="page-heading">
             <div>
-                <p class="eyebrow">VISTA LÓGICA</p>
+                <p class="eyebrow">CATÁLOGO LANDSCAPE TSI</p>
                 <h2 id="catalog-map-title">Mapa del Catálogo Landscape TSI</h2>
-                <p class="supporting-text">Las flechas representan relaciones verificadas mediante claves foráneas. Seleccione una entidad para administrarla.</p>
             </div>
-            <div class="map-controls" role="group" aria-label="Controles de escala del mapa">
-                <button type="button" class="md-button md-button-text" data-map-zoom="out" aria-label="Reducir mapa">−</button>
-                <button type="button" class="md-button md-button-text" data-map-zoom="reset">100 %</button>
-                <button type="button" class="md-button md-button-text" data-map-zoom="in" aria-label="Ampliar mapa">+</button>
+            <div class="logical-map-legend" aria-label="Tipos de entidad">
+                <span class="entity-badge entity-badge-master" aria-label="Tabla maestra">M <span>Tabla maestra</span></span>
+                <span class="entity-badge entity-badge-transactional" aria-label="Tabla transaccional">T <span>Tabla transaccional</span></span>
             </div>
         </div>
-
-        <div class="catalog-map-viewport" tabindex="0" aria-label="Mapa navegable de entidades">
-            <div class="catalog-map-canvas" data-catalog-map>
-                <svg class="catalog-map-connections" aria-hidden="true">
-                    <defs><marker id="catalog-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>
-                </svg>
-                <div class="catalog-map-groups">
-                @foreach (var group in Model.Groups)
-                {
-                    <details class="catalog-map-group" open>
-                        <summary><span>@group.Key</span><span class="group-count">@group.Count() entidades</span></summary>
-                        <div class="catalog-map-nodes">
-                        @foreach (var catalog in group)
+        <div class="catalog-map-groups">
+            @foreach (var group in groups)
+            {
+                var entities = Model.Entities.Where(entity => entity.IsAdministrable && entity.Group == group).ToArray();
+                if (entities.Length == 0) continue;
+                <section class="catalog-map-group" aria-labelledby="group-@group.GetHashCode()">
+                    <h3 id="group-@group.GetHashCode()">@group</h3>
+                    <div class="catalog-map-nodes">
+                        @foreach (var entity in entities)
                         {
-                            var isDomain = catalog.Code == "dominio";
-                            <a class="catalog-map-node" data-catalog-code="@catalog.Code"
-                               asp-controller="MasterTables" asp-action="@(isDomain ? "Domain" : "Catalog")"
-                               asp-route-catalogRoute="@(isDomain ? null : catalog.Route)">
-                                <span class="map-node-mark" aria-hidden="true">@catalog.Name.Substring(0, 1)</span>
-                                <span>@catalog.Name</span>
+                            <a class="catalog-map-node" data-catalog-code="@entity.Code" href="@entity.Route" aria-label="@entity.EntityTypeLabel: @entity.LogicalName">
+                                <span class="entity-badge @(entity.EntityType == Landscape.Tsi.Application.Catalogs.CatalogEntityType.Master ? "entity-badge-master" : "entity-badge-transactional")" aria-label="@entity.EntityTypeLabel">@entity.Badge</span>
+                                <span>@entity.LogicalName</span>
                             </a>
                         }
-                        </div>
-                    </details>
-                }
-                </div>
-            </div>
-        </div>
-
-        <details class="relationship-summary">
-            <summary>Relaciones representadas (@Model.Relations.Count)</summary>
-            <ul>
-            @foreach (var relation in Model.Relations)
-            {
-                var parent = Model.Catalogs.Single(catalog => catalog.Code == relation.ParentCatalogCode);
-                var child = Model.Catalogs.Single(catalog => catalog.Code == relation.ChildCatalogCode);
-                <li data-map-relation data-from="@relation.ParentCatalogCode" data-to="@relation.ChildCatalogCode" data-type="@relation.Type">
-                    <strong>@parent.Name</strong> → <strong>@child.Name</strong>: @relation.Type
-                </li>
+                    </div>
+                </section>
             }
-            </ul>
-        </details>
+        </div>
+        <p class="catalog-map-detail-link"><a class="md-button md-button-outlined" asp-controller="EntityView" asp-action="Index">Explorar vista de entidades</a></p>
     </section>
 }

@@ -92,7 +92,8 @@ public sealed class LoginPageTests
         Assert.Contains("Administración", homeHtml);
         Assert.Contains("Mapa del Catálogo Landscape TSI", homeHtml);
         Assert.Contains("data-catalog-code=\"building-block\"", homeHtml);
-        Assert.DoesNotContain("TBuildingBlock", homeHtml);
+        Assert.Contains("data-catalog-code=\"building-block\"", homeHtml);
+        Assert.DoesNotContain("data-catalog-graph", homeHtml);
         var administration = await client.GetAsync("/Administration");
         administration.EnsureSuccessStatusCode();
         var administrationHtml = await administration.Content.ReadAsStringAsync();
@@ -134,6 +135,71 @@ public sealed class LoginPageTests
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task TechnologyMappingRoutes_ExistAndProtectBeforeDataAccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        foreach (var path in new[]
+        {
+            "/Administration/TechnologyMapping",
+            "/Administration/TechnologyMapping/Unassigned",
+            "/Administration/TechnologyMapping/Technology/1/Relations",
+            "/Administration/TechnologyMapping/BuildingBlock/1/Relations",
+            "/Administration/TechnologyMapping/Family/1/BuildingBlocks"
+        })
+        {
+            var response = await client.GetAsync(path);
+            Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task ReportingRoutes_RequireCatalogViewBeforeDataAccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        foreach (var path in new[]
+        {
+            "/reporteria",
+            "/reporteria/empresas-ciso",
+            "/reporteria/empresas-ciso?allCiso=true&search=Prima&page=2",
+            "/reporteria/api/catalogos",
+            "/reporteria/api/catalogos/dominio/detalle",
+            "/reporteria/api/catalogos/dominio/registros/1/kpis",
+            "/reporteria/api/catalogos/dominio/relaciones"
+        })
+        {
+            var response = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
+        }
+    }
+
+    [Fact]
+    public async Task MasterTableRoutes_RequireCatalogViewBeforeDataAccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        foreach (var path in new[]
+        {
+            "/Administration/MasterTables",
+            "/Administration/MasterTables/building-block",
+            "/Administration/MasterTables/building-block/details/1",
+            "/Administration/MasterTables/building-block/create",
+            "/Administration/MasterTables/building-block/edit/1"
+        })
+        {
+            var response = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
+        }
     }
 
     [Fact]
@@ -403,6 +469,7 @@ public sealed class LoginPageTests
             dbContext.AuthorizationAuditEvents.Add(new IamEventoAuditoriaAutorizacion
             {
                 EmpresaSubsidiariaId = 101,
+                OccurredAtUtc = DateTime.UtcNow,
                 EventType = "AuthorizedEvent",
                 Result = "Succeeded",
                 CorrelationId = "web-audit"
@@ -415,9 +482,20 @@ public sealed class LoginPageTests
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
         Assert.Contains("AuthorizedEvent", allowedHtml);
         Assert.Contains("aria-label=\"Eventos de auditoría autorizados\"", allowedHtml);
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local).ToString("yyyy-MM-dd");
+        Assert.Contains($"name=\"dateFrom\" type=\"date\" value=\"{today}\"", allowedHtml);
+        Assert.Contains($"name=\"dateTo\" type=\"date\" value=\"{today}\"", allowedHtml);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Audit")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Audit?action=DELETE")).StatusCode);
+        var emptyAudit = await client.GetAsync("/Audit?entity=funcionalidad");
+        Assert.Equal(HttpStatusCode.OK, emptyAudit.StatusCode);
+        Assert.Contains("No se encontraron eventos para los filtros seleccionados.", await emptyAudit.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Audit?dateFrom={today}&dateTo={today}")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/Audit?entity=not-allowed")).StatusCode);
 
         var denied = await client.GetAsync("/Audit?empresaSubsidiariaId=202");
-        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         Assert.DoesNotContain("AuthorizedEvent", await denied.Content.ReadAsStringAsync());
     }
 

@@ -29,10 +29,13 @@ public static class Permissions
     public const string CatalogView = "Catalogos.Ver";
     public const string CatalogCreate = "Catalogos.Crear";
     public const string CatalogEdit = "Catalogos.Editar";
+    public const string CatalogDelete = "Catalogos.Eliminar";
     public const string CatalogDeactivate = "Catalogos.Desactivar";
     public const string UserManage = "Administration.UserManage";
     public const string RoleManage = "Administration.RoleManage";
     public const string AuditView = "Audit.View";
+    public const string AuditoriaVer = "Auditoria.Ver";
+    public const string AuditoriaRestaurar = "Auditoria.Restaurar";
     public const string UsersView = "Usuarios.Ver";
     public const string UsersCreate = "Usuarios.Crear";
     public const string UsersEdit = "Usuarios.Editar";
@@ -48,10 +51,13 @@ public static class Permissions
             [CatalogView] = "Consultar catálogos maestros",
             [CatalogCreate] = "Crear registros en catálogos autorizados",
             [CatalogEdit] = "Editar registros en catálogos autorizados",
+            [CatalogDelete] = "Eliminar registros con análisis de dependencias",
             [CatalogDeactivate] = "Desactivar registros cuando exista una estrategia aprobada",
             [UserManage] = "Administrar usuarios",
             [RoleManage] = "Administrar roles y permisos",
             [AuditView] = "Consultar auditoría autorizada"
+            ,[AuditoriaVer] = "Consultar trazabilidad de operaciones"
+            ,[AuditoriaRestaurar] = "Restaurar eliminaciones auditadas"
             ,[UsersView] = "Consultar usuarios locales"
             ,[UsersCreate] = "Crear usuarios locales"
             ,[UsersEdit] = "Editar usuarios locales"
@@ -68,6 +74,9 @@ public static class Permissions
             CatalogView,
             CatalogCreate,
             CatalogEdit
+            ,CatalogDelete
+            ,AuditoriaVer
+            ,AuditoriaRestaurar
         };
 }
 

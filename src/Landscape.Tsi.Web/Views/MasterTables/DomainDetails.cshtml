@@ -25,6 +25,13 @@
             {
                 <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#edit-domain-modal">Editar</button>
             }
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+            {
+                <button class="md-button md-button-danger" type="button" data-bs-toggle="modal" data-bs-target="#delete-domain-modal"
+                        data-delete-impact-url="@Url.Action("DomainDeleteImpact", new { id = Model.Record.Id })">
+                    Eliminar <span class="visually-hidden">registro</span>
+                </button>
+            }
         </div>
     </div>
 
@@ -45,6 +52,65 @@
         <div class="detail-field"><dt>Homologación según lineamiento</dt><dd>@ValueOrDash(Model.Record.HomologacionDimensionSegunLineamiento)</dd></div>
         <div class="detail-field detail-field-wide"><dt>Ejemplos</dt><dd>@ValueOrDash(Model.Record.Ejemplos)</dd></div>
     </dl>
+</section>
+
+<section class="report-card related-entities-card" aria-labelledby="related-entities-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">ENTIDADES RELACIONADAS</p>
+            <h2 id="related-entities-title"><span class="entity-badge entity-badge-transactional" aria-label="Tabla transaccional">T</span> Building Blocks <span class="result-count">@Model.RelatedBuildingBlocks.TotalCount registros</span></h2>
+        </div>
+    </div>
+    <form class="filter-bar" method="get" asp-action="DomainDetails" asp-route-id="@Model.Record.Id">
+        <div class="md-field"><label for="related-search">Buscar Building Blocks</label><input id="related-search" name="relatedSearch" value="@Model.RelatedSearch" type="search" class="form-control" /></div>
+        <input type="hidden" name="relatedPageSize" value="@Model.RelatedBuildingBlocks.PageSize" />
+        <button class="md-button md-button-tonal" type="submit">Buscar</button>
+    </form>
+    @if (Model.RelatedBuildingBlocks.TotalCount == 0)
+    {
+        <div class="empty-state" role="status"><h3>No existen Building Blocks relacionados con este Dominio.</h3></div>
+    }
+    else
+    {
+        <div class="responsive-table" role="region" aria-label="Building Blocks relacionados" tabindex="0">
+            <table><thead><tr><th>Building Block</th><th>Fase de Adopción</th><th>Pilar ZT</th><th><span class="visually-hidden">Acciones</span></th></tr></thead><tbody>
+            @foreach (var item in Model.RelatedBuildingBlocks.Items)
+            {
+                <tr>
+                    <td data-label="Building Block">@(item.DisplayValues.GetValueOrDefault("nombre") ?? "—")</td>
+                    <td data-label="Fase de Adopción">@(item.DisplayValues.GetValueOrDefault("faseAdopcion") ?? "NO DEFINIDO")</td>
+                    <td data-label="Pilar ZT">@(item.DisplayValues.GetValueOrDefault("pilarZt") ?? "—")</td>
+                    <td data-label="Acciones" class="table-actions">
+                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@item.Id">Ver</a>
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                        { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="building-block" asp-route-id="@item.Id">Editar</a> }
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                        { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@item.Id" asp-fragment="delete">Eliminar</a> }
+                    </td>
+                </tr>
+            }
+            </tbody></table>
+        </div>
+        <nav class="pagination-shell" aria-label="Paginación de Building Blocks relacionados">
+            <span>Página @Model.RelatedBuildingBlocks.Page de @Model.RelatedBuildingBlocks.TotalPages · @Model.RelatedBuildingBlocks.TotalCount registros</span>
+            <div>
+                @if (Model.RelatedBuildingBlocks.Page > 1) { <a class="md-button md-button-text" asp-action="DomainDetails" asp-route-id="@Model.Record.Id" asp-route-relatedSearch="@Model.RelatedSearch" asp-route-relatedPage="@(Model.RelatedBuildingBlocks.Page - 1)" asp-route-relatedPageSize="@Model.RelatedBuildingBlocks.PageSize">Anterior</a> }
+                @if (Model.RelatedBuildingBlocks.Page < Model.RelatedBuildingBlocks.TotalPages) { <a class="md-button md-button-text" asp-action="DomainDetails" asp-route-id="@Model.Record.Id" asp-route-relatedSearch="@Model.RelatedSearch" asp-route-relatedPage="@(Model.RelatedBuildingBlocks.Page + 1)" asp-route-relatedPageSize="@Model.RelatedBuildingBlocks.PageSize">Siguiente</a> }
+            </div>
+        </nav>
+    }
+    <a class="md-button md-button-outlined" asp-action="Catalog" asp-route-catalogRoute="building-block" asp-route-parentId="@Model.Record.Id">Ver todos los Building Blocks</a>
+</section>
+
+<section class="report-card" aria-labelledby="dependency-summary-title">
+    <p class="eyebrow">RESUMEN DE DEPENDENCIAS</p>
+    <h2 id="dependency-summary-title">Descendientes del dominio</h2>
+    <div class="report-kpi-grid">
+        @foreach (var node in Model.DependencyImpact.RecursiveDependents)
+        {
+            <div class="report-kpi"><span class="report-kpi-value">@node.RecordCount</span><span class="report-kpi-label">@node.EntityName</span></div>
+        }
+    </div>
 </section>
 
 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
@@ -69,6 +135,47 @@
     </div>
 }
 
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-domain-modal" tabindex="-1" aria-labelledby="delete-domain-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-domain-title">Eliminar registro</h2></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" data-delete-impact-panel data-delete-root="@Model.Record.Dominio">
+                    <p data-delete-impact-status role="status">Analizando dependencias…</p>
+                    <div data-delete-impact-content hidden>
+                        <p>Está a punto de eliminar:</p>
+                        <p class="impact-root"><strong>Dominio:</strong> <span data-delete-root-name>@Model.Record.Dominio</span></p>
+                        <h3>Dependencias afectadas</h3>
+                        <ul class="deletion-impact-tree" data-delete-impact-tree></ul>
+                        <p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p>
+                        <p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p>
+                        <p class="app-alert app-alert-warning" data-delete-blocking hidden></p>
+                        <label class="md-field" data-delete-confirmation-field hidden>
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" form="delete-domain-form" autocomplete="off" data-delete-confirmation />
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="delete-domain-form" method="post" asp-action="DeleteDomain" asp-route-id="@Model.Record.Id">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @functions {
     private static string ValueOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+}
+
+@section Scripts {
+    <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
 }

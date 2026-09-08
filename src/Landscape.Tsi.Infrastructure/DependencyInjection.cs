@@ -28,17 +28,27 @@ public static class DependencyInjection
         else
         {
             services.AddDataProtection();
-            EnsureDevelopmentDatabase(connectionString);
+            DatabaseSafetyValidator.Validate(connectionString, configuration);
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlServer(connectionString));
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            var catalogDatabaseName = configuration["Identity:InMemoryDatabaseName"] ?? "LandscapeTsiIdentityLocal";
+            services.AddDbContext<CatalogDbContext>(options => options.UseInMemoryDatabase(catalogDatabaseName));
+        }
+        else
+        {
+            services.AddDbContext<CatalogDbContext>(options => options.UseSqlServer(connectionString));
         }
 
         services.AddIdentityCore<IamUsuario>(options =>
             {
-                options.Password.RequiredLength = configuration.GetValue("Authentication:Local:PasswordRequiredLength", 12);
-                options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = true;
+                options.Password.RequiredLength = 8;
+                options.Password.RequireDigit = false;
+                options.Password.RequireLowercase = false;
                 options.Password.RequireUppercase = true;
-                options.Password.RequireNonAlphanumeric = true;
+                options.Password.RequireNonAlphanumeric = false;
                 options.Lockout.MaxFailedAccessAttempts = configuration.GetValue("Authentication:Local:MaxFailedAccessAttempts", 5);
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(configuration.GetValue("Authentication:Local:LockoutMinutes", 15));
                 options.User.RequireUniqueEmail = false;
@@ -62,9 +72,15 @@ public static class DependencyInjection
         services.AddScoped<IUserRoleAssignmentService, UserRoleAssignmentService>();
         services.AddScoped<IAuthorizationAuditQuery, AuthorizationAuditQuery>();
         services.AddScoped<IIdentityAdministrationOverview, IdentityAdministrationOverviewService>();
+        services.AddScoped<IOrganizationScopeAdministration, OrganizationScopeAdministrationService>();
         services.AddScoped<IAuthenticationAuditWriter, AuthenticationAuditWriter>();
+        services.AddScoped<IAuditTrailService, AuditTrailService>();
+        services.AddScoped<IAuditRestoreService, AuditRestoreService>();
         services.AddScoped<IDominioService, DominioService>();
         services.AddScoped<ICatalogManagementService, CatalogManagementService>();
+        services.AddScoped<IBuildingBlockRelatedService, BuildingBlockRelatedService>();
+        services.AddScoped<IBuildingBlockTechnologyMappingService, BuildingBlockTechnologyMappingService>();
+        services.AddScoped<IDeletionImpactService, DeletionImpactService>();
         services.AddScoped<IReportingService, CatalogReportingService>();
         services.AddScoped<LandscapeCookieAuthenticationEvents>();
         services.AddScoped<BootstrapAdminInitializer>();
@@ -83,12 +99,4 @@ public static class DependencyInjection
         await scope.ServiceProvider.GetRequiredService<BootstrapAdminInitializer>().InitializeAsync();
     }
 
-    private static void EnsureDevelopmentDatabase(string connectionString)
-    {
-        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
-        if (!string.Equals(builder.InitialCatalog, "db-landscape-tsi-dev", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("LandscapeTsiDb solo puede apuntar a db-landscape-tsi-dev durante esta implementación.");
-        }
-    }
 }

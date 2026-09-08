@@ -153,4 +153,24 @@ inactivación antes de proponer cualquier cambio físico.
   actuales son cortos.
 - Estas observaciones describen el estado actual y no autorizan modificar el
   esquema ni los datos.
+# Mapa lógico interactivo
 
+La representación navegable y validada del modelo se mantiene en
+[`diagrams/07-landscape-logical-catalog-map/`](diagrams/07-landscape-logical-catalog-map/README.md).
+La fuente Archify y la metadata `MasterCatalogRegistry` son las fuentes de
+verdad compartidas para nombres lógicos, nombres físicos, clasificación M/T,
+rutas y relaciones verificadas.
+
+## Mapeo N:M Building Block–Tecnología TSI
+
+La relación se administra exclusivamente mediante
+`dbo.TBuildingBlockVsTTecnologiaTSI`. La aplicación valida la existencia de
+cada par antes de asociar o desasociar, usa una transacción `Serializable` y
+registra la operación en auditoría. Desasociar nunca elimina el Building Block
+ni la Tecnología TSI.
+
+La tabla puente permanece sin PK/UNIQUE por decisión aprobada. La
+prevalidación de `db-landscape-tsi-dev-v2` confirmó 1 fila, 1 par distinto y 0
+grupos duplicados. Se propone como deuda técnica un índice `UNIQUE` sobre
+`(idBuildingBlock, idTecnologiaTSI)`; la propuesta SQL está documentada y no
+se aplica automáticamente.

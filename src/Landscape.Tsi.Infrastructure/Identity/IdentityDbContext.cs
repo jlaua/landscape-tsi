@@ -19,6 +19,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<IamUsuarioOrganizacion> UserOrganizations => Set<IamUsuarioOrganizacion>();
     public DbSet<IamAccesoEmergencia> EmergencyAccess => Set<IamAccesoEmergencia>();
     public DbSet<IamEventoAuditoriaAutorizacion> AuthorizationAuditEvents => Set<IamEventoAuditoriaAutorizacion>();
+    public DbSet<AuditOperation> AuditOperations => Set<AuditOperation>();
+    public DbSet<AuditDeletedRecordSnapshot> AuditRecordSnapshots => Set<AuditDeletedRecordSnapshot>();
+    public DbSet<AuditRecordKeyMap> AuditRecordKeyMaps => Set<AuditRecordKeyMap>();
     public DbSet<TmDominio> Domains => Set<TmDominio>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -123,6 +126,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.ToTable("TEmpresaSubsidiaria", table => table.ExcludeFromMigrations());
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).HasColumnName("idEmpresaSubsidiaria");
+            entity.Property(x => x.Name).HasColumnName("nombreEmpresa");
         });
 
         builder.Entity<IamUsuarioOrganizacion>(entity =>
@@ -171,6 +175,54 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.HasIndex(x => x.EmpresaSubsidiariaId);
         });
 
+        builder.Entity<AuditOperation>(entity =>
+        {
+            entity.ToTable("Operation", "audit");
+            entity.HasKey(x => x.OperationId);
+            entity.Property(x => x.CorrelationId).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.ActionType).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.EntityCode).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.PhysicalTableName).HasMaxLength(256);
+            entity.Property(x => x.RootDisplayName).HasMaxLength(512);
+            entity.Property(x => x.ActorUserNameSnapshot).HasMaxLength(256);
+            entity.Property(x => x.Description).HasMaxLength(2048);
+            entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(x => x.OccurredAtUtc);
+            entity.HasIndex(x => x.ActorUserId);
+            entity.HasIndex(x => x.ActionType);
+            entity.HasIndex(x => x.EntityCode);
+            entity.HasIndex(x => x.EmpresaSubsidiariaId);
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasIndex(x => x.ReversesOperationId);
+        });
+
+        builder.Entity<AuditDeletedRecordSnapshot>(entity =>
+        {
+            entity.ToTable("RecordSnapshot", "audit");
+            entity.HasKey(x => x.SnapshotId);
+            entity.Property(x => x.EntityCode).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.PhysicalTableName).HasMaxLength(256).IsRequired();
+            entity.Property(x => x.PrimaryKeyJson).IsRequired();
+            entity.Property(x => x.ForeignKeysJson).IsRequired();
+            entity.Property(x => x.RowDataJson).IsRequired();
+            entity.Property(x => x.DisplayName).HasMaxLength(512);
+            entity.HasIndex(x => new { x.OperationId, x.PhysicalTableName, x.DeleteOrder });
+            entity.HasOne(x => x.Operation).WithMany(x => x.Snapshots)
+                .HasForeignKey(x => x.OperationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AuditRecordKeyMap>(entity =>
+        {
+            entity.ToTable("RecordKeyMap", "audit");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.PhysicalTableName).HasMaxLength(256).IsRequired();
+            entity.Property(x => x.OldPrimaryKeyJson).IsRequired();
+            entity.Property(x => x.NewPrimaryKeyJson).IsRequired();
+            entity.HasIndex(x => new { x.OperationId, x.PhysicalTableName });
+            entity.HasOne(x => x.Operation).WithMany(x => x.KeyMaps)
+                .HasForeignKey(x => x.OperationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<TmDominio>(entity =>
         {
             entity.ToTable("TMDominio", "dbo", table => table.ExcludeFromMigrations());
@@ -189,7 +241,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     private void EnsureAuditIsAppendOnly()
     {
         var forbidden = ChangeTracker.Entries()
-            .Where(entry => entry.Entity is IamEventoAuditoriaAutorizacion or IamEventoAutenticacion)
+            .Where(entry => entry.Entity is IamEventoAuditoriaAutorizacion or IamEventoAutenticacion or AuditOperation or AuditDeletedRecordSnapshot or AuditRecordKeyMap)
             .Where(entry => entry.State is EntityState.Modified or EntityState.Deleted)
             .Select(entry => entry.Metadata.DisplayName())
             .Distinct(StringComparer.Ordinal)

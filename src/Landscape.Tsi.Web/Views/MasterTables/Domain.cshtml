@@ -110,6 +110,22 @@
     }
 </section>
 
+<section class="report-card domain-relationships-card" aria-labelledby="domain-building-blocks-title">
+    <div class="report-toolbar">
+        <span class="loading-status" data-domain-relation-status role="status" aria-live="polite">Cargando relaciones…</span>
+    </div>
+    <h2 id="domain-building-blocks-title">Building Blocks por Dominio</h2>
+    <p class="supporting-text">Cantidad de Building Blocks asociados a cada dominio mediante la relación registrada en la base de datos.</p>
+    <div class="report-chart-wrap"><canvas id="domain-building-blocks-chart" aria-label="Cantidad de Building Blocks por dominio"></canvas></div>
+    <div class="responsive-table" role="region" aria-label="Resumen de Building Blocks por dominio" tabindex="0">
+        <table>
+            <caption class="visually-hidden">Datos del gráfico Building Blocks por Dominio</caption>
+            <thead><tr><th scope="col">Dominio</th><th scope="col">Building Blocks</th></tr></thead>
+            <tbody data-domain-relation-table><tr><td colspan="2">Cargando…</td></tr></tbody>
+        </table>
+    </div>
+</section>
+
 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
 {
     <div class="modal fade" id="create-domain-modal" tabindex="-1" aria-labelledby="create-domain-title" aria-hidden="true">
@@ -131,4 +147,9 @@
             </div>
         </div>
     </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/domain-relationships.js" asp-append-version="true"></script>
 }

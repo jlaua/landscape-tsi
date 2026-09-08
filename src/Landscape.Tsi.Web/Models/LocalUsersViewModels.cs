@@ -12,7 +12,7 @@ public sealed class LocalUsersQueryModel
 }
 
 public sealed record LocalUsersPageViewModel(LocalUserPage Page, IReadOnlyList<LocalRoleOption> Roles, LocalUsersQueryModel Query);
-public sealed record LocalUserDetailViewModel(LocalUserDetail User, IReadOnlyList<LocalRoleOption> Roles, IReadOnlyList<LocalUserAuditRow> Audit);
+public sealed record LocalUserDetailViewModel(LocalUserDetail User, IReadOnlyList<LocalRoleOption> Roles, IReadOnlyList<LocalUserAuditRow> Audit, IReadOnlyList<OrganizationScopeRow> Scopes, IReadOnlyList<OrganizationScopeApprover> Approvers);
 
 public sealed class LocalUserCreateViewModel
 {

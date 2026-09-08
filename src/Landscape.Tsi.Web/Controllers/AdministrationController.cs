@@ -11,7 +11,8 @@ namespace Landscape.Tsi.Web.Controllers;
 public sealed class AdministrationController(
     IIdentityAdministrationOverview overview,
     IIdentityUserAdministration users,
-    ILocalUserAdministration localUsers) : Controller
+    ILocalUserAdministration localUsers,
+    IOrganizationScopeAdministration scopes) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
@@ -51,7 +52,29 @@ public sealed class AdministrationController(
     public async Task<IActionResult> UserDetails(Guid userId, CancellationToken cancellationToken)
     {
         var user = await localUsers.FindAsync(userId, cancellationToken); if (user is null) return NotFound();
-        return View(new LocalUserDetailViewModel(user, await localUsers.GetRolesAsync(cancellationToken), await localUsers.GetAuditAsync(userId, cancellationToken)));
+        return View(new LocalUserDetailViewModel(user, await localUsers.GetRolesAsync(cancellationToken), await localUsers.GetAuditAsync(userId, cancellationToken), await scopes.ListAsync(userId, cancellationToken), await scopes.ListApproversAsync(userId, cancellationToken)));
+    }
+
+    [HttpPost("Usuarios/{userId:guid}/AlcanceCorporativo")]
+    [Authorize(Policy = Permissions.UsersEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignCorporateScope(Guid userId, Guid approvedByUserId, DateTime? validUntilUtc, string justification, CancellationToken cancellationToken)
+    {
+        var actor = GetActorId(); if (actor is null) return Forbid();
+        await scopes.AssignCorporateAsync(new AssignCorporateScopeCommand(userId, actor.Value, approvedByUserId, DateTime.UtcNow, validUntilUtc, justification, HttpContext.TraceIdentifier), cancellationToken);
+        TempData["StatusMessage"] = "Alcance corporativo asignado correctamente.";
+        return RedirectToAction(nameof(UserDetails), new { userId });
+    }
+
+    [HttpPost("Usuarios/{userId:guid}/Alcance/{scopeId:guid}/Retirar")]
+    [Authorize(Policy = Permissions.UsersEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeScope(Guid userId, Guid scopeId, string justification, CancellationToken cancellationToken)
+    {
+        var actor = GetActorId(); if (actor is null) return Forbid();
+        await scopes.RevokeAsync(scopeId, actor.Value, justification, HttpContext.TraceIdentifier, cancellationToken);
+        TempData["StatusMessage"] = "Alcance retirado correctamente.";
+        return RedirectToAction(nameof(UserDetails), new { userId });
     }
 
     [HttpGet("Usuarios/{userId:guid}/Editar")]

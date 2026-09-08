@@ -43,6 +43,23 @@ public sealed class AuthorizationAuditQueryTests
             query.ListAsync(user.Id, 202, "denied-query"));
     }
 
+    [Fact]
+    public async Task Search_WithNoMatches_ReturnsEmptyPageWithoutException()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var user = await SeedAuthorizedUserAsync(scope.ServiceProvider, 101);
+        var query = scope.ServiceProvider.GetRequiredService<IAuthorizationAuditQuery>();
+
+        var result = await query.SearchAsync(user.Id, new AuditFilter(
+            Search: "does-not-exist", EmpresaSubsidiariaId: 101,
+            FromUtc: DateTime.UtcNow.AddDays(-1), ToUtc: DateTime.UtcNow.AddDays(1)));
+
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+        Assert.Equal(1, result.Page);
+    }
+
     private static IamEventoAuditoriaAutorizacion EventFor(int subsidiaryId, string type) => new()
     {
         EmpresaSubsidiariaId = subsidiaryId,

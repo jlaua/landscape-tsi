@@ -1,23 +1,30 @@
-# Restablecimiento temporal de contraseña en Development
+# Restablecimiento administrativo de contraseña
 
-El procedimiento temporal para `jean` utiliza `UserManager<IamUsuario>` y las
+La utilidad aislada para `jean` utiliza `UserManager<IamUsuario>` y las
 operaciones `FindByNameAsync`, `GeneratePasswordResetTokenAsync` y
 `ResetPasswordAsync`. No recibe la contraseña como argumento y no la escribe
 en archivos ni en logs.
 
-Desde la raíz del repositorio, con la conexión de desarrollo configurada en
-User Secrets o variables de entorno:
+Desde la raíz del repositorio, con la conexión configurada en User Secrets o
+variables de entorno y un actor técnico explícito:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:LANDSCAPE_TSI_PASSWORD_RESET_ACTOR = "operador-tecnico-autorizado"
 dotnet run --project ".\tools\Landscape.Tsi.PasswordReset\Landscape.Tsi.PasswordReset.csproj"
 ```
 
-La herramienta solo permite ejecutarse en `Development`, valida que la
-conexión tenga como base `db-landscape-tsi-dev` mediante la infraestructura
-compartida y registra un evento de auditoría sin contraseña ni hash. Solicita
-la nueva contraseña de forma interactiva y la valida con la política de
-ASP.NET Core Identity.
+La política actual permite `Development` y `Staging` únicamente contra
+`db-landscape-tsi-dev`. En `Staging` exige escribir exactamente `RESET <usuario>`
+usando el usuario solicitado, después de mostrar ambiente, servidor, base y usuario. `Production` se rechaza
+hasta que exista una base productiva autorizada explícitamente en la política.
 
-No usar este procedimiento contra `db-landscape-tsi` ni automatizarlo en
-producción.
+La herramienta valida la base mediante la infraestructura compartida, registra
+un evento de auditoría con metadatos sanitizados sin contraseña ni hash y
+solicita la nueva contraseña de forma interactiva, aplicando la política de
+ASP.NET Core Identity. No recibe contraseñas como argumentos y no crea
+endpoints públicos.
+
+No se aceptan nombres de base arbitrarios. La administración Web
+`Usuarios.RestablecerPassword` sigue siendo el mecanismo normal; esta CLI es
+un mecanismo excepcional de recuperación.

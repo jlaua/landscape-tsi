@@ -4,18 +4,114 @@
 @{ ViewData["Title"] = $"Detalle de {Model.Definition.Name}"; var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Record = Model.Record, Options = Model.Options }; }
 <nav aria-label="Ruta de navegación"><ol class="breadcrumb-list"><li><a asp-controller="Home" asp-action="Index">Inicio</a></li><li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li><li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li><li><span aria-hidden="true">/</span> <a asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">@Model.Definition.Name</a></li><li aria-current="page"><span aria-hidden="true">/</span> Detalle</li></ol></nav>
 <section class="catalog-shell" aria-labelledby="catalog-record-title">
-    <div class="page-heading"><div><p class="eyebrow">DETALLE</p><h1 id="catalog-record-title">@(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? "Registro sin nombre")</h1></div><div class="heading-actions"><a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Volver al listado</a>
-    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { if (Model.Definition.EditorMode == CatalogEditorMode.Page) { <a class="md-button md-button-filled" asp-action="CatalogEditForm" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">Editar</a> } else { <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#edit-catalog-modal">Editar</button> } }</div></div>
+    <div class="page-heading"><div><p class="eyebrow">DETALLE</p><h1 id="catalog-record-title">@(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? "Registro sin nombre")</h1></div><partial name="_EntityDetailActions" model="Model" /></div>
     @if (TempData["SuccessMessage"] is string success) { <div class="app-alert app-alert-success" role="status">@success</div> }
     @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
     <dl class="detail-grid">@foreach (var column in Model.Definition.Columns) { <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)"><dt>@column.Label</dt><dd>@(Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—")</dd></div> }</dl>
 </section>
+@if (Model.Related is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="building-related-title">
+        <p class="eyebrow">ENTIDADES RELACIONADAS</p>
+        <h2 id="building-related-title">Building Block @Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</h2>
+        <div class="report-kpi-grid">
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Capabilities.TotalCount</span><span class="report-kpi-label">Capacidades de Seguridad</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Functionalities.TotalCount</span><span class="report-kpi-label">Funcionalidades</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Technologies.TotalCount</span><span class="report-kpi-label">Tecnologías TSI relacionadas</span></div>
+        </div>
+
+        <h3>Capacidades de Seguridad <span class="result-count">(@Model.Related.Capabilities.TotalCount)</span></h3>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"><input type="hidden" name="functionalitySearch" value="" /><input type="hidden" name="technologySearch" value="" /><label for="capability-search">Buscar capacidades</label><input id="capability-search" name="capabilitySearch" class="form-control" type="search" /><button class="md-button md-button-tonal" type="submit">Buscar</button></form>
+        @if (Model.Related.Capabilities.TotalCount == 0) { <p class="empty-state">No existen Capacidades de Seguridad asociadas a este Building Block.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0"><table><thead><tr><th>Capacidad</th><th>Estado de Capacidad</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Capabilities.Items) { <tr><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Capabilities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)">Anterior</a> }@if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)">Siguiente</a> }</div> }
+
+        <h3>Funcionalidades <span class="result-count">(@Model.Related.Functionalities.TotalCount)</span></h3>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"><input type="hidden" name="capabilitySearch" value="" /><input type="hidden" name="technologySearch" value="" /><label for="functionality-search">Buscar funcionalidades</label><input id="functionality-search" name="functionalitySearch" class="form-control" type="search" /><button class="md-button md-button-tonal" type="submit">Buscar</button></form>
+        @if (Model.Related.Functionalities.TotalCount == 0) { <p class="empty-state">No existen Funcionalidades asociadas a las capacidades de este Building Block.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0"><table><thead><tr><th>Funcionalidad</th><th>Capacidad</th><th>Estado de Funcionalidad</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Functionalities.Items) { <tr><td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("funcionalidad")</td><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Functionalities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)">Anterior</a> }@if (Model.Related.Functionalities.Page < Model.Related.Functionalities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)">Siguiente</a> }</div> }
+
+        <h3>Tecnologías TSI relacionadas <span class="result-count">(@Model.Related.Technologies.TotalCount)</span></h3>
+        @if (Model.TechnologyMapping is not null) { <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="BuildingBlockRelations" asp-route-buildingBlockId="@Model.TechnologyMapping.BuildingBlockId" asp-route-returnUrl="@Context.Request.Path">+ Asociar Tecnología</a> }
+        @if (Model.Related.Technologies.TotalCount == 0) { <p class="empty-state">No existen Tecnologías TSI relacionadas con este Building Block.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Tecnologías TSI relacionadas" tabindex="0"><table><thead><tr><th>Tecnología TSI</th><th>Familia</th><th>Estado de Adopción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Technologies.Items) { <tr><td data-label="Tecnología">@row.DisplayValues.GetValueOrDefault("tecnologia")</td><td data-label="Familia">@row.DisplayValues.GetValueOrDefault("familia")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estadoAdopcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@row.Id">Ver</a></td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Technologies.Page de @Model.Related.Technologies.TotalPages</p> }
+    </section>
+}
+@if (Model.TechnologyRelations is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="technology-related-title">
+        <p class="eyebrow">ENTIDADES RELACIONADAS</p><h2 id="technology-related-title">Building Blocks relacionados <span class="result-count">(@Model.TechnologyRelations.BuildingBlocks.Count)</span></h2>
+        @if (Model.TechnologyRelations.BuildingBlocks.Count == 0) { <p class="empty-state">Esta Tecnología TSI todavía no tiene Building Blocks relacionados.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Building Blocks relacionados" tabindex="0"><table><thead><tr><th>Building Block</th><th>Acciones</th></tr></thead><tbody>@foreach (var block in Model.TechnologyRelations.BuildingBlocks) { <tr><td>@block.Name</td><td><a class="md-button md-button-text" href="@Url.Action("CatalogDetails", "MasterTables", new { catalogRoute = "building-block", id = block.Id })">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" href="@Url.Action("TechnologyRelations", "TechnologyMapping", new { technologyId = Model.TechnologyRelations.TechnologyId })">Administrar relaciones</a> }</td></tr> }</tbody></table></div> }
+        <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="TechnologyRelations" asp-route-technologyId="@Model.TechnologyRelations.TechnologyId" asp-route-returnUrl="@Context.Request.Path">Administrar relaciones</a>
+    </section>
+}
+@if (Model.RelatedRecords is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="capacity-related-title">
+        <p class="eyebrow">ENTIDADES RELACIONADAS</p>
+        <h2 id="capacity-related-title">Funcionalidades <span class="result-count">(@Model.RelatedRecords.TotalCount)</span></h2>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <label for="capacity-functionality-search">Buscar funcionalidades</label>
+            <input id="capacity-functionality-search" name="functionalitySearch" class="form-control" type="search" />
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+        </form>
+        @if (Model.RelatedRecords.TotalCount == 0)
+        {
+            <p class="empty-state">Esta Capacidad de Seguridad no tiene Funcionalidades asociadas.</p>
+        }
+        else
+        {
+            <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0">
+                <table>
+                    <thead><tr><th>Funcionalidad</th><th>Estado de Funcionalidad</th><th>Descripción</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in Model.RelatedRecords.Items)
+                    {
+                        <tr>
+                            <td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("nombre")</td>
+                            <td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                            <td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td>
+                            <td class="table-actions">
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a> }
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.RelatedRecords.Page de @Model.RelatedRecords.TotalPages</p>
+            <div class="pagination-shell">
+                @if (Model.RelatedRecords.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.RelatedRecords.Page - 1)">Anterior</a> }
+                @if (Model.RelatedRecords.Page < Model.RelatedRecords.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.RelatedRecords.Page + 1)">Siguiente</a> }
+            </div>
+        }
+        <h3>Resumen de dependencias</h3>
+        <div class="report-kpi-grid"><div class="report-kpi"><span class="report-kpi-value">@Model.RelatedRecords.TotalCount</span><span class="report-kpi-label">Funcionalidades</span></div></div>
+    </section>
+}
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-catalog-modal" tabindex="-1" aria-labelledby="delete-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <div class="modal-header"><div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-catalog-title">Eliminar registro</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body" data-delete-impact-panel><p data-delete-impact-status role="status">Analizando dependencias…</p><div data-delete-impact-content hidden><p>Está a punto de eliminar:</p><p class="impact-root"><strong>@Model.Definition.Name:</strong> <span data-delete-root-name>@Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</span></p><h3>Dependencias afectadas</h3><ul class="deletion-impact-tree" data-delete-impact-tree></ul><p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p><p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p><p class="app-alert app-alert-warning" data-delete-blocking hidden></p><label class="md-field" data-delete-confirmation-field hidden><span>Escriba <strong>ELIMINAR</strong> para confirmar</span><input class="form-control" name="confirmation" form="delete-catalog-form" autocomplete="off" data-delete-confirmation /></label></div></div>
+        <div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><form id="delete-catalog-form" method="post" action="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })">@Html.AntiForgeryToken()<button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button></form></div>
+    </div></div></div>
+}
 @if (Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
 {
-    <div class="modal fade" id="edit-catalog-modal" tabindex="-1" aria-labelledby="edit-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
-        <form method="post" asp-action="EditCatalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" data-confirm-message="¿Desea guardar los cambios?" data-loading-form>
+    <div class="modal fade @(Model.Definition.UsesResponsiveDrawer ? "catalog-editor-drawer" : null)" id="edit-catalog-modal" tabindex="-1" aria-labelledby="edit-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <form method="post" asp-action="EditCatalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" data-confirm-message="¿Desea guardar los cambios?" data-loading-form data-protect-unsaved="@(Model.Definition.UsesResponsiveDrawer ? "true" : null)">
             <div class="modal-header"><div><p class="eyebrow">MANTENIMIENTO</p><h2 class="modal-title" id="edit-catalog-title">Editar @Model.Definition.Name</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
             <div class="modal-body"><partial name="_CatalogFields" model="editorModel" /></div><div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar cambios</button></div>
         </form>
     </div></div></div>
+}
+
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
 }

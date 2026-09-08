@@ -1,4 +1,4 @@
-@model IReadOnlyList<Landscape.Tsi.Application.Catalogs.MasterCatalogDefinition>
+@model IReadOnlyList<Landscape.Tsi.Application.Catalogs.CatalogEntityMetadata>
 @{
     ViewData["Title"] = "Administración de Tablas Maestras";
 }
@@ -23,20 +23,13 @@
     <div class="catalog-grid" aria-label="Catálogos disponibles">
         @foreach (var catalog in Model)
         {
-            <article class="catalog-card @(catalog.Enabled ? "catalog-card-enabled" : "catalog-card-pending")">
-                <div class="catalog-icon" aria-hidden="true">@catalog.Name.Substring(0, 1)</div>
+            <article class="catalog-card @(catalog.IsAdministrable ? "catalog-card-enabled" : "catalog-card-pending")">
+                <div class="entity-badge @(catalog.Badge == "M" ? "entity-badge-master" : "entity-badge-transactional")"
+                     aria-label="@catalog.EntityTypeLabel">@catalog.Badge</div>
                 <div>
-                    <h2>@catalog.Name</h2>
-                    @if (catalog.Code == "dominio")
-                    {
-                        <p>Disponible para consulta y mantenimiento.</p>
-                        <a class="md-button md-button-tonal" asp-action="Domain">Administrar</a>
-                    }
-                    else
-                    {
-                        <p>Disponible para consulta y mantenimiento.</p>
-                        <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="@catalog.Route">Administrar</a>
-                    }
+                    <h2>@catalog.LogicalName</h2>
+                    <p>Disponible para consulta y mantenimiento.</p>
+                    <a class="md-button md-button-tonal" href="@catalog.Route">Administrar</a>
                 </div>
             </article>
         }

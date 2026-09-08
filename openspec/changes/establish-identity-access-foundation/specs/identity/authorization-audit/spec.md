@@ -33,6 +33,17 @@ El sistema MUST registrar los resultados de autenticacion local y corporativa, b
 - **WHEN** el bootstrap no se ejecuta por ambiente no autorizado, secreto ausente o usuario manual preexistente
 - **THEN** el sistema registra una condicion administrativa segura sin incluir el secreto
 
+### Requirement: Auditoria de recuperacion administrativa
+La recuperacion administrativa de contraseña MUST registrar actor tecnico, usuario afectado, ambiente, servidor, base de datos, fecha UTC, accion y resultado, y MUST excluir contraseña, hash, token y cadena de conexion completa.
+
+#### Scenario: Recuperacion exitosa
+- **WHEN** una utilidad autorizada completa el cambio mediante ASP.NET Core Identity
+- **THEN** registra el resultado exitoso y los metadatos sanitizados de alcance sin material de credenciales
+
+#### Scenario: Operacion rechazada
+- **WHEN** el ambiente o la base no coinciden con la politica autorizada
+- **THEN** registra o informa un rechazo seguro sin iniciar el reset ni revelar secretos
+
 ### Requirement: Inmutabilidad y disponibilidad
 Los eventos de auditoria MUST ser append-only para usuarios de la aplicacion y MUST permanecer disponibles segun la politica de retencion.
 
