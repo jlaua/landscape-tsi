@@ -57,6 +57,60 @@ public sealed class CatalogReportingServiceTests
     }
 
     [Fact]
+    public async Task GetCatalogTotals_ReturnsOnlyCoreReportingCatalogsAndExcludesSupportCatalogs()
+    {
+        var service = new CatalogReportingService(new StubCatalogService());
+
+        var result = await service.GetCatalogTotalsAsync(null);
+
+        var codes = result.Select(point => point.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(6, codes.Count);
+        Assert.Contains("dominio", codes);
+        Assert.Contains("building-block", codes);
+        Assert.Contains("capacidad-seguridad", codes);
+        Assert.Contains("funcionalidad", codes);
+        Assert.Contains("tecnologia-tsi", codes);
+        Assert.Contains("familia", codes);
+
+        string[] excludedCodes =
+        [
+            "ciso",
+            "empresa-subsidiaria",
+            "postura-roadmap",
+            "estado-adopcion-tsi",
+            "modalidad-laboral",
+            "tipo-operacion",
+            "casos-uso",
+            "fase-adopcion",
+            "estado-funcionalidad",
+            "estado-capacidad"
+        ];
+
+        foreach (var excluded in excludedCodes)
+        {
+            Assert.DoesNotContain(excluded, codes);
+        }
+    }
+
+    [Theory]
+    [InlineData("ciso")]
+    [InlineData("empresa-subsidiaria")]
+    [InlineData("postura-roadmap")]
+    [InlineData("estado-adopcion-tsi")]
+    [InlineData("modalidad-laboral")]
+    [InlineData("tipo-operacion")]
+    [InlineData("casos-uso")]
+    [InlineData("fase-adopcion")]
+    [InlineData("estado-funcionalidad")]
+    [InlineData("estado-capacidad")]
+    public async Task GetCatalogDetail_RejectsExcludedCatalogCodes(string excludedCode)
+    {
+        var service = new CatalogReportingService(new StubCatalogService());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetCatalogDetailAsync(excludedCode, null, 1, 10));
+    }
+
+    [Fact]
     public async Task GetCatalogDetail_RejectsUnknownCatalogCode()
     {
         var service = new CatalogReportingService(new StubCatalogService());

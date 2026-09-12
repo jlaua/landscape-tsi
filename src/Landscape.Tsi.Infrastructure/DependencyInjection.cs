@@ -1,7 +1,9 @@
+using Landscape.Tsi.Application.Adoption;
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Application.Reporting;
 using Landscape.Tsi.Domain.Identity;
+using Landscape.Tsi.Infrastructure.Adoption;
 using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Infrastructure.Identity;
 using Landscape.Tsi.Infrastructure.Reporting;
@@ -81,7 +83,10 @@ public static class DependencyInjection
         services.AddScoped<IBuildingBlockRelatedService, BuildingBlockRelatedService>();
         services.AddScoped<IBuildingBlockTechnologyMappingService, BuildingBlockTechnologyMappingService>();
         services.AddScoped<IDeletionImpactService, DeletionImpactService>();
+        services.AddScoped<IAssociationImpactService, AssociationImpactService>();
+        services.AddScoped<IAssignmentService, AssignmentService>();
         services.AddScoped<IReportingService, CatalogReportingService>();
+        services.AddScoped<IAdoptionProcessService, AdoptionProcessService>();
         services.AddScoped<LandscapeCookieAuthenticationEvents>();
         services.AddScoped<BootstrapAdminInitializer>();
         return services;
@@ -98,5 +103,4 @@ public static class DependencyInjection
 
         await scope.ServiceProvider.GetRequiredService<BootstrapAdminInitializer>().InitializeAsync();
     }
-
 }

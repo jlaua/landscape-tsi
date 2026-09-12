@@ -13,7 +13,7 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
 {
     public async Task<IReadOnlyList<CatalogReportPoint>> GetCatalogTotalsAsync(string? group, CancellationToken cancellationToken = default)
     {
-        var definitions = MasterCatalogRegistry.Catalogs
+        var definitions = MasterCatalogRegistry.ReportingCatalogs
             .Where(definition => definition.Enabled && (string.IsNullOrWhiteSpace(group) || string.Equals(definition.Group, group, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
         var result = new List<CatalogReportPoint>(definitions.Length);
@@ -36,7 +36,7 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
     {
         var parent = GetDefinition(catalogCode);
         var result = new List<CatalogReportRelation>();
-        foreach (var relation in MasterCatalogRegistry.Relations.Where(item => item.ParentCatalogCode == parent.Code && item.Type == "Uno a muchos"))
+        foreach (var relation in MasterCatalogRegistry.ReportingRelations.Where(item => item.ParentCatalogCode == parent.Code && item.Type == "Uno a muchos"))
         {
             var child = GetDefinition(relation.ChildCatalogCode);
             var foreignKey = child.Columns.SingleOrDefault(column => column.Type == CatalogFieldType.ForeignKey && column.ReferenceCatalogCode == parent.Code);
@@ -56,7 +56,7 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
         {
             throw new KeyNotFoundException("El registro padre no existe.");
         }
-        var relation = MasterCatalogRegistry.Relations.SingleOrDefault(item => item.ParentCatalogCode == parent.Code && item.ChildCatalogCode == child.Code && item.Type == "Uno a muchos")
+        var relation = MasterCatalogRegistry.ReportingRelations.SingleOrDefault(item => item.ParentCatalogCode == parent.Code && item.ChildCatalogCode == child.Code && item.Type == "Uno a muchos")
             ?? throw new InvalidOperationException("La relación solicitada no está disponible.");
         var foreignKey = child.Columns.SingleOrDefault(column => column.Type == CatalogFieldType.ForeignKey && column.ReferenceCatalogCode == parent.Code)
             ?? throw new InvalidOperationException("La relación no tiene una FK registrada.");
@@ -71,7 +71,7 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
             throw new KeyNotFoundException("El registro seleccionado no existe.");
         }
         var kpis = new List<CatalogContextKpi>();
-        foreach (var relation in MasterCatalogRegistry.Relations.Where(item => item.ParentCatalogCode == parent.Code && item.Type == "Uno a muchos"))
+        foreach (var relation in MasterCatalogRegistry.ReportingRelations.Where(item => item.ParentCatalogCode == parent.Code && item.Type == "Uno a muchos"))
         {
             if (!string.Equals(relation.ChildCatalogCode, "building-block", StringComparison.Ordinal)) continue;
             var child = GetDefinition(relation.ChildCatalogCode);
@@ -213,7 +213,7 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
     }
 
     private static MasterCatalogDefinition GetDefinition(string code) =>
-        MasterCatalogRegistry.GetByCode(code) is { Enabled: true } definition
+        MasterCatalogRegistry.GetByCode(code) is { Enabled: true, IncludeInReporting: true } definition
             ? definition
             : throw new KeyNotFoundException("El catálogo solicitado no está disponible.");
 

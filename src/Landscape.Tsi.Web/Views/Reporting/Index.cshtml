@@ -1,7 +1,7 @@
 @using Landscape.Tsi.Application.Catalogs
 @{
     ViewData["Title"] = "Reportería";
-    var groups = MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Group).Distinct().OrderBy(group => group).ToArray();
+    var groups = MasterCatalogRegistry.ReportingCatalogs.Select(catalog => catalog.Group).Distinct().OrderBy(group => group).ToArray();
 }
 <nav class="breadcrumbs" aria-label="Migas de pan"><a asp-controller="Home" asp-action="Index">Inicio</a><span aria-hidden="true">›</span><span>Reportería</span></nav>
 <section class="page-heading" aria-labelledby="report-title">

@@ -1,7 +1,7 @@
 namespace Landscape.Tsi.Domain.Catalogs;
 
 public abstract class MasterCatalogEntity { public int Id { get; set; } }
-public sealed class TBuildingBlock : MasterCatalogEntity { public int? IdDominio { get; set; } public string? Nombre { get; set; } public string? Definicion { get; set; } public int? IdFase { get; set; } public string? Ruta { get; set; } public string? Pilar { get; set; } }
+public sealed class TBuildingBlock : MasterCatalogEntity { public int? IdDominio { get; set; } public string? Nombre { get; set; } public string? Definicion { get; set; } public int? IdFase { get; set; } public string? Ruta { get; set; } public string? Pilar { get; set; } public int? IdFamilia { get; set; } }
 public sealed class TCapacidadSeguridad : MasterCatalogEntity { public int? IdBuildingBlock { get; set; } public string? Nombre { get; set; } public string? Descripcion { get; set; } public int? IdEstado { get; set; } }
 public sealed class TMEstadoCapacidad : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
 public sealed class TFuncionalidad : MasterCatalogEntity { public int? IdCapacidad { get; set; } public string? Nombre { get; set; } public string? Descripcion { get; set; } public int? IdEstado { get; set; } }
@@ -9,7 +9,7 @@ public sealed class TMEstadoFuncionalidad : MasterCatalogEntity { public string?
 public sealed class TEstadoFaseAdopcion : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
 public sealed class TTecnologiaTSI : MasterCatalogEntity { public string? NombreCorporativo { get; set; } public string? NombreLocal { get; set; } public int? IdFamilia { get; set; } public string? Grupo { get; set; } public int? IdEstadoAdopcion { get; set; } public int? IdPostura { get; set; } public DateTime? FechaEvaluacion { get; set; } public DateTime? FechaFinContrato { get; set; } public DateTime? FechaAdjudicacion { get; set; } public string? Licenciamiento { get; set; } public string? Entorno { get; set; } public string? Referencia { get; set; } public string? Responsable { get; set; } public string? UnidadResponsable { get; set; } public string? CategoriaAsIs { get; set; } public string? Fuente { get; set; } }
 public sealed class TMFamilia : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
-public sealed class TCasosDeUso : MasterCatalogEntity { public int? IdTecnologia { get; set; } public string? Nombre { get; set; } public string? Descripcion { get; set; } }
+public sealed class TCasosDeUso : MasterCatalogEntity { public int? IdTecnologia { get; set; } public string? Nombre { get; set; } public string? Descripcion { get; set; } public int? IdEstandarTecnologia { get; set; } }
 public sealed class TEmpresaSubsidiaria : MasterCatalogEntity { public string? Nombre { get; set; } public string? Alias2 { get; set; } public string? Agrupador { get; set; } public string? Pais { get; set; } public string? Ciudad { get; set; } public string? Rubro { get; set; } public string? ContactoCiso { get; set; } }
 public sealed class TCiso : MasterCatalogEntity { public int? IdEmpresa { get; set; } public string? Nombre { get; set; } public string? Email { get; set; } public string? Telefono { get; set; } public string? Otro { get; set; } public string? LineaDeNegocio { get; set; } public bool? Representante { get; set; } }
 public sealed class TMPosturaRoadmap : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }

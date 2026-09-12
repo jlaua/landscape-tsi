@@ -40,7 +40,7 @@ public sealed class ReportingController(IReportingService reporting) : Controlle
     public async Task<IActionResult> CatalogTotals([FromQuery] string? group, CancellationToken cancellationToken)
     {
         var points = await reporting.GetCatalogTotalsAsync(group, cancellationToken);
-        return Ok(new { generatedAt = DateTimeOffset.UtcNow, items = points, relationCount = MasterCatalogRegistry.Relations.Count });
+        return Ok(new { generatedAt = DateTimeOffset.UtcNow, items = points, relationCount = MasterCatalogRegistry.ReportingRelations.Count });
     }
 
     [HttpGet("api/catalogos/{code}/detalle")]

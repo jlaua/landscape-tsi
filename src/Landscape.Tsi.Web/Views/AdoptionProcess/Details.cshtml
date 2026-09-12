@@ -1,0 +1,780 @@
+@model Landscape.Tsi.Web.Models.AdoptionProcessDetailViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = $"Proceso de Adopción - {Model.Process.Nombre}";
+    var p = Model.Process;
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Index">Procesos de Adopción TSI</a></li>
+        <li aria-current="page">@p.Codigo</li>
+    </ol>
+</nav>
+
+<section class="admin-shell mb-4" aria-labelledby="process-detail-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">PROCESO DE ADOPCIÓN TSI</p>
+            <h1 id="process-detail-title">@p.Nombre</h1>
+            <p class="supporting-text">Código: <strong>@p.Codigo</strong> · Building Block: <a asp-controller="MasterTables" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@p.BuildingBlockId">@p.BuildingBlockNombre</a></p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-primary fs-6">@p.EstadoAdopcionNombre</span>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="md-button md-button-filled" data-bs-toggle="modal" data-bs-target="#modal-set-standard">+ Definir Estándar</button>
+                <button type="button" class="md-button md-button-tonal" data-bs-toggle="modal" data-bs-target="#modal-convene-company">+ Convocar Subsidiaria</button>
+            }
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="app-alert app-alert-success" role="status">@success</div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error" role="alert">@error</div>
+    }
+
+    <!-- Ficha de información general del Proceso -->
+    <div class="card p-3 mb-4 shadow-sm">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Dominio:</dt>
+            <dd class="col-sm-3">@(p.DominioNombre ?? "No definido")</dd>
+            <dt class="col-sm-3">Familia:</dt>
+            <dd class="col-sm-3">@(p.FamiliaNombre ?? "No definida")</dd>
+
+            <dt class="col-sm-3">Líder Corporativo TSI:</dt>
+            <dd class="col-sm-3">@(p.LiderCorporativo ?? "No asignado")</dd>
+            <dt class="col-sm-3">Vigencia del Proceso:</dt>
+            <dd class="col-sm-3">@p.FechaInicio.ToString("dd/MM/yyyy") @(p.FechaEstimadaCierre.HasValue ? $"hasta {p.FechaEstimadaCierre.Value:dd/MM/yyyy}" : "")</dd>
+
+            @if (!string.IsNullOrWhiteSpace(p.Objetivo))
+            {
+                <dt class="col-sm-3">Objetivo:</dt>
+                <dd class="col-sm-9">@p.Objetivo</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(p.Alcance))
+            {
+                <dt class="col-sm-3">Alcance:</dt>
+                <dd class="col-sm-9">@p.Alcance</dd>
+            }
+        </dl>
+    </div>
+
+    <!-- SECCIÓN 1: ESTÁNDARES CORPORATIVOS -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">1. Estándar Tecnológico Corporativo</h2>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-set-standard">+ Definir / Cambiar Estándar</button>
+            }
+        </div>
+        <div class="card-body">
+            @if (p.EstandarPrincipalVigente is null)
+            {
+                <div class="alert alert-warning mb-3">
+                    <strong>Sin Estándar Principal:</strong> Este proceso aún no tiene definido un Estándar Corporativo PRINCIPAL vigente.
+                </div>
+            }
+            else
+            {
+                <div class="border rounded p-3 mb-3 bg-white">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge bg-success mb-2">ESTÁNDAR PRINCIPAL VIGENTE</span>
+                            <h3 class="h4 mb-1 text-primary">@p.EstandarPrincipalVigente.TecnologiaNombre</h3>
+                            <p class="text-muted mb-1">
+                                Vendor: <strong>@(p.EstandarPrincipalVigente.VendorNombre ?? "Sin vendor")</strong> · 
+                                Vigencia desde: <strong>@p.EstandarPrincipalVigente.FechaInicioVigencia.ToString("dd/MM/yyyy")</strong>
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(p.EstandarPrincipalVigente.SustentoArquitectura))
+                            {
+                                <p class="small mb-1"><strong>Sustento de Arquitectura:</strong> @p.EstandarPrincipalVigente.SustentoArquitectura</p>
+                            }
+                            @if (p.EstandarPrincipalVigente.CasosDeUso.Count > 0)
+                            {
+                                <div class="mt-2">
+                                    <strong class="small text-muted">Casos de Uso Vinculados:</strong>
+                                    <ul class="mb-0 small">
+                                        @foreach (var cu in p.EstandarPrincipalVigente.CasosDeUso)
+                                        {
+                                            <li>@cu</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (p.EstandaresAlternativos.Count > 0)
+            {
+                <h4 class="h6 mt-3 text-secondary">Estándares Alternativos Vigentes</h4>
+                <div class="row g-2">
+                    @foreach (var alt in p.EstandaresAlternativos)
+                    {
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 bg-light">
+                                <span class="badge bg-info text-dark">ALTERNATIVA</span>
+                                <strong>@alt.TecnologiaNombre</strong> (desde @alt.FechaInicioVigencia.ToString("dd/MM/yyyy"))
+                                @if (!string.IsNullOrWhiteSpace(alt.SustentoArquitectura))
+                                {
+                                    <p class="small text-muted mb-0">@alt.SustentoArquitectura</p>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Histórico de Estándares Reemplazados (Inmutable) -->
+            @if (p.EstandaresHistoricos.Count > 0)
+            {
+                <h4 class="h6 mt-4 text-muted">Histórico de Estándares Tecnológicos Reemplazados</h4>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tecnología</th>
+                                <th>Rol Histórico</th>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Motivo del Cambio</th>
+                                <th>Sustento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var hist in p.EstandaresHistoricos)
+                        {
+                            <tr>
+                                <td>@hist.TecnologiaNombre</td>
+                                <td><span class="badge bg-secondary">@hist.RolEstandar</span></td>
+                                <td>@hist.FechaInicioVigencia.ToString("dd/MM/yyyy")</td>
+                                <td>@(hist.FechaFinVigencia?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>@(hist.MotivoCambio ?? "Reemplazo de estándar")</td>
+                                <td class="small">@(hist.SustentoArquitectura ?? "—")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: SUBSIDIARIAS Y REALIDAD DE ADOPCIÓN -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">2. Convocatoria a Empresas Subsidiarias y Adopción Real</h2>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-convene-company">+ Convocar Subsidiaria</button>
+            }
+        </div>
+        <div class="card-body">
+            @if (p.EmpresasParticipantes.Count == 0)
+            {
+                <p class="text-muted">Aún no se han convocado empresas subsidiarias para este proceso.</p>
+            }
+            else
+            {
+                <div class="accordion" id="accordionEmpresas">
+                    @foreach (var emp in p.EmpresasParticipantes)
+                    {
+                        var badgeClass = emp.EstadoAlineamiento switch
+                        {
+                            "ALINEADO" => "bg-success",
+                            "HOMOLOGADO" => "bg-info text-dark",
+                            "NO_ALINEADO" => "bg-danger",
+                            "PENDIENTE" => "bg-warning text-dark",
+                            "NO_APLICA" => "bg-secondary",
+                            _ => "bg-light text-dark"
+                        };
+
+                        <div class="accordion-item mb-2 border rounded">
+                            <h3 class="accordion-header" id="heading-@emp.ProcesoEmpresaId">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@emp.ProcesoEmpresaId" aria-expanded="false" aria-controls="collapse-@emp.ProcesoEmpresaId">
+                                    <div class="d-flex w-100 justify-content-between align-items-center pe-3">
+                                        <div>
+                                            <strong>@emp.EmpresaNombre</strong>
+                                            <span class="text-muted ms-2 small">Focal: @(emp.ContactoFocalNombre ?? "Sin asignar") @(emp.ContactoFocalEmail is not null ? $"<{emp.ContactoFocalEmail}>" : "")</span>
+                                        </div>
+                                        <div>
+                                            @if (!emp.Aplica)
+                                            {
+                                                <span class="badge bg-secondary me-2">NO APLICA</span>
+                                            }
+                                            <span class="badge @badgeClass">@emp.EstadoAlineamiento</span>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h3>
+                            <div id="collapse-@emp.ProcesoEmpresaId" class="accordion-collapse collapse" aria-labelledby="heading-@emp.ProcesoEmpresaId" data-bs-parent="#accordionEmpresas">
+                                <div class="accordion-body">
+                                    @if (!emp.Aplica)
+                                    {
+                                        <div class="alert alert-secondary py-2">
+                                            <strong>Justificación No Aplica:</strong> @(emp.JustificacionNoAplica ?? "No especificada.")
+                                        </div>
+                                    }
+
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="h6 mb-0">Tecnologías Implementadas por @emp.EmpresaNombre</h4>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit) && emp.Aplica)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-success btn-add-tech" data-empresa-id="@emp.EmpresaId" data-proceso-emp-id="@emp.ProcesoEmpresaId" data-bs-toggle="modal" data-bs-target="#modal-register-tech">+ Registrar Tecnología Implementada</button>
+                                        }
+                                    </div>
+
+                                    @if (emp.TecnologiasImplementadas.Count == 0)
+                                    {
+                                        <p class="text-muted small">No se han registrado tecnologías implementadas para esta empresa aún.</p>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var tech in emp.TecnologiasImplementadas)
+                                        {
+                                            <div class="border rounded p-3 mb-3 bg-white">
+                                                <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
+                                                    <div>
+                                                        <h5 class="h6 mb-0 text-primary">
+                                                            @tech.TecnologiaNombre
+                                                            @if (tech.EsPrimaria)
+                                                            {
+                                                                <span class="badge bg-primary ms-1">Primaria</span>
+                                                            }
+                                                            <span class="badge @(tech.EstadoAlineamiento == "ALINEADO" ? "bg-success" : (tech.EstadoAlineamiento == "HOMOLOGADO" ? "bg-info text-dark" : "bg-danger")) ms-1">@tech.EstadoAlineamiento</span>
+                                                        </h5>
+                                                        <span class="small text-muted">Versión Desplegada: <strong>@(tech.VersionDesplegada ?? "No especificada")</strong> · Vendor: @(tech.VendorNombre ?? "Sin vendor")</span>
+                                                    </div>
+                                                    <div>
+                                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                        {
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-op-model me-1" data-impl-id="@tech.Id" data-tipo-id="@tech.ModeloOperacion?.TipoOperacionId" data-mod-id="@tech.ModeloOperacion?.ModalidadLaboralId" data-bs-toggle="modal" data-bs-target="#modal-operation-model">Modelo Operación</button>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-contract me-1" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-contract">+ Contrato</button>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-driver" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-driver">+ Driver</button>
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                <!-- Modelo de Operación -->
+                                                <div class="mb-2 small">
+                                                    <strong>Modelo de Operación:</strong>
+                                                    @(tech.ModeloOperacion?.TipoOperacionNombre ?? "No configurado") · 
+                                                    Modalidad Laboral: @(tech.ModeloOperacion?.ModalidadLaboralNombre ?? "No configurada")
+                                                </div>
+
+                                                <!-- Contratos y Adendas (1:N) -->
+                                                <div class="mb-3">
+                                                    <strong class="small text-muted">Contratos y Adendas Vinculados:</strong>
+                                                    @if (tech.Contratos.Count == 0)
+                                                    {
+                                                        <p class="small text-muted mb-0">Sin contratos registrados.</p>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="table-responsive mt-1">
+                                                            <table class="table table-sm table-bordered mb-1 small">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>N° Contrato</th>
+                                                                        <th>Tipo</th>
+                                                                        <th>Vigencia</th>
+                                                                        <th>Monto</th>
+                                                                        <th>Documento</th>
+                                                                        <th>Acciones</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                @foreach (var c in tech.Contratos)
+                                                                {
+                                                                    <tr class="table-primary-subtle">
+                                                                        <td><strong>@c.NumeroContrato</strong></td>
+                                                                        <td><span class="badge bg-primary">Principal</span></td>
+                                                                        <td>@c.FechaInicio.ToString("dd/MM/yyyy") - @c.FechaFin.ToString("dd/MM/yyyy")</td>
+                                                                        <td>@(c.Monto.HasValue ? $"{c.Moneda} {c.Monto:N2}" : "—")</td>
+                                                                        <td>
+                                                                            @if (!string.IsNullOrWhiteSpace(c.RutaDocumento))
+                                                                            {
+                                                                                <a href="@c.RutaDocumento" target="_blank" rel="noopener">Ver Archivo</a>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <span>—</span>
+                                                                            }
+                                                                        </td>
+                                                                        <td>
+                                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                            {
+                                                                                <button type="button" class="btn btn-xs btn-outline-success btn-add-adenda me-1 py-0 px-1" data-impl-id="@tech.Id" data-parent-id="@c.Id" data-parent-num="@c.NumeroContrato" data-bs-toggle="modal" data-bs-target="#modal-save-contract">+ Adenda</button>
+                                                                                <form method="post" asp-action="DeleteContract" asp-route-id="@p.Id" asp-route-contractId="@c.Id" class="d-inline" onsubmit="return confirm('¿Eliminar contrato y sus adendas?');">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
+                                                                                </form>
+                                                                            }
+                                                                        </td>
+                                                                    </tr>
+                                                                    @foreach (var ad in c.Adendas)
+                                                                    {
+                                                                        <tr>
+                                                                            <td class="ps-4">↳ @ad.NumeroContrato</td>
+                                                                            <td><span class="badge bg-info text-dark">Adenda</span></td>
+                                                                            <td>@ad.FechaInicio.ToString("dd/MM/yyyy") - @ad.FechaFin.ToString("dd/MM/yyyy")</td>
+                                                                            <td>@(ad.Monto.HasValue ? $"{ad.Moneda} {ad.Monto:N2}" : "—")</td>
+                                                                            <td>
+                                                                                @if (!string.IsNullOrWhiteSpace(ad.RutaDocumento))
+                                                                                {
+                                                                                    <a href="@ad.RutaDocumento" target="_blank" rel="noopener">Ver Archivo</a>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <span>—</span>
+                                                                                }
+                                                                            </td>
+                                                                            <td>
+                                                                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                                {
+                                                                                    <form method="post" asp-action="DeleteContract" asp-route-id="@p.Id" asp-route-contractId="@ad.Id" class="d-inline" onsubmit="return confirm('¿Eliminar esta adenda?');">
+                                                                                        @Html.AntiForgeryToken()
+                                                                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
+                                                                                    </form>
+                                                                                }
+                                                                            </td>
+                                                                        </tr>
+                                                                    }
+                                                                }
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    }
+                                                </div>
+
+                                                <!-- Drivers de Costo (1:N) -->
+                                                <div>
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <strong class="small text-muted">Drivers de Costo y Proyección:</strong>
+                                                        @if (tech.Drivers.Count > 0)
+                                                        {
+                                                            <span class="small fw-bold text-success">Total: @tech.Drivers[0].Moneda @tech.Drivers.Sum(d => d.CostoTotal):N2</span>
+                                                        }
+                                                    </div>
+                                                    @if (tech.Drivers.Count == 0)
+                                                    {
+                                                        <p class="small text-muted mb-0">Sin drivers de costo registrados.</p>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="table-responsive mt-1">
+                                                            <table class="table table-sm table-bordered mb-0 small">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>Descripción Driver</th>
+                                                                        <th>Unidad</th>
+                                                                        <th>Cantidad</th>
+                                                                        <th>Precio Unitario</th>
+                                                                        <th>Costo Total</th>
+                                                                        <th>Acción</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                @foreach (var drv in tech.Drivers)
+                                                                {
+                                                                    <tr>
+                                                                        <td>@drv.Descripcion</td>
+                                                                        <td>@(drv.UnidadMedida ?? "—")</td>
+                                                                        <td>@(drv.Cantidad.HasValue ? drv.Cantidad.Value.ToString("N2") : "—")</td>
+                                                                        <td>@(drv.PrecioUnitario.HasValue ? $"{drv.Moneda} {drv.PrecioUnitario.Value:N2}" : "—")</td>
+                                                                        <td><strong>@drv.Moneda @drv.CostoTotal:N2</strong></td>
+                                                                        <td>
+                                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                            {
+                                                                                <form method="post" asp-action="DeleteDriver" asp-route-id="@p.Id" asp-route-driverId="@drv.Id" class="d-inline" onsubmit="return confirm('¿Eliminar este driver?');">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
+                                                                                </form>
+                                                                            }
+                                                                        </td>
+                                                                    </tr>
+                                                                }
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<!-- MODAL: DEFINIR ESTÁNDAR CORPORATIVO -->
+<div class="modal fade" id="modal-set-standard" tabindex="-1" aria-labelledby="modalStandardTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="post" asp-action="SetStandard" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="buildingBlockId" value="@p.BuildingBlockId" />
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalStandardTitle">Definir Estándar Tecnológico Corporativo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small">
+                    Al seleccionar el rol <strong>PRINCIPAL</strong>, el estándar principal activo anterior pasará automáticamente e inmutablemente al histórico con estado <em>HISTORICO_REEMPLAZADO</em>.
+                </div>
+                <div class="mb-3">
+                    <label for="stdTechId" class="form-label">Tecnología TSI *</label>
+                    <select id="stdTechId" name="tecnologiaId" class="form-select" required>
+                        <option value="">-- Seleccionar Tecnología --</option>
+                        @foreach (var t in Model.Technologies)
+                        {
+                            <option value="@t.Id">@t.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="stdRol" class="form-label">Rol del Estándar *</label>
+                        <select id="stdRol" name="rolEstandar" class="form-select" required>
+                            <option value="PRINCIPAL">PRINCIPAL (Estándar Corporativo)</option>
+                            <option value="ALTERNATIVA">ALTERNATIVA (Homologada)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="stdFechaInicio" class="form-label">Fecha Inicio Vigencia *</label>
+                        <input id="stdFechaInicio" name="fechaInicio" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="stdMotivo" class="form-label">Motivo del Cambio (para histórico)</label>
+                    <input id="stdMotivo" name="motivoCambio" class="form-control" placeholder="Ej: Renovación de arquitectura, obsolescencia del estándar previo" />
+                </div>
+                <div class="mb-3">
+                    <label for="stdSustento" class="form-label">Sustento de Arquitectura</label>
+                    <textarea id="stdSustento" name="sustentoArquitectura" class="form-control" rows="3" placeholder="Detalle técnico y arquitectónico que respalda la decisión corporativa..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Estándar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: CONVOCAR SUBSIDIARIA -->
+<div class="modal fade" id="modal-convene-company" tabindex="-1" aria-labelledby="modalConveneTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="ConveneCompany" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConveneTitle">Convocar Empresa Subsidiaria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="convEmpresaId" class="form-label">Empresa Subsidiaria *</label>
+                    <select id="convEmpresaId" name="empresaId" class="form-select" required>
+                        <option value="">-- Seleccionar Empresa --</option>
+                        @foreach (var c in Model.Companies)
+                        {
+                            <option value="@c.Id">@c.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="convAplica" name="aplica" value="true" checked />
+                    <label class="form-check-label" for="convAplica">¿Aplica adopción de este Building Block?</label>
+                </div>
+                <div class="mb-3" id="wrap-justificacion" style="display: none;">
+                    <label for="convJustificacion" class="form-label">Justificación No Aplica</label>
+                    <textarea id="convJustificacion" name="justificacionNoAplica" class="form-control" rows="2" placeholder="Explique por qué no aplica..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Convocatoria</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: REGISTRAR TECNOLOGÍA IMPLEMENTADA -->
+<div class="modal fade" id="modal-register-tech" tabindex="-1" aria-labelledby="modalRegTechTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="RegisterTechnology" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="regEmpresaId" name="empresaId" value="" />
+            <input type="hidden" id="regProcesoEmpId" name="procesoEmpresaId" value="" />
+            <input type="hidden" name="buildingBlockId" value="@p.BuildingBlockId" />
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRegTechTitle">Registrar Tecnología Implementada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="regTechId" class="form-label">Tecnología TSI *</label>
+                    <select id="regTechId" name="tecnologiaId" class="form-select" required>
+                        <option value="">-- Seleccionar Tecnología --</option>
+                        @foreach (var t in Model.Technologies)
+                        {
+                            <option value="@t.Id">@t.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="regVersion" class="form-label">Versión Desplegada</label>
+                    <input id="regVersion" name="versionDesplegada" class="form-control" placeholder="Ej: v2.4.1" />
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="regEsPrimaria" name="esPrimaria" value="true" checked />
+                    <label class="form-check-label" for="regEsPrimaria">Tecnología Primaria para esta empresa</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: GUARDAR CONTRATO O ADENDA -->
+<div class="modal fade" id="modal-save-contract" tabindex="-1" aria-labelledby="modalContractTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="post" asp-action="SaveContract" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="contractImplId" name="tecnologiaImplementadaId" value="" />
+            <input type="hidden" id="contractIsAdenda" name="esAdenda" value="false" />
+            <input type="hidden" id="contractParentId" name="contratoPadreId" value="" />
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalContractTitle">Registrar Contrato</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contractParentNotice" class="alert alert-info small" style="display: none;">
+                    Adenda al contrato principal: <strong id="contractParentNumText"></strong>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="contractNum" class="form-label">Número de Contrato / Adenda *</label>
+                        <input id="contractNum" name="numeroContrato" class="form-control" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label for="contractMonto" class="form-label">Monto</label>
+                        <input id="contractMonto" name="monto" type="number" step="0.01" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label for="contractMoneda" class="form-label">Moneda</label>
+                        <select id="contractMoneda" name="moneda" class="form-select">
+                            <option value="USD">USD</option>
+                            <option value="PEN">PEN</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label for="contractInicio" class="form-label">Fecha Inicio *</label>
+                        <input id="contractInicio" name="fechaInicio" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="contractFin" class="form-label">Fecha Fin *</label>
+                        <input id="contractFin" name="fechaFin" type="date" class="form-control" value="@DateTime.Today.AddYears(1).ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="contractAdj" class="form-label">Fecha Adjudicación</label>
+                        <input id="contractAdj" name="fechaAdjudicacion" type="date" class="form-control" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="contractDoc" class="form-label">Ruta o Enlace del Documento</label>
+                    <input id="contractDoc" name="rutaDocumento" class="form-control" placeholder="https://repositorio.corp/contratos/CT-001.pdf" />
+                </div>
+                <div class="mb-3">
+                    <label for="contractObs" class="form-label">Observaciones</label>
+                    <textarea id="contractObs" name="observaciones" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Contrato</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: GUARDAR DRIVER -->
+<div class="modal fade" id="modal-save-driver" tabindex="-1" aria-labelledby="modalDriverTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="SaveDriver" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="driverImplId" name="tecnologiaImplementadaId" value="" />
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDriverTitle">Agregar Driver de Costo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="drvDesc" class="form-label">Descripción del Driver *</label>
+                    <input id="drvDesc" name="descripcion" class="form-control" placeholder="Ej: Licencias de Usuario E5" required />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="drvUnidad" class="form-label">Unidad de Medida</label>
+                        <input id="drvUnidad" name="unidadMedida" class="form-control" placeholder="Usuarios, Servidores, etc." />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="drvMoneda" class="form-label">Moneda</label>
+                        <select id="drvMoneda" name="moneda" class="form-select">
+                            <option value="USD">USD</option>
+                            <option value="PEN">PEN</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="drvCant" class="form-label">Cantidad</label>
+                        <input id="drvCant" name="cantidad" type="number" step="0.01" class="form-control drv-calc" placeholder="0" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="drvPrecio" class="form-label">Precio Unitario</label>
+                        <input id="drvPrecio" name="precioUnitario" type="number" step="0.01" class="form-control drv-calc" placeholder="0.00" />
+                    </div>
+                </div>
+                <div class="alert alert-secondary py-2 small mb-0">
+                    Costo Total Proyectado: <strong id="drvTotalCalc">$0.00</strong>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Driver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: MODELO DE OPERACIÓN -->
+<div class="modal fade" id="modal-operation-model" tabindex="-1" aria-labelledby="modalOpModelTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="SaveOperationModel" asp-route-id="@p.Id" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="opImplId" name="tecnologiaImplementadaId" value="" />
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalOpModelTitle">Configurar Modelo de Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="opTipo" class="form-label">Tipo de Modelo de Operación *</label>
+                    <select id="opTipo" name="tipoOperacionId" class="form-select" required>
+                        <option value="">-- Seleccionar Tipo --</option>
+                        @foreach (var o in Model.OperationTypes)
+                        {
+                            <option value="@o.Id">@o.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="opModalidad" class="form-label">Modalidad Laboral *</label>
+                    <select id="opModalidad" name="modalidadLaboralId" class="form-select" required>
+                        <option value="">-- Seleccionar Modalidad --</option>
+                        @foreach (var w in Model.WorkModes)
+                        {
+                            <option value="@w.Id">@w.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar Modelo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle justificación No Aplica
+        const convAplica = document.getElementById('convAplica');
+        const wrapJust = document.getElementById('wrap-justificacion');
+        if (convAplica && wrapJust) {
+            convAplica.addEventListener('change', function() {
+                wrapJust.style.display = this.checked ? 'none' : 'block';
+            });
+        }
+
+        // Modal Registrar Tecnología
+        document.querySelectorAll('.btn-add-tech').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('regEmpresaId').value = this.dataset.empresaId || '';
+                document.getElementById('regProcesoEmpId').value = this.dataset.procesoEmpId || '';
+            });
+        });
+
+        // Modal Guardar Contrato (Principal o Adenda)
+        document.querySelectorAll('.btn-add-contract').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('contractImplId').value = this.dataset.implId || '';
+                document.getElementById('contractIsAdenda').value = 'false';
+                document.getElementById('contractParentId').value = '';
+                document.getElementById('modalContractTitle').innerText = 'Registrar Contrato Principal';
+                document.getElementById('contractParentNotice').style.display = 'none';
+            });
+        });
+
+        document.querySelectorAll('.btn-add-adenda').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('contractImplId').value = this.dataset.implId || '';
+                document.getElementById('contractIsAdenda').value = 'true';
+                document.getElementById('contractParentId').value = this.dataset.parentId || '';
+                document.getElementById('modalContractTitle').innerText = 'Registrar Adenda de Contrato';
+                document.getElementById('contractParentNumText').innerText = this.dataset.parentNum || '';
+                document.getElementById('contractParentNotice').style.display = 'block';
+            });
+        });
+
+        // Modal Guardar Driver
+        document.querySelectorAll('.btn-add-driver').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('driverImplId').value = this.dataset.implId || '';
+            });
+        });
+
+        // Cálculo dinámico de costo en driver
+        function updateDriverTotal() {
+            const cant = parseFloat(document.getElementById('drvCant').value) || 0;
+            const precio = parseFloat(document.getElementById('drvPrecio').value) || 0;
+            const total = cant * precio;
+            document.getElementById('drvTotalCalc').innerText = '$' + total.toFixed(2);
+        }
+        document.querySelectorAll('.drv-calc').forEach(function(input) {
+            input.addEventListener('input', updateDriverTotal);
+        });
+
+        // Modal Modelo de Operación
+        document.querySelectorAll('.btn-op-model').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('opImplId').value = this.dataset.implId || '';
+                if (this.dataset.tipoId) document.getElementById('opTipo').value = this.dataset.tipoId;
+                if (this.dataset.modId) document.getElementById('opModalidad').value = this.dataset.modId;
+            });
+        });
+    });
+</script>
+}

@@ -63,6 +63,22 @@ public sealed class CompanyCisoHttpTests
         Assert.Equal(HttpStatusCode.OK, nonexistent.StatusCode);
     }
 
+    [Fact]
+    public async Task ReportingIndex_DisplaysOnlyReportingGroupsInFilter()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/reporteria");
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("<option value=\"Arquitectura de seguridad\">", html);
+        Assert.Contains("<option value=\"Tecnología\">", html);
+        Assert.DoesNotContain("<option value=\"Organización\">", html);
+        Assert.DoesNotContain("<option value=\"Operación\">", html);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

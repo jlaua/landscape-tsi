@@ -36,6 +36,32 @@ internal sealed class SqlIntegrationDataScope : IAsyncDisposable
         InsertAsync("INSERT dbo.TTecnologiaTSI ([nombreTecnologiaAlternativa1-Corporativo],idFamilia) OUTPUT INSERTED.idTecnologiaTSI VALUES (@name,@parent)",
             $"{Prefix}_{suffix}", "dbo.TTecnologiaTSI", "idTecnologiaTSI", familyId);
 
+    public Task<int> CreateCapabilityAsync(int? buildingBlockId = null, string suffix = "CAP") =>
+        InsertAsync("INSERT dbo.TCapacidadDeSeguridad (nombreCapacidad,idBuildingBlock) OUTPUT INSERTED.idCapacidad VALUES (@name,@parent)",
+            $"{Prefix}_{suffix}", "dbo.TCapacidadDeSeguridad", "idCapacidad", buildingBlockId);
+
+    public Task<int> CreateFunctionalityAsync(int? capabilityId = null, string suffix = "FUNC") =>
+        InsertAsync("INSERT dbo.TFuncionalidad (nombreFuncionalidad,idCapacidad) OUTPUT INSERTED.idFuncionalidad VALUES (@name,@parent)",
+            $"{Prefix}_{suffix}", "dbo.TFuncionalidad", "idFuncionalidad", capabilityId);
+
+    public async Task<int?> ReadCapabilityBuildingBlockIdAsync(int capabilityId)
+    {
+        await using var connection = await OpenAsync();
+        await using var command = new SqlCommand("SELECT idBuildingBlock FROM dbo.TCapacidadDeSeguridad WHERE idCapacidad=@id", connection);
+        command.Parameters.AddWithValue("@id", capabilityId);
+        var result = await command.ExecuteScalarAsync();
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    public async Task<int?> ReadFunctionalityCapabilityIdAsync(int functionalityId)
+    {
+        await using var connection = await OpenAsync();
+        await using var command = new SqlCommand("SELECT idCapacidad FROM dbo.TFuncionalidad WHERE idFuncionalidad=@id", connection);
+        command.Parameters.AddWithValue("@id", functionalityId);
+        var result = await command.ExecuteScalarAsync();
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
     public async Task<IReadOnlyList<int>> ReadPhaseIdsAsync()
     {
         await using var connection = await OpenAsync();

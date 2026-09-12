@@ -1,0 +1,95 @@
+@model Landscape.Tsi.Web.Models.CreateAdoptionProcessViewModel
+@{
+    ViewData["Title"] = "Iniciar Proceso de Adopción TSI";
+}
+<section class="admin-shell" aria-labelledby="create-adoption-title">
+    <nav aria-label="Ruta de navegación">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li><a asp-action="Index">Procesos de Adopción TSI</a></li>
+            <li aria-current="page">Nuevo Proceso</li>
+        </ol>
+    </nav>
+
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">NUEVO PROCESO</p>
+            <h1 id="create-adoption-title">Iniciar Proceso de Adopción TSI</h1>
+            <p class="supporting-text">Apertura del proceso corporativo para la especificación del estándar tecnológico de un Building Block.</p>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="app-alert app-alert-error" role="alert">
+            <div asp-validation-summary="All"></div>
+        </div>
+    }
+
+    <form method="post" asp-action="Create" class="catalog-form card p-4 shadow-sm">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="Codigo" class="form-label">Código del Proceso *</label>
+                <input asp-for="Codigo" class="form-control" required />
+            </div>
+
+            <div class="col-md-8">
+                <label asp-for="Nombre" class="form-label">Nombre del Proceso *</label>
+                <input asp-for="Nombre" class="form-control" placeholder="Ej: Proceso de Adopción MFA Corporativo 2026" required />
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="BuildingBlockId" class="form-label">Building Block Asociado *</label>
+                <select asp-for="BuildingBlockId" class="form-select" required>
+                    <option value="">-- Seleccione un Building Block --</option>
+                    @foreach (var bb in Model.BuildingBlocks)
+                    {
+                        <option value="@bb.Id" selected="@(Model.BuildingBlockId == bb.Id ? "selected" : null)">@bb.Label</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="EstadoAdopcionId" class="form-label">Estado Inicial de Adopción *</label>
+                <select asp-for="EstadoAdopcionId" class="form-select" required>
+                    @foreach (var st in Model.AdoptionStates)
+                    {
+                        <option value="@st.Id">@st.Label</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="LiderCorporativo" class="form-label">Líder Corporativo TSI</label>
+                <input asp-for="LiderCorporativo" class="form-control" placeholder="Nombre del responsable corporativo" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="FechaInicio" class="form-label">Fecha de Inicio *</label>
+                <input asp-for="FechaInicio" type="date" class="form-control" required />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="FechaEstimadaCierre" class="form-label">Fecha Estimada Cierre</label>
+                <input asp-for="FechaEstimadaCierre" type="date" class="form-control" />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Objetivo" class="form-label">Objetivo del Proceso</label>
+                <textarea asp-for="Objetivo" class="form-control" rows="3" placeholder="Describa el objetivo corporativo del proceso de adopción..."></textarea>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Alcance" class="form-label">Alcance y Subsidiarias Impactadas</label>
+                <textarea asp-for="Alcance" class="form-control" rows="3" placeholder="Describa el alcance organizativo y territorial..."></textarea>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a class="md-button md-button-text" asp-action="Index">Cancelar</a>
+            <button type="submit" class="md-button md-button-filled">Crear Proceso de Adopción</button>
+        </div>
+    </form>
+</section>
