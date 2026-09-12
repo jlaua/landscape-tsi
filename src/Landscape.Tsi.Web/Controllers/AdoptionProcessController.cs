@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Landscape.Tsi.Application.Adoption;
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Web.Models;
 
@@ -802,6 +803,22 @@ public sealed class AdoptionProcessController(
             .Select(t => new CatalogOption(t.Id, t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}"))
             .ToListAsync(cancellationToken);
 
+        model.Familias = await dbContext.Families.AsNoTracking()
+            .OrderBy(f => f.Nombre)
+            .Select(f => new CatalogOption(f.Id, f.Nombre ?? $"Familia #{f.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.TecnologiasCatalogo = await (
+            from t in dbContext.Technologies.AsNoTracking()
+            join f in dbContext.Families.AsNoTracking() on t.IdFamilia equals f.Id into fGroup
+            from fam in fGroup.DefaultIfEmpty()
+            orderby t.NombreCorporativo
+            select new TechnologyCatalogItem(
+                t.Id,
+                t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}",
+                fam != null ? fam.Nombre : null)
+        ).ToListAsync(cancellationToken);
+
         model.TiposOperacion = await dbContext.OperationTypes.AsNoTracking()
             .OrderBy(o => o.Nombre)
             .Select(o => new CatalogOption(o.Id, o.Nombre ?? $"Tipo #{o.Id}"))
@@ -889,6 +906,95 @@ public sealed class AdoptionProcessController(
         }
 
         return map;
+    }
+
+    [HttpPost("QuickCreateTechnology")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickCreateTechnology([FromForm] string nombreCorporativo, [FromForm] string? nombreLocal, [FromForm] int? familiaId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombreCorporativo))
+        {
+            return Json(new { succeeded = false, message = "El nombre corporativo de la tecnología es obligatorio." });
+        }
+
+        var trimmedNombre = nombreCorporativo.Trim();
+        var trimmedLocal = string.IsNullOrWhiteSpace(nombreLocal) ? null : nombreLocal.Trim();
+        var validFamiliaId = familiaId.HasValue && familiaId.Value > 0 ? familiaId : null;
+
+        // Validar si ya existe para evitar duplicados
+        var existing = await dbContext.Technologies.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.NombreCorporativo == trimmedNombre, cancellationToken);
+
+        if (existing is not null)
+        {
+            var existingFamily = existing.IdFamilia.HasValue
+                ? await dbContext.Families.Where(f => f.Id == existing.IdFamilia.Value).Select(f => f.Nombre).FirstOrDefaultAsync(cancellationToken)
+                : null;
+
+            return Json(new
+            {
+                succeeded = true,
+                alreadyExisted = true,
+                id = existing.Id,
+                nombre = existing.NombreCorporativo ?? existing.NombreLocal ?? $"Tecnología #{existing.Id}",
+                familia = existingFamily,
+                message = $"La tecnología '{trimmedNombre}' ya existía en el catálogo y ha sido seleccionada."
+            });
+        }
+
+        var newTech = new TTecnologiaTSI
+        {
+            NombreCorporativo = trimmedNombre,
+            NombreLocal = trimmedLocal,
+            IdFamilia = validFamiliaId
+        };
+
+        dbContext.Technologies.Add(newTech);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var familyName = newTech.IdFamilia.HasValue
+            ? await dbContext.Families.Where(f => f.Id == newTech.IdFamilia.Value).Select(f => f.Nombre).FirstOrDefaultAsync(cancellationToken)
+            : null;
+
+        return Json(new
+        {
+            succeeded = true,
+            alreadyExisted = false,
+            id = newTech.Id,
+            nombre = newTech.NombreCorporativo,
+            familia = familyName,
+            message = $"Tecnología '{trimmedNombre}' registrada exitosamente en el catálogo."
+        });
+    }
+
+    [HttpGet("SearchTechnologies")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> SearchTechnologies([FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Technologies.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+            query = query.Where(t => (t.NombreCorporativo != null && t.NombreCorporativo.Contains(term))
+                                  || (t.NombreLocal != null && t.NombreLocal.Contains(term)));
+        }
+
+        var results = await (
+            from t in query
+            join f in dbContext.Families on t.IdFamilia equals f.Id into fGroup
+            from fam in fGroup.DefaultIfEmpty()
+            orderby t.NombreCorporativo
+            select new TechnologyCatalogItem(
+                t.Id,
+                t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}",
+                fam != null ? fam.Nombre : null)
+        ).Take(100).ToListAsync(cancellationToken);
+
+        return Json(results);
     }
 
     private Guid? ActorId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;

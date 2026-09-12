@@ -190,4 +190,23 @@ public sealed class AdoptionEvaluationTests
         Assert.True(deact.MotivoBaja.Length >= 10);
         Assert.Contains("consolidación", deact.MotivoBaja);
     }
+
+    [Fact]
+    public void TechnologyCatalogItem_And_CatalogCollections_AreSupported()
+    {
+        var item = new TechnologyCatalogItem(42, "CyberArk Privilege Cloud", "Privileged Access Management");
+        Assert.Equal(42, item.Id);
+        Assert.Equal("CyberArk Privilege Cloud", item.Nombre);
+        Assert.Equal("Privileged Access Management", item.Familia);
+
+        var model = new CreateEvaluationViewModel
+        {
+            Familias = [new CatalogOption(1, "Seguridad Perimetral"), new CatalogOption(2, "Gestión de Identidades")],
+            TecnologiasCatalogo = [item, new TechnologyCatalogItem(43, "Palo Alto Prisma Access", "SASE")]
+        };
+
+        Assert.Equal(2, model.Familias.Count);
+        Assert.Equal(2, model.TecnologiasCatalogo.Count);
+        Assert.Equal("CyberArk Privilege Cloud", model.TecnologiasCatalogo[0].Nombre);
+    }
 }

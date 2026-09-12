@@ -76,6 +76,8 @@ public sealed class CreateEvaluationViewModel
     public IReadOnlyList<CatalogOption> BuildingBlocks { get; set; } = [];
     public IReadOnlyList<CatalogOption> EstadosAdopcion { get; set; } = [];
     public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
+    public IReadOnlyList<TechnologyCatalogItem> TecnologiasCatalogo { get; set; } = [];
+    public IReadOnlyList<CatalogOption> Familias { get; set; } = [];
     public IReadOnlyList<CatalogOption> TiposOperacion { get; set; } = [];
     public IReadOnlyList<CatalogOption> ModalidadesLaborales { get; set; } = [];
 
@@ -205,3 +207,5 @@ public sealed class EditEvaluationViewModel
     public string? SustentoArquitecturaEstandar { get; set; }
     public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
 }
+
+public sealed record TechnologyCatalogItem(int Id, string Nombre, string? Familia = null);

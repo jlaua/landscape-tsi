@@ -279,13 +279,19 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-label fw-semibold">Tecnología AS-IS (Catálogo TTecnologiaTSI)</label>
-                                                <select asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-select select-tech-asis" data-index="@i">
-                                                    <option value="">-- Seleccionar o dejar no registrada --</option>
-                                                    @foreach (var t in Model.TecnologiasDisponibles)
-                                                    {
-                                                        <option value="@t.Id">@t.Label</option>
-                                                    }
-                                                </select>
+                                                <div class="input-group">
+                                                    <select asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-select select-tech-asis" data-index="@i" id="select-tech-asis-@i" data-context-label="@Model.Subsidiaries[i].EmpresaNombre">
+                                                        <option value="">-- Seleccionar o dejar no registrada --</option>
+                                                        <option value="__open_modal__" class="fw-bold text-primary">🔍 Buscar o registrar nueva tecnología...</option>
+                                                        @foreach (var t in Model.TecnologiasDisponibles)
+                                                        {
+                                                            <option value="@t.Id">@t.Label</option>
+                                                        }
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@Model.Subsidiaries[i].EmpresaNombre" title="Buscar con filtros o registrar nueva tecnología">
+                                                        🔍 Buscar / + Nueva
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div class="col-md-3">
                                                 <label asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-label fw-semibold">Versión Desplegada</label>
@@ -429,13 +435,19 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Corporativa Propuesta</label>
-                                <select asp-for="TecnologiaEstandarId" class="form-select" id="selectStandardTech" disabled>
-                                    <option value="">-- Seleccionar Tecnología Propuesta --</option>
-                                    @foreach (var t in Model.TecnologiasDisponibles)
-                                    {
-                                        <option value="@t.Id">@t.Label</option>
-                                    }
-                                </select>
+                                <div class="input-group">
+                                    <select asp-for="TecnologiaEstandarId" class="form-select" id="selectStandardTech" disabled data-context-label="Estándar Corporativo">
+                                        <option value="">-- Seleccionar Tecnología Propuesta --</option>
+                                        <option value="__open_modal__" class="fw-bold text-primary">🔍 Buscar o registrar nueva tecnología...</option>
+                                        @foreach (var t in Model.TecnologiasDisponibles)
+                                        {
+                                            <option value="@t.Id">@t.Label</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" id="btn-open-tech-lookup-std" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" disabled title="Buscar con filtros o registrar nueva tecnología">
+                                        🔍 Buscar / + Nueva
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="col-md-3">
@@ -520,6 +532,124 @@
         </div>
     </form>
 </section>
+
+<!-- =======================================================
+     MODAL: BUSCADOR Y REGISTRO RÁPIDO DE TECNOLOGÍAS TSI
+     ======================================================= -->
+<div class="modal fade" id="modal-technology-lookup" tabindex="-1" aria-labelledby="modalTechLookupTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-light">
+                <div>
+                    <h5 class="modal-title fw-bold text-primary mb-0" id="modalTechLookupTitle">
+                        💻 Catálogo de Tecnologías TSI
+                    </h5>
+                    <small class="text-muted" id="modalTechLookupContext">Seleccionando para: <span class="fw-bold text-dark" id="modalTechContextName">General</span></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body p-0">
+                <!-- Pestañas del Modal -->
+                <ul class="nav nav-tabs nav-fill bg-light border-bottom px-3 pt-2" id="techLookupTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-tech-search-btn" data-bs-toggle="tab" data-bs-target="#tab-tech-search" type="button" role="tab" aria-controls="tab-tech-search" aria-selected="true">
+                            🔍 Buscar Tecnología Existente
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-tech-create-btn" data-bs-toggle="tab" data-bs-target="#tab-tech-create" type="button" role="tab" aria-controls="tab-tech-create" aria-selected="false">
+                            ➕ Registrar Nueva Tecnología
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-3" id="techLookupTabsContent">
+                    <!-- PESTAÑA 1: BUSCADOR EN VIVO -->
+                    <div class="tab-pane fade show active" id="tab-tech-search" role="tabpanel" aria-labelledby="tab-tech-search-btn">
+                        <div class="mb-3">
+                            <label for="inputTechSearch" class="form-label small fw-semibold text-secondary mb-1">
+                                Filtrar por nombre de solución o familia tecnológica:
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white">🔍</span>
+                                <input type="text" id="inputTechSearch" class="form-control" placeholder="Escriba para filtrar en tiempo real (ej. Palo Alto, CyberArk, Imperva)..." autocomplete="off" />
+                                <button type="button" class="btn btn-outline-secondary" id="btnResetTechSearch">Limpiar</button>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small text-muted" id="techSearchCount">Cargando catálogo...</span>
+                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-semibold" id="linkSwitchToCreate">
+                                + ¿No está en la lista? Registrar nueva
+                            </button>
+                        </div>
+
+                        <div class="table-responsive border rounded" style="max-height: 350px; overflow-y: auto;">
+                            <table class="table table-hover table-sm align-middle mb-0" id="tableTechResults">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Tecnología TSI</th>
+                                        <th>Familia</th>
+                                        <th class="text-end pe-3" style="width: 130px;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyTechResults">
+                                    <!-- Generado dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- PESTAÑA 2: REGISTRO RÁPIDO (ALTA EN TTecnologiaTSI) -->
+                    <div class="tab-pane fade" id="tab-tech-create" role="tabpanel" aria-labelledby="tab-tech-create-btn">
+                        <form id="formQuickCreateTech" class="p-2">
+                            <div class="alert alert-info small mb-3">
+                                💡 Al registrar la tecnología, se guardará de inmediato en el catálogo maestro (<code>TTecnologiaTSI</code>) y quedará seleccionada para esta subsidiaria sin recargar ni perder los datos de la evaluación.
+                            </div>
+
+                            <div id="quickCreateAlert" class="alert alert-danger small d-none" role="alert"></div>
+
+                            <div class="mb-3">
+                                <label for="quickTechNombre" class="form-label fw-semibold">Nombre Corporativo de la Tecnología <span class="text-danger">*</span></label>
+                                <input type="text" id="quickTechNombre" class="form-control" placeholder="Ej. CyberArk Privilege Cloud, FortiGate NGFW..." required />
+                                <div class="form-text small">Nombre oficial o corporativo del producto de software/hardware.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="quickTechNombreLocal" class="form-label fw-semibold">Nombre Local / Alternativo (Opcional)</label>
+                                <input type="text" id="quickTechNombreLocal" class="form-control" placeholder="Ej. Alias comercial o nombre interno en subsidiaria..." />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="quickTechFamiliaId" class="form-label fw-semibold">Familia Tecnológica (Opcional)</label>
+                                <select id="quickTechFamiliaId" class="form-select">
+                                    <option value="">-- Sin Familia Asignada --</option>
+                                    @foreach (var f in Model.Familias)
+                                    {
+                                        <option value="@f.Id">@f.Label</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-3">
+                                <button type="button" class="btn btn-outline-secondary" id="btnCancelQuickTech">← Volver a Búsqueda</button>
+                                <button type="submit" class="btn btn-success fw-bold px-3" id="btnSubmitQuickTech">
+                                    <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerQuickTech" role="status" aria-hidden="true"></span>
+                                    💾 Guardar y Seleccionar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
 <partial name="_ValidationScriptsPartial" />
@@ -698,8 +828,11 @@
         const badgeConvMode = document.getElementById('badge-convergence-mode');
         const textConvMode = document.getElementById('text-convergence-mode');
 
+        const btnOpenTechLookupStd = document.getElementById('btn-open-tech-lookup-std');
+
         const standardInputs = [
             selectStandardTech,
+            btnOpenTechLookupStd,
             document.getElementById('inputContratoCorp'),
             document.getElementById('inputFechaAdjCorp'),
             document.getElementById('inputVendorCorp'),
@@ -844,8 +977,8 @@
                 const text = this.options[this.selectedIndex]?.text || 'Por definir';
                 const td = document.getElementById(`conv-tech-${idx}`);
                 const badge = document.getElementById(`badge-tech-${idx}`);
-                if (td) td.innerText = (this.value ? text : 'Sin tecnología');
-                if (badge) badge.innerText = (this.value ? text : 'Sin tecnología');
+                if (td) td.innerText = (this.value && this.value !== '__open_modal__' ? text : 'Sin tecnología');
+                if (badge) badge.innerText = (this.value && this.value !== '__open_modal__' ? text : 'Sin tecnología');
                 updateConvergenceTable();
             });
         });
@@ -864,6 +997,308 @@
         document.querySelectorAll('.switch-has-tech').forEach(sw => {
             sw.addEventListener('change', updateConvergenceTable);
         });
+
+        // --- 8. Buscador y Registro Rápido de Tecnologías TSI en Modal ---
+        const modalTechEl = document.getElementById('modal-technology-lookup');
+        const modalTechInstance = modalTechEl ? bootstrap.Modal.getOrCreateInstance(modalTechEl) : null;
+        const modalTechContextName = document.getElementById('modalTechContextName');
+        const inputTechSearch = document.getElementById('inputTechSearch');
+        const btnResetTechSearch = document.getElementById('btnResetTechSearch');
+        const techSearchCount = document.getElementById('techSearchCount');
+        const tbodyTechResults = document.getElementById('tbodyTechResults');
+        const linkSwitchToCreate = document.getElementById('linkSwitchToCreate');
+        const btnCancelQuickTech = document.getElementById('btnCancelQuickTech');
+        const tabSearchBtn = document.getElementById('tab-tech-search-btn');
+        const tabCreateBtn = document.getElementById('tab-tech-create-btn');
+        const formQuickCreateTech = document.getElementById('formQuickCreateTech');
+        const quickCreateAlert = document.getElementById('quickCreateAlert');
+        const spinnerQuickTech = document.getElementById('spinnerQuickTech');
+        const btnSubmitQuickTech = document.getElementById('btnSubmitQuickTech');
+        const quickTechNombre = document.getElementById('quickTechNombre');
+        const quickTechNombreLocal = document.getElementById('quickTechNombreLocal');
+        const quickTechFamiliaId = document.getElementById('quickTechFamiliaId');
+
+        // Preload catalog technologies from model
+        let availableTechnologies = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+
+        let currentTargetSelect = null;
+
+        function openTechModal(selectEl, contextLabel) {
+            currentTargetSelect = selectEl;
+            if (modalTechContextName) {
+                modalTechContextName.innerText = contextLabel || 'Tecnología TSI';
+            }
+            if (quickCreateAlert) {
+                quickCreateAlert.classList.add('d-none');
+                quickCreateAlert.innerText = '';
+            }
+            if (formQuickCreateTech) {
+                formQuickCreateTech.reset();
+            }
+            if (tabSearchBtn) {
+                bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+            }
+            if (inputTechSearch) {
+                inputTechSearch.value = '';
+            }
+            renderTechResults('');
+            if (modalTechInstance) {
+                modalTechInstance.show();
+                setTimeout(() => {
+                    inputTechSearch?.focus();
+                }, 300);
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function renderTechResults(query) {
+            if (!tbodyTechResults) return;
+            const q = (query || '').trim().toLowerCase();
+            const filtered = q
+                ? availableTechnologies.filter(t => 
+                    (t.nombre && t.nombre.toLowerCase().includes(q)) || 
+                    (t.familia && t.familia.toLowerCase().includes(q))
+                  )
+                : availableTechnologies;
+
+            if (techSearchCount) {
+                techSearchCount.innerText = `Mostrando ${filtered.length} de ${availableTechnologies.length} tecnologías registradas`;
+            }
+
+            if (filtered.length === 0) {
+                tbodyTechResults.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-4">
+                            <p class="mb-2">No se encontraron tecnologías que coincidan con "<strong>${escapeHtml(q)}</strong>".</p>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="btnGoToCreateFromEmpty">
+                                ➕ Registrar "${escapeHtml(q)}" como nueva tecnología
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                const btnGo = document.getElementById('btnGoToCreateFromEmpty');
+                if (btnGo) {
+                    btnGo.addEventListener('click', function () {
+                        if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
+                        if (quickTechNombre) quickTechNombre.value = q;
+                        quickTechNombre?.focus();
+                    });
+                }
+                return;
+            }
+
+            const rows = filtered.map(item => `
+                <tr>
+                    <td>
+                        <strong class="text-dark">${escapeHtml(item.nombre)}</strong>
+                    </td>
+                    <td>
+                        <span class="badge ${item.familia ? 'bg-light text-primary border' : 'bg-secondary-subtle text-muted'}">${escapeHtml(item.familia || 'Sin familia asignada')}</span>
+                    </td>
+                    <td class="text-end pe-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-select-tech" data-id="${item.id}" data-name="${escapeHtml(item.nombre)}">
+                            Seleccionar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbodyTechResults.innerHTML = rows;
+
+            tbodyTechResults.querySelectorAll('.btn-select-tech').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const techId = this.dataset.id;
+                    const techName = this.dataset.name;
+                    selectTechnology(techId, techName);
+                });
+            });
+        }
+
+        function selectTechnology(techId, techName) {
+            if (currentTargetSelect) {
+                let opt = currentTargetSelect.querySelector(`option[value="${techId}"]`);
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = techId;
+                    opt.innerText = techName;
+                    currentTargetSelect.appendChild(opt);
+                }
+                currentTargetSelect.value = techId;
+                currentTargetSelect.dataset.previousValue = techId;
+                currentTargetSelect.dispatchEvent(new Event('change'));
+            }
+            if (modalTechInstance) {
+                modalTechInstance.hide();
+            }
+        }
+
+        function addOptionToAllSelects(techId, techName) {
+            const allSelects = document.querySelectorAll('.select-tech-asis, #selectStandardTech');
+            allSelects.forEach(sel => {
+                if (!sel.querySelector(`option[value="${techId}"]`)) {
+                    const opt = document.createElement('option');
+                    opt.value = techId;
+                    opt.innerText = techName;
+                    sel.appendChild(opt);
+                }
+            });
+        }
+
+        // Live search events
+        if (inputTechSearch) {
+            inputTechSearch.addEventListener('input', function () {
+                renderTechResults(this.value);
+            });
+        }
+
+        if (btnResetTechSearch) {
+            btnResetTechSearch.addEventListener('click', function () {
+                if (inputTechSearch) {
+                    inputTechSearch.value = '';
+                    renderTechResults('');
+                    inputTechSearch.focus();
+                }
+            });
+        }
+
+        if (linkSwitchToCreate) {
+            linkSwitchToCreate.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
+                if (inputTechSearch && inputTechSearch.value.trim() && quickTechNombre) {
+                    quickTechNombre.value = inputTechSearch.value.trim();
+                }
+                quickTechNombre?.focus();
+            });
+        }
+
+        if (btnCancelQuickTech) {
+            btnCancelQuickTech.addEventListener('click', function () {
+                if (tabSearchBtn) bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+            });
+        }
+
+        // Quick create AJAX form submit
+        if (formQuickCreateTech) {
+            formQuickCreateTech.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const nombre = (quickTechNombre?.value || '').trim();
+                const local = (quickTechNombreLocal?.value || '').trim();
+                const famId = quickTechFamiliaId?.value || '';
+
+                if (!nombre) {
+                    if (quickCreateAlert) {
+                        quickCreateAlert.className = 'alert alert-danger small';
+                        quickCreateAlert.innerText = 'El nombre corporativo de la tecnología es obligatorio.';
+                        quickCreateAlert.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                if (quickCreateAlert) quickCreateAlert.classList.add('d-none');
+                if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = true;
+                if (spinnerQuickTech) spinnerQuickTech.classList.remove('d-none');
+
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                const formData = new URLSearchParams();
+                formData.append('nombreCorporativo', nombre);
+                if (local) formData.append('nombreLocal', local);
+                if (famId) formData.append('familiaId', famId);
+                formData.append('__RequestVerificationToken', token);
+
+                fetch('/Administration/AdoptionProcess/QuickCreateTechnology', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString()
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Error al registrar la tecnología en el servidor.');
+                    return res.json();
+                })
+                .then(result => {
+                    if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = false;
+                    if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
+
+                    if (!result.succeeded) {
+                        if (quickCreateAlert) {
+                            quickCreateAlert.className = 'alert alert-danger small';
+                            quickCreateAlert.innerText = result.message || 'No se pudo registrar la tecnología.';
+                            quickCreateAlert.classList.remove('d-none');
+                        }
+                        return;
+                    }
+
+                    // Add to availableTechnologies if not exists
+                    const exists = availableTechnologies.some(t => t.id === result.id);
+                    if (!exists) {
+                        availableTechnologies.push({
+                            id: result.id,
+                            nombre: result.nombre,
+                            familia: result.familia || null
+                        });
+                        availableTechnologies.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+                    }
+
+                    // Add to all selects
+                    addOptionToAllSelects(result.id, result.nombre);
+
+                    // Select and close
+                    selectTechnology(result.id, result.nombre);
+                })
+                .catch(err => {
+                    if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = false;
+                    if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
+                    if (quickCreateAlert) {
+                        quickCreateAlert.className = 'alert alert-danger small';
+                        quickCreateAlert.innerText = err.message || 'Ocurrió un error inesperado al registrar la tecnología.';
+                        quickCreateAlert.classList.remove('d-none');
+                    }
+                });
+            });
+        }
+
+        // Trigger buttons click
+        document.querySelectorAll('.btn-open-tech-lookup').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const targetId = this.dataset.targetSelect;
+                const selectEl = document.getElementById(targetId);
+                const contextLabel = this.dataset.contextLabel || selectEl?.dataset.contextLabel || 'Tecnología TSI';
+                if (selectEl) {
+                    openTechModal(selectEl, contextLabel);
+                }
+            });
+        });
+
+        // Trigger on select change if "__open_modal__" is chosen
+        document.querySelectorAll('.select-tech-asis, #selectStandardTech').forEach(sel => {
+            sel.dataset.previousValue = sel.value;
+            sel.addEventListener('change', function () {
+                if (this.value === '__open_modal__') {
+                    const contextLabel = this.dataset.contextLabel || 'Tecnología TSI';
+                    openTechModal(this, contextLabel);
+                } else {
+                    this.dataset.previousValue = this.value;
+                }
+            });
+        });
+
+        // If modal is closed and select still has "__open_modal__", revert it
+        if (modalTechEl) {
+            modalTechEl.addEventListener('hidden.bs.modal', function () {
+                if (currentTargetSelect && currentTargetSelect.value === '__open_modal__') {
+                    currentTargetSelect.value = currentTargetSelect.dataset.previousValue || '';
+                    currentTargetSelect.dispatchEvent(new Event('change'));
+                }
+            });
+        }
 
         // Initialize default mode
         setStandardMode('pending');

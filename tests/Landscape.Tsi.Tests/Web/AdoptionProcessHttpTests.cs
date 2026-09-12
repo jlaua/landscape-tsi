@@ -169,6 +169,44 @@ public sealed class AdoptionProcessHttpTests
         Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task QuickCreateTechnology_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["nombreCorporativo"] = "Nueva Tech Test"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/QuickCreateTechnology", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task QuickCreateTechnology_WithoutEditPermission_ReturnsForbiddenOrBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["nombreCorporativo"] = "Nueva Tech Test"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/QuickCreateTechnology?noEdit=true", content);
+        Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SearchTechnologies_Authorized_Returns200()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/SearchTechnologies?q=Test");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");
