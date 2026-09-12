@@ -28,6 +28,7 @@ public sealed class CatalogReportingServiceTests
         Assert.Equal("Dominio", result.Name);
         Assert.Contains(result.Columns, column => column.Label == "Dominio");
         Assert.DoesNotContain(result.Columns, column => column.Code == "iddominio");
+        Assert.DoesNotContain(result.Columns, column => column.Code == "descripcion");
         Assert.Equal(1, result.TotalCount);
         Assert.Equal(("ident", 2, 5, "dominio", "desc"), stub.LastListRequest);
     }

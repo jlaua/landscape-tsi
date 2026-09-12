@@ -219,7 +219,11 @@ public sealed class CatalogReportingService(ICatalogManagementService catalogs, 
 
     private static CatalogReportDetail ToDetail(MasterCatalogDefinition definition, CatalogPageResult page)
     {
-        var columns = definition.ListColumnCodes
+        var columnCodes = string.Equals(definition.Code, "dominio", StringComparison.OrdinalIgnoreCase)
+            ? definition.ListColumnCodes.Where(code => !string.Equals(code, "descripcion", StringComparison.OrdinalIgnoreCase)).ToArray()
+            : definition.ListColumnCodes;
+
+        var columns = columnCodes
             .Select(code => definition.Columns.Single(column => column.Code == code))
             .Select(column => new CatalogReportColumn(column.Code, column.Label)).ToArray();
         var rows = page.Items.Select(row => new CatalogReportDetailRow(row.Id,
