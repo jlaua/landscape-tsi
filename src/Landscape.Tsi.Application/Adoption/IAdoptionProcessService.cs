@@ -22,4 +22,8 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> DeleteDriverAsync(int driverId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
 
     Task<AdoptionResult> SaveOperationModelAsync(SaveOperationModelCommand command, CancellationToken cancellationToken = default);
+
+    Task<BuildingBlockCapabilitiesDto?> GetBuildingBlockCapabilitiesAsync(int buildingBlockId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> BatchConveneCompaniesAsync(int procesoId, IEnumerable<ConveneCompanyInput> companies, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
 }

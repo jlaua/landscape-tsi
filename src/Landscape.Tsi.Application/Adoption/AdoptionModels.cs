@@ -188,4 +188,22 @@ public sealed record SaveOperationModelCommand(
     Guid ActorUserId,
     string CorrelationId);
 
+public sealed record ConveneCompanyInput(
+    int EmpresaId,
+    int? ContactoFocalId,
+    bool Aplica,
+    string? JustificacionNoAplica);
+
+public sealed record BuildingBlockCapabilitiesDto(
+    int BuildingBlockId,
+    string BuildingBlockNombre,
+    string DominioNombre,
+    IReadOnlyList<CapabilitySummaryDto> Capacidades);
+
+public sealed record CapabilitySummaryDto(
+    int Id,
+    string Nombre,
+    string? Estado,
+    IReadOnlyList<string> Funcionalidades);
+
 public sealed record AdoptionResult(bool Succeeded, string Message, int? EntityId = null);

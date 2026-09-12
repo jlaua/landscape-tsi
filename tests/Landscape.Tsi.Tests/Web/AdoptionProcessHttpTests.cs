@@ -93,6 +93,50 @@ public sealed class AdoptionProcessHttpTests
     }
 
     [Fact]
+    public async Task Authorized_EvaluationsIndex_Returns200AndRendersView()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/Evaluations");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Evaluaciones de Tecnologías TSI", content);
+        Assert.Contains("Nueva Solicitud de Evaluación", content);
+        Assert.Contains("Búsqueda rápida", content);
+        Assert.Contains("PROC-TEST-001", content);
+    }
+
+    [Fact]
+    public async Task Authorized_CreateEvaluationGet_Returns200AndRendersWizard()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/Evaluations/Create");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Nueva Solicitud de Evaluación Técnica", content);
+        Assert.Contains("1. Definición & Taxonomía TSI", content);
+        Assert.Contains("2. Subsidiarias Participantes (Checkboxes)", content);
+        Assert.Contains("3. Diagnóstico AS-IS & Contratos", content);
+        Assert.Contains("4. Estándar Corporativo & Convergencia", content);
+    }
+
+    [Fact]
+    public async Task Authorized_CapabilitiesPreview_ReturnsJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/Evaluations/CapabilitiesPreview/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("buildingBlockNombre", content);
+        Assert.Contains("Test BB", content);
+    }
+
+    [Fact]
     public async Task PostMutations_WithoutAntiforgery_ReturnBadRequest()
     {
         await using var factory = CreateFactory();
@@ -214,6 +258,15 @@ public sealed class AdoptionProcessHttpTests
             Task.FromResult(new AdoptionResult(true, "Ok"));
 
         public Task<AdoptionResult> SaveOperationModelAsync(SaveOperationModelCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<BuildingBlockCapabilitiesDto?> GetBuildingBlockCapabilitiesAsync(int buildingBlockId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<BuildingBlockCapabilitiesDto?>(new BuildingBlockCapabilitiesDto(buildingBlockId, "Test BB", "Test Dominio", []));
+
+        public Task<AdoptionResult> BatchConveneCompaniesAsync(int procesoId, IEnumerable<ConveneCompanyInput> companies, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivo, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
     }
 }

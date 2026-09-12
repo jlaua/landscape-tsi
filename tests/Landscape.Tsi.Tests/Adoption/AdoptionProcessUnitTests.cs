@@ -107,4 +107,35 @@ public sealed class AdoptionProcessUnitTests
         Assert.True(techImpl.EsTecnologiaPrimaria);
         Assert.Equal("12.4.1", techImpl.VersionDesplegada);
     }
+
+    [Fact]
+    public void BuildingBlockCapabilitiesDto_InitializesPropertiesCorrectly()
+    {
+        var cap = new CapabilitySummaryDto(10, "Gestión de Identidades", "ACTIVO", ["MFA", "SSO"]);
+        var dto = new BuildingBlockCapabilitiesDto(1, "Autenticación Central", "Identidad y Accesos", [cap]);
+
+        Assert.Equal(1, dto.BuildingBlockId);
+        Assert.Equal("Autenticación Central", dto.BuildingBlockNombre);
+        Assert.Equal("Identidad y Accesos", dto.DominioNombre);
+        Assert.Single(dto.Capacidades);
+        Assert.Equal("Gestión de Identidades", dto.Capacidades[0].Nombre);
+        Assert.Equal(2, dto.Capacidades[0].Funcionalidades.Count);
+    }
+
+    [Fact]
+    public void ConveneCompanyInput_InitializesValuesCorrectly()
+    {
+        var inputAplica = new ConveneCompanyInput(10, 5, true, null);
+        var inputNoAplica = new ConveneCompanyInput(20, null, false, "No aplica por normativa local");
+
+        Assert.Equal(10, inputAplica.EmpresaId);
+        Assert.Equal(5, inputAplica.ContactoFocalId);
+        Assert.True(inputAplica.Aplica);
+        Assert.Null(inputAplica.JustificacionNoAplica);
+
+        Assert.Equal(20, inputNoAplica.EmpresaId);
+        Assert.Null(inputNoAplica.ContactoFocalId);
+        Assert.False(inputNoAplica.Aplica);
+        Assert.Equal("No aplica por normativa local", inputNoAplica.JustificacionNoAplica);
+    }
 }

@@ -708,4 +708,97 @@ public sealed class AdoptionProcessService(
 
         return dict;
     }
+
+    public async Task<BuildingBlockCapabilitiesDto?> GetBuildingBlockCapabilitiesAsync(int buildingBlockId, CancellationToken cancellationToken = default)
+    {
+        var bb = await dbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == buildingBlockId, cancellationToken);
+        if (bb is null) return null;
+
+        var dominio = await dbContext.Domains.AsNoTracking().FirstOrDefaultAsync(x => x.Id == bb.IdDominio, cancellationToken);
+        var capacidades = await dbContext.Capabilities.AsNoTracking()
+            .Where(c => c.IdBuildingBlock == buildingBlockId)
+            .ToListAsync(cancellationToken);
+
+        var capacidadIds = capacidades.Select(c => c.Id).ToList();
+        var funcionalidades = await dbContext.Functionalities.AsNoTracking()
+            .Where(f => f.IdCapacidad.HasValue && capacidadIds.Contains(f.IdCapacidad.Value))
+            .ToListAsync(cancellationToken);
+
+        var estadosCapacidad = await dbContext.CapabilityStates.AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.Nombre, cancellationToken);
+
+        var capDtos = capacidades.Select(c => new CapabilitySummaryDto(
+            c.Id,
+            c.Nombre ?? $"Capacidad #{c.Id}",
+            c.IdEstado.HasValue ? estadosCapacidad.GetValueOrDefault(c.IdEstado.Value) : null,
+            funcionalidades.Where(f => f.IdCapacidad == c.Id).Select(f => f.Nombre ?? $"Funcionalidad #{f.Id}").ToList()
+        )).ToList();
+
+        return new BuildingBlockCapabilitiesDto(
+            bb.Id,
+            bb.Nombre ?? $"Building Block #{bb.Id}",
+            dominio?.Dominio ?? "Dominio",
+            capDtos);
+    }
+
+    public async Task<AdoptionResult> BatchConveneCompaniesAsync(int procesoId, IEnumerable<ConveneCompanyInput> companies, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (proceso is null) return new AdoptionResult(false, "El proceso de adopción no existe.");
+
+        var existing = await dbContext.AdoptionProcessCompanies
+            .Where(c => c.IdProcesoAdopcionTSI == procesoId)
+            .ToListAsync(cancellationToken);
+
+        int countUpdated = 0, countAdded = 0;
+        foreach (var item in companies)
+        {
+            var match = existing.FirstOrDefault(e => e.IdEmpresaSubsidiaria == item.EmpresaId);
+            if (match is not null)
+            {
+                match.Aplica = item.Aplica;
+                match.JustificacionNoAplica = item.Aplica ? null : item.JustificacionNoAplica;
+                if (item.ContactoFocalId.HasValue) match.IdContactoEmpresaSubsidiaria = item.ContactoFocalId;
+                match.FechaModificacion = DateTime.UtcNow;
+                match.UsuarioModificacion = actorUserId.ToString();
+                countUpdated++;
+            }
+            else
+            {
+                dbContext.AdoptionProcessCompanies.Add(new TProcesoAdopcionEmpresa
+                {
+                    IdProcesoAdopcionTSI = procesoId,
+                    IdEmpresaSubsidiaria = item.EmpresaId,
+                    IdContactoEmpresaSubsidiaria = item.ContactoFocalId,
+                    Aplica = item.Aplica,
+                    JustificacionNoAplica = item.Aplica ? null : item.JustificacionNoAplica,
+                    FechaIncorporacion = DateTime.UtcNow,
+                    FechaModificacion = DateTime.UtcNow,
+                    UsuarioModificacion = actorUserId.ToString()
+                });
+                countAdded++;
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await auditTrail.RecordUpdateAsync("proceso-adopcion-empresa", "TProcesoAdopcionEmpresa", procesoId,
+            proceso.NombreProceso, actorUserId, correlationId, $"Convocatoria en lote ({countAdded} agregadas, {countUpdated} actualizadas)", cancellationToken);
+
+        return new AdoptionResult(true, $"Se procesaron las empresas subsidiarias ({countAdded} agregadas, {countUpdated} actualizadas).");
+    }
+
+    public async Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (proceso is null) return new AdoptionResult(false, "El proceso de adopción no existe.");
+
+        proceso.Objetivo = $"[DADO DE BAJA: {motivoBaja}] {proceso.Objetivo}";
+        proceso.FechaEstimadaCierre = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await auditTrail.RecordUpdateAsync("proceso-adopcion-tsi", "TProcesoAdopcionTSI", proceso.IdProcesoAdopcionTSI,
+            proceso.NombreProceso, actorUserId, correlationId, $"Dado de baja. Motivo: {motivoBaja}", cancellationToken);
+
+        return new AdoptionResult(true, "La evaluación ha sido dada de baja exitosamente.");
+    }
 }

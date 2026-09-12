@@ -1,0 +1,680 @@
+@model Landscape.Tsi.Web.Models.CreateEvaluationViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = "Nueva Solicitud de Evaluación - Procesos de Adopción TSI";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Evaluations">Procesos de Adopción TSI</a></li>
+        <li><a asp-action="Evaluations">Evaluaciones</a></li>
+        <li aria-current="page">Nueva Evaluación</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="create-eval-title">
+    <div class="mb-4">
+        <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · FASE 2: EVALUACIÓN</p>
+        <h1 id="create-eval-title" class="h2 mb-1">Nueva Solicitud de Evaluación Técnica</h1>
+        <p class="supporting-text mb-0">
+            Configure la solicitud vinculada al Building Block, consulte sus capacidades y funcionalidades maestras, convoque subsidiarias con selección múltiple y registre el diagnóstico AS-IS contractual.
+        </p>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Error: </strong> @error
+        </div>
+    }
+
+    <form method="post" asp-action="SaveEvaluation" id="form-create-eval" class="needs-validation">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+        <!-- Wizard Navigation Pills -->
+        <ul class="nav nav-pills mb-4 bg-light p-2 rounded-3 gap-2" id="evalSteps" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-semibold" id="step1-tab" data-bs-toggle="pill" data-bs-target="#step1" type="button" role="tab" aria-selected="true">
+                    1. Definición & Taxonomía TSI
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="step2-tab" data-bs-toggle="pill" data-bs-target="#step2" type="button" role="tab" aria-selected="false">
+                    2. Subsidiarias Participantes (Checkboxes)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="step3-tab" data-bs-toggle="pill" data-bs-target="#step3" type="button" role="tab" aria-selected="false">
+                    3. Diagnóstico AS-IS & Contratos
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="step4-tab" data-bs-toggle="pill" data-bs-target="#step4" type="button" role="tab" aria-selected="false">
+                    4. Estándar Corporativo & Convergencia
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="evalStepsContent">
+            <!-- ==========================================
+                 PASO 1: DEFINICIÓN & TAXONOMÍA TSI
+                 ========================================== -->
+            <div class="tab-pane fade show active" id="step1" role="tabpanel" aria-labelledby="step1-tab">
+                <div class="card p-4 shadow-sm border-0 mb-4">
+                    <h2 class="h5 fw-bold text-primary mb-3">Ficha de la Solicitud de Evaluación</h2>
+
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label asp-for="Codigo" class="form-label fw-semibold">Código del Proceso <span class="text-danger">*</span></label>
+                            <input asp-for="Codigo" class="form-control font-monospace fw-bold" readonly />
+                            <span asp-validation-for="Codigo" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-9">
+                            <label asp-for="Nombre" class="form-label fw-semibold">Nombre de la Evaluación <span class="text-danger">*</span></label>
+                            <input asp-for="Nombre" class="form-control" placeholder="Ej. Evaluación Corporativa de Gestión de Accesos Privilegiados (PAM)" required />
+                            <span asp-validation-for="Nombre" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="DominioId" class="form-label fw-semibold">Dominio TSI <span class="text-danger">*</span></label>
+                            <select asp-for="DominioId" class="form-select" id="selectDominio">
+                                <option value="">-- Seleccionar Dominio --</option>
+                                @foreach (var d in Model.Dominios)
+                                {
+                                    <option value="@d.Id">@d.Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="BuildingBlockId" class="form-label fw-semibold">Building Block <span class="text-danger">*</span></label>
+                            <select asp-for="BuildingBlockId" class="form-select" id="selectBuildingBlock" required>
+                                <option value="">-- Seleccionar Building Block --</option>
+                                @foreach (var bb in Model.BuildingBlocks)
+                                {
+                                    <option value="@bb.Id">@bb.Label</option>
+                                }
+                            </select>
+                            <span asp-validation-for="BuildingBlockId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="EstadoAdopcionId" class="form-label fw-semibold">Estado Fase (TEstadoFaseAdopcion) <span class="text-danger">*</span></label>
+                            <select asp-for="EstadoAdopcionId" class="form-select">
+                                @foreach (var e in Model.EstadosAdopcion)
+                                {
+                                    <option value="@e.Id" selected="@(e.Label.Contains("EVALUA", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                        @e.Label
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="LiderCorporativo" class="form-label fw-semibold">Líder Corporativo TSI</label>
+                            <input asp-for="LiderCorporativo" class="form-control" placeholder="Nombre del líder o arquitecto evaluador" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="FechaInicio" class="form-label fw-semibold">Fecha de Inicio <span class="text-danger">*</span></label>
+                            <input asp-for="FechaInicio" type="date" class="form-control" required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="FechaEstimadaCierre" class="form-label fw-semibold">Fecha Estimada de Cierre</label>
+                            <input asp-for="FechaEstimadaCierre" type="date" class="form-control" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Objetivo" class="form-label fw-semibold">Objetivo de la Evaluación</label>
+                            <textarea asp-for="Objetivo" class="form-control" rows="3" placeholder="Definir el propósito estratégico, necesidades identificadas en el roadmap TSI..."></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Alcance" class="form-label fw-semibold">Alcance y Restricciones</label>
+                            <textarea asp-for="Alcance" class="form-control" rows="3" placeholder="Subsidiarias alcanzadas, ambientes (on-premise, cloud), restricciones regulatorias..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Capabilities & Functionalities Preview -->
+                <div class="card p-4 shadow-sm border-0 mb-4 bg-light">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">🧩</span>
+                            <div>
+                                <h3 class="h6 fw-bold mb-0">Capacidades y Funcionalidades Relacionadas (Taxonomía Maestra)</h3>
+                                <p class="text-muted small mb-0">Cargadas en tiempo real desde <code>TCapacidadDeSeguridad</code> y <code>TFuncionalidad</code> según el Building Block seleccionado.</p>
+                            </div>
+                        </div>
+                        <span id="cap-loading-spinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></span>
+                    </div>
+
+                    <div id="capabilities-preview-container">
+                        <div class="alert alert-info d-flex align-items-center gap-2 mb-0" id="capabilities-placeholder">
+                            <span>ℹ️</span>
+                            <span>Selecciona un <strong>Building Block</strong> para visualizar automáticamente sus capacidades y funcionalidades mapeadas.</span>
+                        </div>
+                        <div id="capabilities-content" class="d-none">
+                            <div class="p-3 bg-white rounded border mb-2">
+                                <span class="badge bg-primary mb-2" id="cap-bb-name">Building Block</span>
+                                <span class="badge bg-secondary mb-2 ms-1" id="cap-domain-name">Dominio</span>
+                                <div id="cap-items-list" class="row g-3 mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step2-tab">
+                        Continuar a Subsidiarias →
+                    </button>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 PASO 2: CONVOCATORIA DE SUBSIDIARIAS
+                 ========================================== -->
+            <div class="tab-pane fade" id="step2" role="tabpanel" aria-labelledby="step2-tab">
+                <div class="card p-4 shadow-sm border-0 mb-4">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <h2 class="h5 fw-bold text-primary mb-1">Convocatoria de Subsidiarias Participantes</h2>
+                            <p class="text-muted small mb-0">
+                                Utilice los <strong>checkboxes</strong> para incluir o excluir subsidiarias en lote. Cada subsidiaria convocada puede contar con su contacto focal técnico.
+                            </p>
+                        </div>
+                        <div class="form-check form-switch fs-6">
+                            <input class="form-check-input" type="checkbox" id="checkAllSubsidiaries" checked>
+                            <label class="form-check-label fw-semibold" for="checkAllSubsidiaries">Seleccionar todas</label>
+                        </div>
+                    </div>
+
+                    <div class="responsive-table">
+                        <table class="table align-middle table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">Sel.</th>
+                                    <th>Empresa Subsidiaria</th>
+                                    <th>País / Rubro</th>
+                                    <th>Focal Técnico (Contacto TContactoEmpresaSubsidiaria)</th>
+                                    <th style="width: 120px;">¿Aplica?</th>
+                                    <th>Justificación si No Aplica</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Subsidiaries.Count; i++)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="hidden" asp-for="Subsidiaries[i].EmpresaId" />
+                                        <input type="hidden" asp-for="Subsidiaries[i].EmpresaNombre" />
+                                        <input type="checkbox" class="form-check-input sub-checkbox" asp-for="Subsidiaries[i].Selected" data-empresa-id="@Model.Subsidiaries[i].EmpresaId" />
+                                    </td>
+                                    <td>
+                                        <strong>@Model.Subsidiaries[i].EmpresaNombre</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">@(Model.Subsidiaries[i].Pais ?? "N/A")</span>
+                                        <span class="small text-muted ms-1">@(Model.Subsidiaries[i].Rubro ?? "")</span>
+                                    </td>
+                                    <td>
+                                        <select asp-for="Subsidiaries[i].ContactoFocalId" class="form-select form-select-sm">
+                                            <option value="">-- Sin contacto focal asignado --</option>
+                                            @foreach (var c in Model.Subsidiaries[i].ContactosDisponibles)
+                                            {
+                                                <option value="@c.Id">@c.Label</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input switch-aplica" type="checkbox" asp-for="Subsidiaries[i].Aplica" data-target="just-@i" />
+                                            <label class="form-check-label small" asp-for="Subsidiaries[i].Aplica">Aplica</label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="text" asp-for="Subsidiaries[i].JustificacionNoAplica" id="just-@i" class="form-control form-control-sm" placeholder="Obligatorio si desmarca Aplica" disabled />
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary px-4 btn-prev-tab" data-prev="#step1-tab">← Volver a Definición</button>
+                    <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step3-tab">Continuar a Diagnóstico AS-IS →</button>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 PASO 3: DIAGNÓSTICO AS-IS & CONTRATOS
+                 ========================================== -->
+            <div class="tab-pane fade" id="step3" role="tabpanel" aria-labelledby="step3-tab">
+                <div class="card p-4 shadow-sm border-0 mb-4">
+                    <div class="mb-3">
+                        <h2 class="h5 fw-bold text-primary mb-1">Diagnóstico AS-IS por Subsidiaria</h2>
+                        <p class="text-muted small mb-0">
+                            Para cada empresa participante, registre si ya cuenta con tecnología desplegada, su proveedor local, fecha de fin de contrato (para la convergencia) y drivers de costo.
+                        </p>
+                    </div>
+
+                    <div class="accordion" id="accordionAsIs">
+                    @for (var i = 0; i < Model.SubsidiaryAsIsList.Count; i++)
+                    {
+                        var empId = Model.SubsidiaryAsIsList[i].EmpresaId;
+                        var empNom = Model.SubsidiaryAsIsList[i].EmpresaNombre;
+                        <div class="accordion-item mb-3 border rounded shadow-sm as-is-card" id="card-asis-@empId">
+                            <h2 class="accordion-header" id="heading-asis-@i">
+                                <button class="accordion-button @(i > 0 ? "collapsed" : "")" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-asis-@i" aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="collapse-asis-@i">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-primary">AS-IS</span>
+                                        <strong>@empNom</strong>
+                                        <span class="badge bg-secondary-subtle text-secondary ms-2" id="badge-tech-@i">Tecnología en evaluación</span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse-asis-@i" class="accordion-collapse collapse @(i == 0 ? "show" : "")" aria-labelledby="heading-asis-@i" data-bs-parent="#accordionAsIs">
+                                <div class="accordion-body">
+                                    <input type="hidden" asp-for="SubsidiaryAsIsList[i].EmpresaId" />
+                                    <input type="hidden" asp-for="SubsidiaryAsIsList[i].EmpresaNombre" />
+
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input switch-has-tech" type="checkbox" asp-for="SubsidiaryAsIsList[i].TieneTecnologia" data-container="tech-fields-@i" />
+                                        <label class="form-check-label fw-semibold" asp-for="SubsidiaryAsIsList[i].TieneTecnologia">
+                                            ¿La empresa cuenta con una solución tecnológica desplegada actualmente para este Building Block?
+                                        </label>
+                                    </div>
+
+                                    <div id="tech-fields-@i">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-label fw-semibold">Tecnología AS-IS (Catálogo TTecnologiaTSI)</label>
+                                                <select asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-select select-tech-asis" data-index="@i">
+                                                    <option value="">-- Seleccionar o dejar no registrada --</option>
+                                                    @foreach (var t in Model.TecnologiasDisponibles)
+                                                    {
+                                                        <option value="@t.Id">@t.Label</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-label fw-semibold">Versión Desplegada</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-control" placeholder="Ej. v12.4.1" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-label fw-semibold">Tipo Operación</label>
+                                                <select asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-select">
+                                                    <option value="">-- No definido --</option>
+                                                    @foreach (var o in Model.TiposOperacion)
+                                                    {
+                                                        <option value="@o.Id">@o.Label</option>
+                                                    }
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].VendorNombre" class="form-label fw-semibold">Fabricante / Vendor Local</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].VendorNombre" class="form-control" placeholder="Ej. CyberArk, BeyondTrust..." />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-label fw-semibold">Contacto Vendor Local</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-control" placeholder="Nombre / Email comercial" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="form-label fw-semibold">Partner / Integrador Local</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="form-control" placeholder="Ej. Noventiq, Logicalis..." />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="form-label fw-semibold">Contacto Partner Local</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="form-control" placeholder="Nombre / Email partner" />
+                                            </div>
+
+                                            <!-- Contrato Local -->
+                                            <div class="col-12 mt-3">
+                                                <h6 class="fw-bold text-secondary border-bottom pb-2">Contrato Local Vigente</h6>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].NumeroContrato" class="form-label fw-semibold">N° Contrato</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].NumeroContrato" class="form-control" placeholder="CT-LOCAL-2024-..." />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" class="form-label fw-semibold">Fecha Inicio Contrato</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" type="date" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="SubsidiaryAsIsList[i].FechaFinContrato" class="form-label fw-semibold text-danger">Fecha Fin Contrato (Vencimiento)</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].FechaFinContrato" type="date" class="form-control border-danger input-contract-end" data-index="@i" />
+                                                <div class="form-text text-danger">Determina el cronograma de convergencia TSI.</div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label asp-for="SubsidiaryAsIsList[i].MontoContratado" class="form-label fw-semibold">Monto Contratado</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].MontoContratado" type="number" step="0.01" class="form-control" placeholder="0.00" />
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label asp-for="SubsidiaryAsIsList[i].MonedaContrato" class="form-label fw-semibold">Moneda</label>
+                                                <select asp-for="SubsidiaryAsIsList[i].MonedaContrato" class="form-select">
+                                                    <option value="USD">USD</option>
+                                                    <option value="PEN">PEN</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary px-4 btn-prev-tab" data-prev="#step2-tab">← Volver a Subsidiarias</button>
+                    <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step4-tab">Continuar a Estándar Corporativo →</button>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 PASO 4: ESTÁNDAR CORPORATIVO & CONVERGENCIA
+                 ========================================== -->
+            <div class="tab-pane fade" id="step4" role="tabpanel" aria-labelledby="step4-tab">
+                <div class="card p-4 shadow-sm border-0 mb-4">
+                    <div class="mb-3">
+                        <h2 class="h5 fw-bold text-primary mb-1">Definición de Estándar Corporativo TSI (Opcional / Objetivo)</h2>
+                        <p class="text-muted small mb-0">
+                            Si la evaluación ya cuenta con una tecnología estándar propuesta o adjudicada, selecciónela junto con los datos del contrato y proveedor corporativo.
+                        </p>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Corporativa Seleccionada</label>
+                            <select asp-for="TecnologiaEstandarId" class="form-select" id="selectStandardTech">
+                                <option value="">-- Pendiente de selección tras la evaluación --</option>
+                                @foreach (var t in Model.TecnologiasDisponibles)
+                                {
+                                    <option value="@t.Id">@t.Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Corporativo TSI</label>
+                            <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="CT-CORP-TSI-2026-..." />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="FechaAdjudicacionCorporativa" class="form-label fw-semibold">Fecha de Adjudicación</label>
+                            <input asp-for="FechaAdjudicacionCorporativa" type="date" class="form-control" />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="VendorCorporativo" class="form-label fw-semibold">Vendor Corporativo</label>
+                            <input asp-for="VendorCorporativo" class="form-control" placeholder="Fabricante Corporativo" />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="ContactoVendorCorporativo" class="form-label fw-semibold">Contacto Vendor Corporativo</label>
+                            <input asp-for="ContactoVendorCorporativo" class="form-control" placeholder="Email / Representante" />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="PartnerCorporativo" class="form-label fw-semibold">Partner Corporativo</label>
+                            <input asp-for="PartnerCorporativo" class="form-control" placeholder="Integrador Corporativo" />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="ContactoPartnerCorporativo" class="form-label fw-semibold">Contacto Partner Corporativo</label>
+                            <input asp-for="ContactoPartnerCorporativo" class="form-control" placeholder="Email / Representante" />
+                        </div>
+                    </div>
+
+                    <!-- Cronograma de Convergencia TSI Calculado -->
+                    <div class="p-3 bg-light rounded border">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h3 class="h6 fw-bold mb-0">📅 Proyección del Cronograma de Convergencia TSI</h3>
+                            <span class="badge bg-primary">Alineación por Fin de Contrato</span>
+                        </div>
+                        <p class="text-secondary small mb-3">
+                            Cada subsidiaria participante se alineará al estándar corporativo en función del vencimiento de su contrato local actual:
+                        </p>
+                        <div class="responsive-table">
+                            <table class="table table-sm table-bordered bg-white mb-0" id="table-convergence">
+                                <thead>
+                                    <tr class="table-secondary">
+                                        <th>Subsidiaria</th>
+                                        <th>Tecnología AS-IS</th>
+                                        <th>Vencimiento Contrato Local</th>
+                                        <th>Estado de Convergencia Previsto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @for (var i = 0; i < Model.Subsidiaries.Count; i++)
+                                {
+                                    <tr class="conv-row" id="conv-row-@Model.Subsidiaries[i].EmpresaId">
+                                        <td><strong>@Model.Subsidiaries[i].EmpresaNombre</strong></td>
+                                        <td id="conv-tech-@i">Por definir</td>
+                                        <td id="conv-date-@i">Sin fecha registrada</td>
+                                        <td>
+                                            <span class="badge bg-warning text-dark" id="conv-badge-@i">En Evaluación</span>
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary px-4 btn-prev-tab" data-prev="#step3-tab">← Volver a Diagnóstico AS-IS</button>
+                    <div class="d-flex gap-2">
+                        <a asp-action="Evaluations" class="btn btn-outline-danger">Cancelar</a>
+                        <button type="submit" class="btn btn-success px-4 fw-bold">
+                            💾 Guardar Solicitud de Evaluación
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- 1. Tab Navigation Buttons ---
+        document.querySelectorAll('.btn-next-tab').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const nextTabId = this.dataset.next;
+                const tabTrigger = document.querySelector(nextTabId);
+                if (tabTrigger) {
+                    const tab = new bootstrap.Tab(tabTrigger);
+                    tab.show();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-prev-tab').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const prevTabId = this.dataset.prev;
+                const tabTrigger = document.querySelector(prevTabId);
+                if (tabTrigger) {
+                    const tab = new bootstrap.Tab(tabTrigger);
+                    tab.show();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        });
+
+        // --- 2. Dynamic Capabilities & Functionalities Real-Time Preview ---
+        const selectBb = document.getElementById('selectBuildingBlock');
+        const capContainer = document.getElementById('capabilities-content');
+        const capPlaceholder = document.getElementById('capabilities-placeholder');
+        const capSpinner = document.getElementById('cap-loading-spinner');
+        const capBbName = document.getElementById('cap-bb-name');
+        const capDomainName = document.getElementById('cap-domain-name');
+        const capItemsList = document.getElementById('cap-items-list');
+
+        function loadCapabilities(bbId) {
+            if (!bbId || bbId === '0') {
+                capPlaceholder.classList.remove('d-none');
+                capContainer.classList.add('d-none');
+                return;
+            }
+
+            capSpinner.classList.remove('d-none');
+
+            fetch(`/Administration/AdoptionProcess/Evaluations/CapabilitiesPreview/${bbId}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('No se pudo cargar capacidades');
+                    return res.json();
+                })
+                .then(data => {
+                    capSpinner.classList.add('d-none');
+                    capPlaceholder.classList.add('d-none');
+                    capContainer.classList.remove('d-none');
+
+                    capBbName.innerText = data.buildingBlockNombre || 'Building Block';
+                    capDomainName.innerText = data.dominioNombre || 'Dominio TSI';
+
+                    capItemsList.innerHTML = '';
+                    if (!data.capacidades || data.capacidades.length === 0) {
+                        capItemsList.innerHTML = `
+                            <div class="col-12">
+                                <div class="alert alert-secondary mb-0 small">
+                                    Este Building Block no cuenta aún con capacidades de seguridad mapeadas en las tablas maestras.
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        data.capacidades.forEach(cap => {
+                            const funcs = (cap.funcionalidades && cap.funcionalidades.length > 0)
+                                ? cap.funcionalidades.map(f => `<li>${f}</li>`).join('')
+                                : '<li class="text-muted">Sin funcionalidades registradas</li>';
+
+                            const col = document.createElement('div');
+                            col.className = 'col-md-6';
+                            col.innerHTML = `
+                                <div class="border rounded p-2 bg-light h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <strong class="small text-dark">${cap.nombre}</strong>
+                                        <span class="badge bg-secondary" style="font-size:0.65rem;">${cap.estado || 'Capacidad'}</span>
+                                    </div>
+                                    <ul class="mb-0 small text-secondary ps-3" style="font-size:0.8rem;">
+                                        ${funcs}
+                                    </ul>
+                                </div>
+                            `;
+                            capItemsList.appendChild(col);
+                        });
+                    }
+                })
+                .catch(err => {
+                    capSpinner.classList.add('d-none');
+                    console.error(err);
+                });
+        }
+
+        if (selectBb) {
+            selectBb.addEventListener('change', function () {
+                loadCapabilities(this.value);
+            });
+            if (selectBb.value && selectBb.value !== '0') {
+                loadCapabilities(selectBb.value);
+            }
+        }
+
+        // --- 3. Check All Subsidiaries Checkbox ---
+        const checkAll = document.getElementById('checkAllSubsidiaries');
+        const subCheckboxes = document.querySelectorAll('.sub-checkbox');
+        if (checkAll) {
+            checkAll.addEventListener('change', function () {
+                const checked = this.checked;
+                subCheckboxes.forEach(cb => {
+                    cb.checked = checked;
+                    syncAsIsCardVisibility(cb);
+                });
+            });
+        }
+
+        function syncAsIsCardVisibility(checkbox) {
+            const empId = checkbox.dataset.empresaId;
+            const card = document.getElementById(`card-asis-${empId}`);
+            const convRow = document.getElementById(`conv-row-${empId}`);
+            if (card) {
+                card.style.display = checkbox.checked ? '' : 'none';
+            }
+            if (convRow) {
+                convRow.style.display = checkbox.checked ? '' : 'none';
+            }
+        }
+
+        subCheckboxes.forEach(cb => {
+            cb.addEventListener('change', function () {
+                syncAsIsCardVisibility(this);
+            });
+            syncAsIsCardVisibility(cb);
+        });
+
+        // --- 4. Switch Aplica vs Justificación No Aplica ---
+        document.querySelectorAll('.switch-aplica').forEach(sw => {
+            const targetInput = document.getElementById(sw.dataset.target);
+            sw.addEventListener('change', function () {
+                if (targetInput) {
+                    targetInput.disabled = this.checked;
+                    if (this.checked) targetInput.value = '';
+                }
+            });
+            if (targetInput) {
+                targetInput.disabled = sw.checked;
+            }
+        });
+
+        // --- 5. Switch Tiene Tecnología AS-IS ---
+        document.querySelectorAll('.switch-has-tech').forEach(sw => {
+            const container = document.getElementById(sw.dataset.container);
+            sw.addEventListener('change', function () {
+                if (container) {
+                    container.style.display = this.checked ? '' : 'none';
+                }
+            });
+            if (container) {
+                container.style.display = sw.checked ? '' : 'none';
+            }
+        });
+
+        // --- 6. Sync AS-IS Selections to Convergence Table ---
+        document.querySelectorAll('.select-tech-asis').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = this.dataset.index;
+                const text = this.options[this.selectedIndex]?.text || 'Por definir';
+                const td = document.getElementById(`conv-tech-${idx}`);
+                const badge = document.getElementById(`badge-tech-${idx}`);
+                if (td) td.innerText = (this.value ? text : 'Sin tecnología');
+                if (badge) badge.innerText = (this.value ? text : 'Sin tecnología');
+            });
+        });
+
+        document.querySelectorAll('.input-contract-end').forEach(input => {
+            input.addEventListener('change', function () {
+                const idx = this.dataset.index;
+                const td = document.getElementById(`conv-date-${idx}`);
+                const badge = document.getElementById(`conv-badge-${idx}`);
+                if (td) {
+                    td.innerText = this.value || 'Sin fecha registrada';
+                }
+                if (badge && this.value) {
+                    badge.className = 'badge bg-success';
+                    badge.innerText = 'Convergencia: ' + this.value;
+                }
+            });
+        });
+    });
+</script>
+}

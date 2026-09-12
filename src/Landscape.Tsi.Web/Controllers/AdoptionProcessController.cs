@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Claims;
 
 using Landscape.Tsi.Application.Adoption;
@@ -359,6 +360,476 @@ public sealed class AdoptionProcessController(
             TempData["ErrorMessage"] = result.Message;
 
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpGet("Evaluations")]
+    [HttpGet("/AdoptionProcess/Evaluations")]
+    public async Task<IActionResult> Evaluations(string? search, int? dominioId, int? estadoId, CancellationToken cancellationToken)
+    {
+        var rawProcesses = await adoptionService.ListProcessesAsync(cancellationToken);
+
+        var bbs = await dbContext.BuildingBlocks.AsNoTracking()
+            .Select(b => new { b.Id, b.Nombre, b.IdDominio })
+            .ToListAsync(cancellationToken);
+        var bbMap = bbs.ToDictionary(b => b.Id);
+
+        var dominios = await dbContext.Domains.AsNoTracking()
+            .OrderBy(d => d.Dominio)
+            .Select(d => new CatalogOption(d.Id, d.Dominio ?? $"Dominio #{d.Id}"))
+            .ToListAsync(cancellationToken);
+        var domMap = dominios.ToDictionary(d => d.Id, d => d.Label);
+
+        var estados = await dbContext.AdoptionPhases.AsNoTracking()
+            .OrderBy(s => s.Nombre)
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .ToListAsync(cancellationToken);
+
+        var items = rawProcesses.Select(p =>
+        {
+            bbMap.TryGetValue(p.BuildingBlockId, out var bb);
+            var domNombre = (bb is not null && bb.IdDominio.HasValue && domMap.TryGetValue(bb.IdDominio.Value, out var dName)) ? dName : "Dominio TSI";
+            var isBaja = p.Nombre.StartsWith("[DADO DE BAJA:", StringComparison.OrdinalIgnoreCase)
+                         || p.Codigo.StartsWith("BAJA-", StringComparison.OrdinalIgnoreCase);
+
+            return new EvaluationProcessSummaryViewModel
+            {
+                Id = p.Id,
+                Codigo = p.Codigo,
+                Nombre = p.Nombre,
+                BuildingBlockId = p.BuildingBlockId,
+                BuildingBlockName = p.BuildingBlockNombre,
+                DominioName = domNombre,
+                LiderCorporativo = p.LiderCorporativo,
+                EstadoId = p.EstadoAdopcionId,
+                EstadoAdopcion = p.EstadoAdopcionNombre,
+                FaseAdopcion = "EVALUACION",
+                FechaInicio = p.FechaInicio,
+                FechaEstimadaCierre = p.FechaEstimadaCierre,
+                TotalEmpresas = p.TotalEmpresasConvocadas,
+                EmpresasConAdopcion = p.TotalEmpresasImplementadas,
+                EmpresasNoAplica = p.TotalEmpresasNoAplica,
+                IsActivo = !isBaja
+            };
+        }).ToList();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            items = items.Where(i =>
+                i.Codigo.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                i.Nombre.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                i.BuildingBlockName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                i.DominioName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        if (dominioId.HasValue && dominioId.Value > 0)
+        {
+            var bbIdsInDomain = bbs.Where(b => b.IdDominio == dominioId.Value).Select(b => b.Id).ToHashSet();
+            items = items.Where(i => bbIdsInDomain.Contains(i.BuildingBlockId)).ToList();
+        }
+
+        if (estadoId.HasValue && estadoId.Value > 0)
+        {
+            items = items.Where(i => i.EstadoId == estadoId.Value).ToList();
+        }
+
+        var vm = new EvaluationsIndexViewModel
+        {
+            Processes = items,
+            Search = search,
+            DominioId = dominioId,
+            EstadoId = estadoId,
+            Dominios = dominios,
+            BuildingBlocks = bbs.Select(b => new CatalogOption(b.Id, b.Nombre ?? $"BB #{b.Id}")).ToList(),
+            EstadosAdopcion = estados
+        };
+
+        return View("Evaluations", vm);
+    }
+
+    [HttpGet("Evaluations/Create")]
+    [HttpGet("/AdoptionProcess/Evaluations/Create")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> CreateEvaluation(int? buildingBlockId, CancellationToken cancellationToken)
+    {
+        var defaultCode = $"EVAL-TSI-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
+        var model = new CreateEvaluationViewModel
+        {
+            Codigo = defaultCode,
+            BuildingBlockId = buildingBlockId ?? 0,
+            FechaInicio = DateTime.Today
+        };
+
+        await PopulateCreateEvaluationCatalogsAsync(model, cancellationToken);
+
+        if (buildingBlockId.HasValue && buildingBlockId.Value > 0)
+        {
+            var bb = await dbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == buildingBlockId.Value, cancellationToken);
+            if (bb != null)
+            {
+                model.DominioId = bb.IdDominio ?? 0;
+            }
+        }
+
+        return View("CreateEvaluation", model);
+    }
+
+    [HttpGet("Evaluations/CapabilitiesPreview/{buildingBlockId:int}")]
+    [HttpGet("/AdoptionProcess/Evaluations/CapabilitiesPreview/{buildingBlockId:int}")]
+    public async Task<IActionResult> CapabilitiesPreview(int buildingBlockId, CancellationToken cancellationToken)
+    {
+        var dto = await adoptionService.GetBuildingBlockCapabilitiesAsync(buildingBlockId, cancellationToken);
+        if (dto is null)
+        {
+            return NotFound();
+        }
+        return Json(dto);
+    }
+
+    [HttpPost("Evaluations/Create")]
+    [HttpPost("/AdoptionProcess/Evaluations/Create")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveEvaluation(CreateEvaluationViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            await PopulateCreateEvaluationCatalogsAsync(model, cancellationToken);
+            return View("CreateEvaluation", model);
+        }
+
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var createCmd = new CreateAdoptionProcessCommand(
+            Codigo: model.Codigo,
+            Nombre: model.Nombre,
+            BuildingBlockId: model.BuildingBlockId,
+            EstadoAdopcionId: model.EstadoAdopcionId,
+            Objetivo: model.Objetivo,
+            Alcance: model.Alcance,
+            LiderCorporativo: model.LiderCorporativo,
+            FechaInicio: model.FechaInicio,
+            FechaEstimadaCierre: model.FechaEstimadaCierre,
+            ActorUserId: actor.Value,
+            CorrelationId: HttpContext.TraceIdentifier);
+
+        var procResult = await adoptionService.CreateProcessAsync(createCmd, cancellationToken);
+        if (!procResult.Succeeded || !procResult.EntityId.HasValue)
+        {
+            TempData["ErrorMessage"] = procResult.Message;
+            await PopulateCreateEvaluationCatalogsAsync(model, cancellationToken);
+            return View("CreateEvaluation", model);
+        }
+
+        var procesoId = procResult.EntityId.Value;
+
+        var selectedCompanies = model.Subsidiaries
+            .Where(s => s.Selected)
+            .Select(s => new ConveneCompanyInput(
+                s.EmpresaId,
+                s.ContactoFocalId,
+                s.Aplica,
+                s.Aplica ? null : s.JustificacionNoAplica))
+            .ToList();
+
+        if (selectedCompanies.Count > 0)
+        {
+            await adoptionService.BatchConveneCompaniesAsync(procesoId, selectedCompanies, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        }
+
+        if (model.TecnologiaEstandarId.HasValue && model.TecnologiaEstandarId.Value > 0)
+        {
+            var sustento = $"Estándar corporativo seleccionado en evaluación. Vendor: {model.VendorCorporativo ?? "N/A"}. Contrato: {model.NumeroContratoCorporativo ?? "N/A"}";
+            await adoptionService.SetCorporateStandardAsync(new SetCorporateStandardCommand(
+                BuildingBlockId: model.BuildingBlockId,
+                TecnologiaId: model.TecnologiaEstandarId.Value,
+                ProcesoAdopcionId: procesoId,
+                RolEstandar: "PRINCIPAL",
+                FechaInicio: model.FechaInicio,
+                MotivoCambio: "Definición de estándar corporativo durante evaluación TSI",
+                SustentoArquitectura: sustento,
+                ActorUserId: actor.Value,
+                CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+        }
+
+        if (model.SubsidiaryAsIsList is not null)
+        {
+            foreach (var asIs in model.SubsidiaryAsIsList.Where(a => a.TieneTecnologia && a.TecnologiaId.HasValue && a.TecnologiaId.Value > 0))
+            {
+                var regCmd = new RegisterImplementedTechnologyCommand(
+                    EmpresaId: asIs.EmpresaId,
+                    TecnologiaId: asIs.TecnologiaId!.Value,
+                    BuildingBlockId: model.BuildingBlockId,
+                    ProcesoEmpresaId: null,
+                    EsPrimaria: true,
+                    VersionDesplegada: asIs.VersionDesplegada,
+                    ActorUserId: actor.Value,
+                    CorrelationId: HttpContext.TraceIdentifier);
+
+                var regResult = await adoptionService.RegisterImplementedTechnologyAsync(regCmd, cancellationToken);
+                if (regResult.Succeeded && regResult.EntityId.HasValue)
+                {
+                    var implId = regResult.EntityId.Value;
+
+                    if (!string.IsNullOrWhiteSpace(asIs.NumeroContrato))
+                    {
+                        await adoptionService.SaveContractAsync(new SaveContractCommand(
+                            TecnologiaImplementadaId: implId,
+                            NumeroContrato: asIs.NumeroContrato,
+                            EsAdenda: false,
+                            ContratoPadreId: null,
+                            FechaInicio: asIs.FechaInicioContrato ?? DateTime.Today,
+                            FechaFin: asIs.FechaFinContrato ?? DateTime.Today.AddYears(1),
+                            FechaAdjudicacion: null,
+                            RutaDocumento: null,
+                            Monto: asIs.MontoContratado,
+                            Moneda: string.IsNullOrWhiteSpace(asIs.MonedaContrato) ? "USD" : asIs.MonedaContrato,
+                            Observaciones: $"Vendor: {asIs.VendorNombre} / Partner: {asIs.PartnerNombre}",
+                            ActorUserId: actor.Value,
+                            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+                    }
+
+                    if (asIs.Drivers != null)
+                    {
+                        foreach (var driver in asIs.Drivers.Where(d => !string.IsNullOrWhiteSpace(d.DescripcionDriver)))
+                        {
+                            await adoptionService.SaveDriverAsync(new SaveDriverCommand(
+                                TecnologiaImplementadaId: implId,
+                                Descripcion: driver.DescripcionDriver!,
+                                UnidadMedida: driver.UnidadMedida,
+                                Cantidad: driver.Cantidad,
+                                PrecioUnitario: driver.PrecioUnitario,
+                                Moneda: string.IsNullOrWhiteSpace(driver.Moneda) ? "USD" : driver.Moneda,
+                                ActorUserId: actor.Value,
+                                CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+                        }
+                    }
+
+                    if (asIs.TipoOperacionId.HasValue && asIs.ModalidadLaboralId.HasValue)
+                    {
+                        await adoptionService.SaveOperationModelAsync(new SaveOperationModelCommand(
+                            TecnologiaImplementadaId: implId,
+                            TipoOperacionId: asIs.TipoOperacionId.Value,
+                            ModalidadLaboralId: asIs.ModalidadLaboralId.Value,
+                            ActorUserId: actor.Value,
+                            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+                    }
+                }
+            }
+        }
+
+        TempData["SuccessMessage"] = $"Proceso de evaluación '{model.Codigo}' registrado exitosamente.";
+        return RedirectToAction(nameof(Evaluations));
+    }
+
+    [HttpPost("Evaluations/{id:int}/Deactivate")]
+    [HttpPost("/AdoptionProcess/Evaluations/{id:int}/Deactivate")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeactivateEvaluation(int id, string motivoBaja, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(motivoBaja))
+        {
+            TempData["ErrorMessage"] = "Debe proporcionar un motivo válido para dar de baja la evaluación.";
+            return RedirectToAction(nameof(Evaluations));
+        }
+
+        var result = await adoptionService.DeactivateProcessAsync(id, motivoBaja.Trim(), actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Evaluations));
+    }
+
+    [HttpGet("Evaluations/{id:int}/Edit")]
+    [HttpGet("/AdoptionProcess/Evaluations/{id:int}/Edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditEvaluation(int id, CancellationToken cancellationToken)
+    {
+        var proc = await dbContext.AdoptionProcesses.AsNoTracking().FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == id, cancellationToken);
+        if (proc is null) return NotFound();
+
+        var bb = await dbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == proc.IdBuildingBlock, cancellationToken);
+        var dom = bb?.IdDominio.HasValue == true
+            ? await dbContext.Domains.AsNoTracking().FirstOrDefaultAsync(d => d.Id == bb.IdDominio.Value, cancellationToken)
+            : null;
+
+        var estados = await dbContext.AdoptionPhases.AsNoTracking()
+            .OrderBy(s => s.Nombre)
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .ToListAsync(cancellationToken);
+
+        var vm = new EditEvaluationViewModel
+        {
+            Id = proc.IdProcesoAdopcionTSI,
+            Codigo = proc.CodigoProceso,
+            Nombre = proc.NombreProceso,
+            BuildingBlockId = proc.IdBuildingBlock,
+            BuildingBlockNombre = bb?.Nombre ?? $"BB #{proc.IdBuildingBlock}",
+            DominioNombre = dom?.Dominio ?? "Dominio TSI",
+            EstadoAdopcionId = proc.IdEstadoAdopcionTSI,
+            EstadosAdopcion = estados,
+            Objetivo = proc.Objetivo,
+            Alcance = proc.Alcance,
+            LiderCorporativo = proc.LiderCorporativoTSI,
+            FechaInicio = proc.FechaInicio,
+            FechaEstimadaCierre = proc.FechaEstimadaCierre
+        };
+
+        return View("EditEvaluation", vm);
+    }
+
+    [HttpPost("Evaluations/{id:int}/Edit")]
+    [HttpPost("/AdoptionProcess/Evaluations/{id:int}/Edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveEditEvaluation(int id, EditEvaluationViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            model.EstadosAdopcion = await dbContext.AdoptionPhases.AsNoTracking()
+                .OrderBy(s => s.Nombre)
+                .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+                .ToListAsync(cancellationToken);
+            return View("EditEvaluation", model);
+        }
+
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var proc = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == id, cancellationToken);
+        if (proc is null) return NotFound();
+
+        proc.NombreProceso = model.Nombre;
+        proc.IdEstadoAdopcionTSI = model.EstadoAdopcionId;
+        proc.LiderCorporativoTSI = model.LiderCorporativo;
+        proc.Objetivo = model.Objetivo;
+        proc.Alcance = model.Alcance;
+        proc.FechaInicio = model.FechaInicio;
+        proc.FechaEstimadaCierre = model.FechaEstimadaCierre;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        TempData["SuccessMessage"] = $"Evaluación '{proc.CodigoProceso}' actualizada exitosamente.";
+        return RedirectToAction(nameof(Evaluations));
+    }
+
+    private async Task PopulateCreateEvaluationCatalogsAsync(CreateEvaluationViewModel model, CancellationToken cancellationToken)
+    {
+        model.Dominios = await dbContext.Domains.AsNoTracking()
+            .OrderBy(d => d.Dominio)
+            .Select(d => new CatalogOption(d.Id, d.Dominio ?? $"Dominio #{d.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.BuildingBlocks = await dbContext.BuildingBlocks.AsNoTracking()
+            .OrderBy(b => b.Nombre)
+            .Select(b => new CatalogOption(b.Id, b.Nombre ?? $"Building Block #{b.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.EstadosAdopcion = await dbContext.AdoptionPhases.AsNoTracking()
+            .OrderBy(s => s.Nombre)
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.TecnologiasDisponibles = await dbContext.Technologies.AsNoTracking()
+            .OrderBy(t => t.NombreCorporativo)
+            .Select(t => new CatalogOption(t.Id, t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.TiposOperacion = await dbContext.OperationTypes.AsNoTracking()
+            .OrderBy(o => o.Nombre)
+            .Select(o => new CatalogOption(o.Id, o.Nombre ?? $"Tipo #{o.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.ModalidadesLaborales = await dbContext.WorkModes.AsNoTracking()
+            .OrderBy(w => w.Nombre)
+            .Select(w => new CatalogOption(w.Id, w.Nombre ?? $"Modalidad #{w.Id}"))
+            .ToListAsync(cancellationToken);
+
+        var contactsMap = await LoadContactsPerCompanyAsync(cancellationToken);
+
+        if (model.Subsidiaries.Count == 0)
+        {
+            var companies = await dbContext.Companies.AsNoTracking()
+                .OrderBy(c => c.Nombre)
+                .ToListAsync(cancellationToken);
+
+            model.Subsidiaries = companies.Select(c => new SubsidiaryCheckboxItem
+            {
+                EmpresaId = c.Id,
+                EmpresaNombre = c.Nombre ?? $"Empresa #{c.Id}",
+                Pais = c.Pais,
+                Rubro = c.Rubro,
+                Selected = true,
+                Aplica = true,
+                ContactosDisponibles = contactsMap.GetValueOrDefault(c.Id, [])
+            }).ToList();
+
+            model.SubsidiaryAsIsList = companies.Select(c => new SubsidiaryAsIsInputModel
+            {
+                EmpresaId = c.Id,
+                EmpresaNombre = c.Nombre ?? $"Empresa #{c.Id}",
+                TieneTecnologia = true,
+                MonedaContrato = "USD"
+            }).ToList();
+        }
+        else
+        {
+            foreach (var sub in model.Subsidiaries)
+            {
+                sub.ContactosDisponibles = contactsMap.GetValueOrDefault(sub.EmpresaId, []);
+            }
+        }
+    }
+
+    private async Task<Dictionary<int, List<CatalogOption>>> LoadContactsPerCompanyAsync(CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<int, List<CatalogOption>>();
+        try
+        {
+            var conn = dbContext.Database.GetDbConnection();
+            if (string.IsNullOrWhiteSpace(conn.ConnectionString))
+            {
+                return map;
+            }
+
+            if (conn.State != ConnectionState.Open)
+            {
+                await conn.OpenAsync(cancellationToken);
+            }
+
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT idContactoEmpresaSubsidiaria, idEmpresaSubsidiaria, nombreContactoEmpresaSubsidiaria, email FROM dbo.TContactoEmpresaSubsidiaria;";
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = reader.GetInt32(0);
+                var empresaId = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+                var name = reader.IsDBNull(2) ? $"Contacto #{id}" : reader.GetString(2);
+                var email = reader.IsDBNull(3) ? null : reader.GetString(3);
+                var label = string.IsNullOrWhiteSpace(email) ? name : $"{name} ({email})";
+
+                if (!map.TryGetValue(empresaId, out var list))
+                {
+                    list = [];
+                    map[empresaId] = list;
+                }
+                list.Add(new CatalogOption(id, label));
+            }
+        }
+        catch
+        {
+            // Resiliente ante variaciones de esquema o testing in-memory
+        }
+
+        return map;
     }
 
     private Guid? ActorId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
