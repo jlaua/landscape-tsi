@@ -77,8 +77,19 @@
         <div class="card-body">
             @if (p.EstandarPrincipalVigente is null)
             {
-                <div class="alert alert-warning mb-3">
-                    <strong>Sin Estándar Principal:</strong> Este proceso aún no tiene definido un Estándar Corporativo PRINCIPAL vigente.
+                <div class="alert alert-warning d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between p-3 mb-3 border-warning">
+                    <div>
+                        <strong class="d-block text-dark">🎯 Estándar Corporativo en Evaluación (Pendiente de Oficialización)</strong>
+                        <span class="small text-muted">
+                            Esta solicitud aún no cuenta con un Estándar Tecnológico PRINCIPAL oficializado. Al finalizar la evaluación técnica o validar la PoC, puede adjudicar y oficializar el estándar corporativo resultante.
+                        </span>
+                    </div>
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                    {
+                        <button type="button" class="btn btn-sm btn-primary mt-2 mt-md-0 ms-md-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-set-standard">
+                            🏆 Oficializar Estándar Resultante
+                        </button>
+                    }
                 </div>
             }
             else

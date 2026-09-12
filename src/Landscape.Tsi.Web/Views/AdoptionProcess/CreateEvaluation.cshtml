@@ -368,52 +368,105 @@
             <div class="tab-pane fade" id="step4" role="tabpanel" aria-labelledby="step4-tab">
                 <div class="card p-4 shadow-sm border-0 mb-4">
                     <div class="mb-3">
-                        <h2 class="h5 fw-bold text-primary mb-1">Definición de Estándar Corporativo TSI (Opcional / Objetivo)</h2>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                            <h2 class="h5 fw-bold text-primary mb-0">4. Estándar Tecnológico Corporativo & Convergencia</h2>
+                            <span class="badge bg-info text-dark px-3 py-2 fs-7 fw-semibold">Paso Opcional · Definición Flexible</span>
+                        </div>
                         <p class="text-muted small mb-0">
-                            Si la evaluación ya cuenta con una tecnología estándar propuesta o adjudicada, selecciónela junto con los datos del contrato y proveedor corporativo.
+                            En un proceso de evaluación técnica, es común que el estándar corporativo <strong>aún no esté definido</strong> y sea justamente el resultado final de la evaluación el que determine cuál será la tecnología estándar. Indique el modo aplicable para esta solicitud:
                         </p>
                     </div>
 
+                    <!-- Selector de Modo de Estándar -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Corporativa Seleccionada</label>
-                            <select asp-for="TecnologiaEstandarId" class="form-select" id="selectStandardTech">
-                                <option value="">-- Pendiente de selección tras la evaluación --</option>
-                                @foreach (var t in Model.TecnologiasDisponibles)
-                                {
-                                    <option value="@t.Id">@t.Label</option>
-                                }
-                            </select>
+                            <div class="card h-100 p-3 standard-option-card border-primary" id="card-mode-pending" style="cursor: pointer; border-width: 2px !important; background-color: #f8faff;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="StandardDefinitionMode" id="modePending" value="pending" checked />
+                                    <label class="form-check-label fw-bold text-dark fs-6" for="modePending">
+                                        🎯 Determinar estándar oficial como resultado de la evaluación
+                                    </label>
+                                </div>
+                                <p class="text-muted small mt-2 mb-2">
+                                    <strong>Recomendado para nuevas solicitudes.</strong> La solicitud iniciará sin un estándar prefijado. Al concluir el análisis técnico o PoC, el estándar definitivo se oficializará desde la ficha técnica o al editar la evaluación.
+                                </p>
+                                <span class="badge bg-warning text-dark align-self-start">Estándar: Pendiente de adjudicación técnica</span>
+                            </div>
                         </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Corporativo TSI</label>
-                            <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="CT-CORP-TSI-2026-..." />
+                        <div class="col-md-6">
+                            <div class="card h-100 p-3 standard-option-card" id="card-mode-defined" style="cursor: pointer; border-width: 2px !important;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="StandardDefinitionMode" id="modeDefined" value="defined" />
+                                    <label class="form-check-label fw-bold text-dark fs-6" for="modeDefined">
+                                        📌 Ya cuento con una tecnología corporativa propuesta o predefinida
+                                    </label>
+                                </div>
+                                <p class="text-muted small mt-2 mb-2">
+                                    Utilice esta opción si la corporación ya dispone de una tecnología estándar propuesta o contratada y la evaluación validará la homologación y convergencia de las subsidiarias convocadas.
+                                </p>
+                                <span class="badge bg-secondary align-self-start" id="badge-mode-defined">Estándar: Predefinido / Propuesto</span>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="FechaAdjudicacionCorporativa" class="form-label fw-semibold">Fecha de Adjudicación</label>
-                            <input asp-for="FechaAdjudicacionCorporativa" type="date" class="form-control" />
+                    <!-- Panel Informativo: Modo Pendiente -->
+                    <div id="panel-standard-pending" class="alert alert-light border border-info p-3 mb-4 rounded-3">
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="fs-4">💡</span>
+                            <div>
+                                <h3 class="h6 fw-bold text-primary mb-1">Evaluación Abierta sin Estándar Previo</h3>
+                                <p class="small text-muted mb-0">
+                                    La evaluación técnica se registrará sin forzar un estándar. Una vez comparadas las alternativas de mercado con los comités de arquitectura, podrá definir la tecnología ganadora mediante el botón <strong>"Oficializar Estándar Resultante"</strong> en la ficha detallada o actualizándola desde <strong>"Editar Evaluación"</strong>.
+                                </p>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="VendorCorporativo" class="form-label fw-semibold">Vendor Corporativo</label>
-                            <input asp-for="VendorCorporativo" class="form-control" placeholder="Fabricante Corporativo" />
-                        </div>
+                    <!-- Panel de Formulario: Modo Predefinido (Colapsable) -->
+                    <div id="panel-standard-fields" style="display: none;" class="p-3 bg-light rounded-3 border mb-4">
+                        <h3 class="h6 fw-bold text-primary mb-3">📋 Datos de la Tecnología Corporativa Preseleccionada</h3>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Corporativa Propuesta</label>
+                                <select asp-for="TecnologiaEstandarId" class="form-select" id="selectStandardTech" disabled>
+                                    <option value="">-- Seleccionar Tecnología Propuesta --</option>
+                                    @foreach (var t in Model.TecnologiasDisponibles)
+                                    {
+                                        <option value="@t.Id">@t.Label</option>
+                                    }
+                                </select>
+                            </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="ContactoVendorCorporativo" class="form-label fw-semibold">Contacto Vendor Corporativo</label>
-                            <input asp-for="ContactoVendorCorporativo" class="form-control" placeholder="Email / Representante" />
-                        </div>
+                            <div class="col-md-3">
+                                <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Corporativo TSI</label>
+                                <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="CT-CORP-TSI-2026-..." id="inputContratoCorp" disabled />
+                            </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="PartnerCorporativo" class="form-label fw-semibold">Partner Corporativo</label>
-                            <input asp-for="PartnerCorporativo" class="form-control" placeholder="Integrador Corporativo" />
-                        </div>
+                            <div class="col-md-3">
+                                <label asp-for="FechaAdjudicacionCorporativa" class="form-label fw-semibold">Fecha de Adjudicación</label>
+                                <input asp-for="FechaAdjudicacionCorporativa" type="date" class="form-control" id="inputFechaAdjCorp" disabled />
+                            </div>
 
-                        <div class="col-md-3">
-                            <label asp-for="ContactoPartnerCorporativo" class="form-label fw-semibold">Contacto Partner Corporativo</label>
-                            <input asp-for="ContactoPartnerCorporativo" class="form-control" placeholder="Email / Representante" />
+                            <div class="col-md-3">
+                                <label asp-for="VendorCorporativo" class="form-label fw-semibold">Vendor Corporativo</label>
+                                <input asp-for="VendorCorporativo" class="form-control" placeholder="Fabricante Corporativo" id="inputVendorCorp" disabled />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label asp-for="ContactoVendorCorporativo" class="form-label fw-semibold">Contacto Vendor Corporativo</label>
+                                <input asp-for="ContactoVendorCorporativo" class="form-control" placeholder="Email / Representante" id="inputContactoVendorCorp" disabled />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label asp-for="PartnerCorporativo" class="form-label fw-semibold">Partner Corporativo</label>
+                                <input asp-for="PartnerCorporativo" class="form-control" placeholder="Integrador Corporativo" id="inputPartnerCorp" disabled />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label asp-for="ContactoPartnerCorporativo" class="form-label fw-semibold">Contacto Partner Corporativo</label>
+                                <input asp-for="ContactoPartnerCorporativo" class="form-control" placeholder="Email / Representante" id="inputContactoPartnerCorp" disabled />
+                            </div>
                         </div>
                     </div>
 
@@ -421,12 +474,12 @@
                     <div class="p-3 bg-light rounded border">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h3 class="h6 fw-bold mb-0">📅 Proyección del Cronograma de Convergencia TSI</h3>
-                            <span class="badge bg-primary">Alineación por Fin de Contrato</span>
+                            <span class="badge bg-primary" id="badge-convergence-mode">Modo: Estándar por Definir</span>
                         </div>
-                        <p class="text-secondary small mb-3">
-                            Cada subsidiaria participante se alineará al estándar corporativo en función del vencimiento de su contrato local actual:
+                        <p class="text-secondary small mb-3" id="text-convergence-mode">
+                            Al iniciar la evaluación con estándar pendiente de definición, las subsidiarias permanecen en estado <strong>En Evaluación</strong> hasta que se adjudique el estándar tecnológico oficial:
                         </p>
-                        <div class="responsive-table">
+                        <div class="table-responsive">
                             <table class="table table-sm table-bordered bg-white mb-0" id="table-convergence">
                                 <thead>
                                     <tr class="table-secondary">
@@ -444,7 +497,7 @@
                                         <td id="conv-tech-@i">Por definir</td>
                                         <td id="conv-date-@i">Sin fecha registrada</td>
                                         <td>
-                                            <span class="badge bg-warning text-dark" id="conv-badge-@i">En Evaluación</span>
+                                            <span class="badge bg-warning text-dark" id="conv-badge-@i">En Evaluación (Estándar por definir)</span>
                                         </td>
                                     </tr>
                                 }
@@ -634,7 +687,157 @@
             }
         });
 
-        // --- 6. Sync AS-IS Selections to Convergence Table ---
+        // --- 6. Modo de Definición de Estándar Corporativo & Convergencia ---
+        const modePending = document.getElementById('modePending');
+        const modeDefined = document.getElementById('modeDefined');
+        const cardPending = document.getElementById('card-mode-pending');
+        const cardDefined = document.getElementById('card-mode-defined');
+        const panelPending = document.getElementById('panel-standard-pending');
+        const panelFields = document.getElementById('panel-standard-fields');
+        const selectStandardTech = document.getElementById('selectStandardTech');
+        const badgeConvMode = document.getElementById('badge-convergence-mode');
+        const textConvMode = document.getElementById('text-convergence-mode');
+
+        const standardInputs = [
+            selectStandardTech,
+            document.getElementById('inputContratoCorp'),
+            document.getElementById('inputFechaAdjCorp'),
+            document.getElementById('inputVendorCorp'),
+            document.getElementById('inputContactoVendorCorp'),
+            document.getElementById('inputPartnerCorp'),
+            document.getElementById('inputContactoPartnerCorp')
+        ];
+
+        function setStandardMode(mode) {
+            if (mode === 'pending') {
+                if (modePending) modePending.checked = true;
+                if (cardPending) {
+                    cardPending.classList.add('border-primary');
+                    cardPending.style.backgroundColor = '#f8faff';
+                }
+                if (cardDefined) {
+                    cardDefined.classList.remove('border-primary');
+                    cardDefined.style.backgroundColor = '#ffffff';
+                }
+                if (panelPending) panelPending.style.display = 'block';
+                if (panelFields) panelFields.style.display = 'none';
+
+                standardInputs.forEach(input => {
+                    if (input) {
+                        input.disabled = true;
+                        if (input === selectStandardTech) input.value = '';
+                    }
+                });
+
+                if (badgeConvMode) {
+                    badgeConvMode.className = 'badge bg-primary';
+                    badgeConvMode.innerText = 'Modo: Estándar por Definir';
+                }
+                if (textConvMode) {
+                    textConvMode.innerHTML = 'Al iniciar la evaluación con estándar pendiente de definición, las subsidiarias permanecen en estado <strong>En Evaluación</strong> hasta que se adjudique el estándar tecnológico oficial:';
+                }
+            } else {
+                if (modeDefined) modeDefined.checked = true;
+                if (cardDefined) {
+                    cardDefined.classList.add('border-primary');
+                    cardDefined.style.backgroundColor = '#f8faff';
+                }
+                if (cardPending) {
+                    cardPending.classList.remove('border-primary');
+                    cardPending.style.backgroundColor = '#ffffff';
+                }
+                if (panelPending) panelPending.style.display = 'none';
+                if (panelFields) panelFields.style.display = 'block';
+
+                standardInputs.forEach(input => {
+                    if (input) input.disabled = false;
+                });
+
+                if (badgeConvMode) {
+                    badgeConvMode.className = 'badge bg-success';
+                    badgeConvMode.innerText = 'Modo: Estándar Propuesto';
+                }
+                if (textConvMode) {
+                    textConvMode.innerHTML = 'Alineación proyectada con base en la tecnología corporativa propuesta y el vencimiento contractual local de cada subsidiaria:';
+                }
+            }
+            updateConvergenceTable();
+        }
+
+        if (cardPending) {
+            cardPending.addEventListener('click', function () {
+                setStandardMode('pending');
+            });
+        }
+
+        if (cardDefined) {
+            cardDefined.addEventListener('click', function () {
+                setStandardMode('defined');
+            });
+        }
+
+        if (modePending) {
+            modePending.addEventListener('change', function () {
+                if (this.checked) setStandardMode('pending');
+            });
+        }
+
+        if (modeDefined) {
+            modeDefined.addEventListener('change', function () {
+                if (this.checked) setStandardMode('defined');
+            });
+        }
+
+        function updateConvergenceTable() {
+            const isPending = modePending && modePending.checked;
+            const standardId = selectStandardTech ? selectStandardTech.value : '';
+
+            subCheckboxes.forEach(cb => {
+                const idx = cb.dataset.index;
+                const badge = document.getElementById(`conv-badge-${idx}`);
+                if (!badge) return;
+
+                if (isPending) {
+                    badge.className = 'badge bg-warning text-dark';
+                    badge.innerText = 'En Evaluación (Estándar por definir)';
+                    return;
+                }
+
+                if (!standardId) {
+                    badge.className = 'badge bg-secondary text-white';
+                    badge.innerText = 'Seleccione estándar propuesto';
+                    return;
+                }
+
+                const hasTechSw = document.querySelector(`.switch-has-tech[data-index="${idx}"]`);
+                const asIsSelect = document.querySelector(`.select-tech-asis[data-index="${idx}"]`);
+                const dateInput = document.querySelector(`.input-contract-end[data-index="${idx}"]`);
+
+                const hasTech = hasTechSw ? hasTechSw.checked : false;
+                const asIsId = asIsSelect ? asIsSelect.value : '';
+                const dateVal = dateInput ? dateInput.value : '';
+
+                if (!hasTech || !asIsId) {
+                    badge.className = 'badge bg-primary text-white';
+                    badge.innerText = 'Adopción Nueva';
+                } else if (asIsId === standardId) {
+                    badge.className = 'badge bg-success text-white';
+                    badge.innerText = 'Alineado al Estándar';
+                } else if (dateVal) {
+                    badge.className = 'badge bg-info text-dark';
+                    badge.innerText = 'Convergencia: ' + dateVal;
+                } else {
+                    badge.className = 'badge bg-secondary text-white';
+                    badge.innerText = 'Por converger (Sin fecha)';
+                }
+            });
+        }
+
+        if (selectStandardTech) {
+            selectStandardTech.addEventListener('change', updateConvergenceTable);
+        }
+
+        // --- 7. Sync AS-IS Selections to Convergence Table ---
         document.querySelectorAll('.select-tech-asis').forEach(sel => {
             sel.addEventListener('change', function () {
                 const idx = this.dataset.index;
@@ -643,6 +846,7 @@
                 const badge = document.getElementById(`badge-tech-${idx}`);
                 if (td) td.innerText = (this.value ? text : 'Sin tecnología');
                 if (badge) badge.innerText = (this.value ? text : 'Sin tecnología');
+                updateConvergenceTable();
             });
         });
 
@@ -650,16 +854,19 @@
             input.addEventListener('change', function () {
                 const idx = this.dataset.index;
                 const td = document.getElementById(`conv-date-${idx}`);
-                const badge = document.getElementById(`conv-badge-${idx}`);
                 if (td) {
                     td.innerText = this.value || 'Sin fecha registrada';
                 }
-                if (badge && this.value) {
-                    badge.className = 'badge bg-success';
-                    badge.innerText = 'Convergencia: ' + this.value;
-                }
+                updateConvergenceTable();
             });
         });
+
+        document.querySelectorAll('.switch-has-tech').forEach(sw => {
+            sw.addEventListener('change', updateConvergenceTable);
+        });
+
+        // Initialize default mode
+        setStandardMode('pending');
     });
 </script>
 }

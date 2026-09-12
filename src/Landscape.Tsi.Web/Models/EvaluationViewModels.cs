@@ -196,4 +196,12 @@ public sealed class EditEvaluationViewModel
 
     public DateTime FechaInicio { get; set; }
     public DateTime? FechaEstimadaCierre { get; set; }
+
+    // Estándar Corporativo
+    public int? TecnologiaEstandarId { get; set; }
+    public string? TecnologiaEstandarNombre { get; set; }
+    public string? RolEstandar { get; set; }
+    public string? MotivoCambioEstandar { get; set; }
+    public string? SustentoArquitecturaEstandar { get; set; }
+    public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
 }

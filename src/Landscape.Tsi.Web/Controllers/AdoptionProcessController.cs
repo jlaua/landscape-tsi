@@ -683,6 +683,27 @@ public sealed class AdoptionProcessController(
             FechaEstimadaCierre = proc.FechaEstimadaCierre
         };
 
+        var principalStandard = await dbContext.StandardTechnologyHistories.AsNoTracking()
+            .Where(s => s.IdBuildingBlock == proc.IdBuildingBlock && s.RolEstandar == "PRINCIPAL" && s.EstadoVigencia == "ACTIVO_VIGENTE")
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var techName = principalStandard is not null
+            ? await dbContext.Technologies.AsNoTracking()
+                .Where(t => t.Id == principalStandard.IdTecnologiaTSI)
+                .Select(t => t.NombreCorporativo ?? t.NombreLocal)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+
+        var availableTechs = await dbContext.Technologies.AsNoTracking()
+            .OrderBy(t => t.NombreCorporativo)
+            .Select(t => new CatalogOption(t.Id, t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}"))
+            .ToListAsync(cancellationToken);
+
+        vm.TecnologiaEstandarId = principalStandard?.IdTecnologiaTSI;
+        vm.TecnologiaEstandarNombre = techName;
+        vm.RolEstandar = principalStandard?.RolEstandar ?? "PRINCIPAL";
+        vm.TecnologiasDisponibles = availableTechs;
+
         return View("EditEvaluation", vm);
     }
 
@@ -697,6 +718,10 @@ public sealed class AdoptionProcessController(
             model.EstadosAdopcion = await dbContext.AdoptionPhases.AsNoTracking()
                 .OrderBy(s => s.Nombre)
                 .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+                .ToListAsync(cancellationToken);
+            model.TecnologiasDisponibles = await dbContext.Technologies.AsNoTracking()
+                .OrderBy(t => t.NombreCorporativo)
+                .Select(t => new CatalogOption(t.Id, t.NombreCorporativo ?? t.NombreLocal ?? $"Tecnología #{t.Id}"))
                 .ToListAsync(cancellationToken);
             return View("EditEvaluation", model);
         }
@@ -716,6 +741,27 @@ public sealed class AdoptionProcessController(
         proc.FechaEstimadaCierre = model.FechaEstimadaCierre;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Si se definió o actualizó el estándar tecnológico corporativo oficial
+        if (model.TecnologiaEstandarId.HasValue && model.TecnologiaEstandarId.Value > 0)
+        {
+            var currentStandard = await dbContext.StandardTechnologyHistories.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.IdBuildingBlock == proc.IdBuildingBlock && s.RolEstandar == "PRINCIPAL" && s.EstadoVigencia == "ACTIVO_VIGENTE", cancellationToken);
+
+            if (currentStandard is null || currentStandard.IdTecnologiaTSI != model.TecnologiaEstandarId.Value)
+            {
+                await adoptionService.SetCorporateStandardAsync(new SetCorporateStandardCommand(
+                    BuildingBlockId: proc.IdBuildingBlock,
+                    TecnologiaId: model.TecnologiaEstandarId.Value,
+                    ProcesoAdopcionId: proc.IdProcesoAdopcionTSI,
+                    RolEstandar: "PRINCIPAL",
+                    FechaInicio: DateTime.Today,
+                    MotivoCambio: string.IsNullOrWhiteSpace(model.MotivoCambioEstandar) ? "Definición de estándar corporativo como resultado de la evaluación TSI" : model.MotivoCambioEstandar,
+                    SustentoArquitectura: model.SustentoArquitecturaEstandar,
+                    ActorUserId: actor.Value,
+                    CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+            }
+        }
 
         TempData["SuccessMessage"] = $"Evaluación '{proc.CodigoProceso}' actualizada exitosamente.";
         return RedirectToAction(nameof(Evaluations));
