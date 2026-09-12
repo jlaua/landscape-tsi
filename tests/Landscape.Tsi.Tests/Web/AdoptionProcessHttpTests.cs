@@ -207,6 +207,62 @@ public sealed class AdoptionProcessHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task UpdateStatus_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["statusId"] = "2"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/1/Status", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_WithoutEditPermission_ReturnsForbiddenOrBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["statusId"] = "2"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/1/Status?noEdit=true", content);
+        Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ProcessDetails_RendersChangeStatusAndEditButtons()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("modal-change-status", content);
+        Assert.Contains("Cambiar Estado", content);
+        Assert.Contains("Editar Evaluación", content);
+    }
+
+    [Fact]
+    public async Task EvaluationsIndex_RendersEditAndChangeStatusButtons()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/Evaluations");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("modal-change-status-eval", content);
+        Assert.Contains("btn-change-status-row", content);
+        Assert.Contains("Editar", content);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");

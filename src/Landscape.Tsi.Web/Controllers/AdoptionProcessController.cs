@@ -360,9 +360,10 @@ public sealed class AdoptionProcessController(
     }
 
     [HttpPost("{id:int}/Status")]
+    [HttpPost("Evaluations/{id:int}/Status")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateStatus(int id, int statusId, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateStatus(int id, [FromForm] int statusId, [FromForm] string? returnUrl, CancellationToken cancellationToken)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
@@ -372,6 +373,9 @@ public sealed class AdoptionProcessController(
             TempData["SuccessMessage"] = result.Message;
         else
             TempData["ErrorMessage"] = result.Message;
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
 
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -393,9 +397,9 @@ public sealed class AdoptionProcessController(
             .ToListAsync(cancellationToken);
         var domMap = dominios.ToDictionary(d => d.Id, d => d.Label);
 
-        var estados = await dbContext.AdoptionPhases.AsNoTracking()
+        var estados = await dbContext.TechnologyAdoptionStates.AsNoTracking()
             .OrderBy(s => s.Nombre)
-            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
             .ToListAsync(cancellationToken);
 
         var items = rawProcesses.Select(p =>
@@ -675,9 +679,9 @@ public sealed class AdoptionProcessController(
             ? await dbContext.Domains.AsNoTracking().FirstOrDefaultAsync(d => d.Id == bb.IdDominio.Value, cancellationToken)
             : null;
 
-        var estados = await dbContext.AdoptionPhases.AsNoTracking()
+        var estados = await dbContext.TechnologyAdoptionStates.AsNoTracking()
             .OrderBy(s => s.Nombre)
-            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
             .ToListAsync(cancellationToken);
 
         var vm = new EditEvaluationViewModel
@@ -729,9 +733,9 @@ public sealed class AdoptionProcessController(
     {
         if (!ModelState.IsValid)
         {
-            model.EstadosAdopcion = await dbContext.AdoptionPhases.AsNoTracking()
+            model.EstadosAdopcion = await dbContext.TechnologyAdoptionStates.AsNoTracking()
                 .OrderBy(s => s.Nombre)
-                .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+                .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
                 .ToListAsync(cancellationToken);
             model.TecnologiasDisponibles = await dbContext.Technologies.AsNoTracking()
                 .OrderBy(t => t.NombreCorporativo)
@@ -746,6 +750,7 @@ public sealed class AdoptionProcessController(
         var proc = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == id, cancellationToken);
         if (proc is null) return NotFound();
 
+        var oldStateId = proc.IdEstadoAdopcionTSI;
         proc.NombreProceso = model.Nombre;
         proc.IdEstadoAdopcionTSI = model.EstadoAdopcionId;
         proc.LiderCorporativoTSI = model.LiderCorporativo;
@@ -755,6 +760,11 @@ public sealed class AdoptionProcessController(
         proc.FechaEstimadaCierre = model.FechaEstimadaCierre;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (oldStateId != model.EstadoAdopcionId)
+        {
+            await adoptionService.UpdateProcessStatusAsync(id, model.EstadoAdopcionId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        }
 
         // Si se definió o actualizó el estándar tecnológico corporativo oficial
         if (model.TecnologiaEstandarId.HasValue && model.TecnologiaEstandarId.Value > 0)
@@ -793,9 +803,9 @@ public sealed class AdoptionProcessController(
             .Select(b => new CatalogOption(b.Id, b.Nombre ?? $"Building Block #{b.Id}"))
             .ToListAsync(cancellationToken);
 
-        model.EstadosAdopcion = await dbContext.AdoptionPhases.AsNoTracking()
+        model.EstadosAdopcion = await dbContext.TechnologyAdoptionStates.AsNoTracking()
             .OrderBy(s => s.Nombre)
-            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Fase #{s.Id}"))
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
             .ToListAsync(cancellationToken);
 
         model.TecnologiasDisponibles = await dbContext.Technologies.AsNoTracking()

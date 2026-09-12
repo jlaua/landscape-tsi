@@ -101,6 +101,22 @@ public sealed class AdoptionProcessIntegrationTests
             Assert.True(stdAResult.Succeeded, stdAResult.Message);
             var stdAId = stdAResult.EntityId!.Value;
 
+            // 2.b Update Process Status (Evolutionary state transition using TMEstadoAdopcionTSI)
+            int secondStateId;
+            await using (var conn = await scope.OpenAsync())
+            {
+                await using var cmdState2 = new SqlCommand("SELECT TOP 1 idEstadoAdopcionTSI FROM dbo.TMEstadoAdopcionTSI WHERE idEstadoAdopcionTSI <> @current ORDER BY idEstadoAdopcionTSI DESC", conn);
+                cmdState2.Parameters.AddWithValue("@current", stateId);
+                var s2Obj = await cmdState2.ExecuteScalarAsync();
+                secondStateId = s2Obj is not null ? Convert.ToInt32(s2Obj) : stateId;
+            }
+
+            var updateStatusResult = await service.UpdateProcessStatusAsync(processId, secondStateId, actorUserId, correlationId);
+            Assert.True(updateStatusResult.Succeeded, updateStatusResult.Message);
+            var procInDb = await context.AdoptionProcesses.AsNoTracking().FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == processId);
+            Assert.NotNull(procInDb);
+            Assert.Equal(secondStateId, procInDb.IdEstadoAdopcionTSI);
+
             // 3. Set Corporate Standard B as new PRINCIPAL (should transition A to HISTORICO_REEMPLAZADO)
             var stdBResult = await service.SetCorporateStandardAsync(new SetCorporateStandardCommand(
                 BuildingBlockId: bbId,

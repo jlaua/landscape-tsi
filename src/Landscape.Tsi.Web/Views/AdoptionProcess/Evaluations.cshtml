@@ -162,9 +162,25 @@
                         </div>
                     </td>
                     <td data-label="Estado">
-                        <span class="badge @(p.IsActivo ? "bg-info text-dark" : "bg-secondary")">
-                            @p.EstadoAdopcion
-                        </span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge @(p.IsActivo ? "bg-info text-dark" : "bg-secondary")">
+                                @p.EstadoAdopcion
+                            </span>
+                            @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-1 btn-change-status-row"
+                                        style="font-size: 0.7rem; line-height: 1.2;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modal-change-status-eval"
+                                        data-id="@p.Id"
+                                        data-code="@p.Codigo"
+                                        data-name="@p.Nombre"
+                                        data-status-id="@p.EstadoId"
+                                        title="Cambiar estado de adopción TSI">
+                                    ✏️
+                                </button>
+                            }
+                        </div>
                     </td>
                     <td data-label="Líder TSI">
                         <span class="small">@(p.LiderCorporativo ?? "No asignado")</span>
@@ -190,6 +206,19 @@
                         </a>
                         @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                         {
+                            <a class="btn btn-sm btn-outline-secondary ms-1" asp-action="EditEvaluation" asp-route-id="@p.Id" title="Editar evaluación completa">
+                                Editar
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-info text-dark ms-1 btn-change-status-row"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modal-change-status-eval"
+                                    data-id="@p.Id"
+                                    data-code="@p.Codigo"
+                                    data-name="@p.Nombre"
+                                    data-status-id="@p.EstadoId"
+                                    title="Cambiar estado del proceso">
+                                Estado
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline-danger btn-deactivate ms-1"
                                     data-bs-toggle="modal"
                                     data-bs-target="#modal-deactivate"
@@ -207,6 +236,44 @@
         </table>
     </div>
 </section>
+
+<!-- Modal: Cambiar Estado de Evaluación (TMEstadoAdopcionTSI) -->
+<div class="modal fade" id="modal-change-status-eval" tabindex="-1" aria-labelledby="modalChangeStatusEvalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="form-change-status-eval" asp-action="UpdateStatus" asp-route-id="0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title h6 mb-0" id="modalChangeStatusEvalTitle">🔄 Cambiar Estado de Evaluación TSI</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">
+                        Los estados reflejan la evolución técnica del proceso según la tabla maestra <code>TMEstadoAdopcionTSI</code>.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Evaluación</label>
+                        <input type="text" id="change-status-display" class="form-control bg-light" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label for="change-status-select" class="form-label small fw-semibold">Nuevo Estado de Adopción <span class="text-danger">*</span></label>
+                        <select id="change-status-select" name="statusId" class="form-select" required>
+                            @foreach (var e in Model.EstadosAdopcion)
+                            {
+                                <option value="@e.Id">@e.Label</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">💾 Guardar Nuevo Estado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- Modal: Dar de baja Evaluación -->
 <div class="modal fade" id="modal-deactivate" tabindex="-1" aria-labelledby="modalDeactivateTitle" aria-hidden="true">
@@ -255,6 +322,23 @@
 
                 displayInput.value = `${code} - ${name}`;
                 formDeactivate.action = `/Administration/AdoptionProcess/Evaluations/${id}/Deactivate`;
+            });
+        });
+
+        const formChangeStatus = document.getElementById('form-change-status-eval');
+        const changeStatusDisplay = document.getElementById('change-status-display');
+        const changeStatusSelect = document.getElementById('change-status-select');
+
+        document.querySelectorAll('.btn-change-status-row').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const code = this.dataset.code;
+                const name = this.dataset.name;
+                const statusId = this.dataset.statusId;
+
+                if (changeStatusDisplay) changeStatusDisplay.value = `${code} - ${name}`;
+                if (changeStatusSelect && statusId) changeStatusSelect.value = statusId;
+                if (formChangeStatus) formChangeStatus.action = `/Administration/AdoptionProcess/${id}/Status`;
             });
         });
     });

@@ -299,17 +299,17 @@ public sealed class AdoptionProcessService(
         if (proceso is null)
             return new AdoptionResult(false, "El proceso de adopción no fue encontrado.");
 
-        var stateExists = await dbContext.TechnologyAdoptionStates.AnyAsync(s => s.Id == nuevoEstadoId, cancellationToken);
-        if (!stateExists)
+        var state = await dbContext.TechnologyAdoptionStates.FirstOrDefaultAsync(s => s.Id == nuevoEstadoId, cancellationToken);
+        if (state is null)
             return new AdoptionResult(false, "El estado de adopción especificado no existe.");
 
         proceso.IdEstadoAdopcionTSI = nuevoEstadoId;
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditTrail.RecordUpdateAsync("proceso-adopcion-tsi", "TProcesoAdopcionTSI", proceso.IdProcesoAdopcionTSI,
-            proceso.NombreProceso, actorUserId, correlationId, $"Estado actualizado a {nuevoEstadoId}", cancellationToken);
+            proceso.NombreProceso, actorUserId, correlationId, $"Estado de adopción actualizado a '{state.Nombre}'", cancellationToken);
 
-        return new AdoptionResult(true, "Estado de proceso de adopción actualizado exitosamente.");
+        return new AdoptionResult(true, $"Estado de adopción actualizado exitosamente a '{state.Nombre}'.");
     }
 
     public async Task<AdoptionResult> ConveneCompanyAsync(ConveneCompanyCommand command, CancellationToken cancellationToken = default)
