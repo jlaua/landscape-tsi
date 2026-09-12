@@ -15,4 +15,5 @@ public sealed class LoginViewModel
 
     public string? ReturnUrl { get; set; }
     public bool OAuthEnabled { get; set; }
+    public string SelectedTheme { get; set; } = "light";
 }

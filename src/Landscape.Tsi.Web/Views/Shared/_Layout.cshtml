@@ -1,10 +1,33 @@
 <!DOCTYPE html>
 @inject IWebHostEnvironment HostEnvironment
-<html lang="es" data-environment="@HostEnvironment.EnvironmentName">
+@{
+    var rawTheme = Context.Request.Cookies[Landscape.Tsi.Web.Controllers.AccountController.ThemeCookieName];
+    var currentTheme = string.Equals(rawTheme, Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate, StringComparison.OrdinalIgnoreCase)
+        ? Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate
+        : Landscape.Tsi.Web.Controllers.AccountController.ThemeLight;
+}
+<html lang="es" data-environment="@HostEnvironment.EnvironmentName" data-theme="@currentTheme">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Landscape TSI</title>
+    <script>
+        (function() {
+            try {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var c = cookies[i].trim();
+                    if (c.indexOf('landscape_theme=') === 0) {
+                        var theme = c.substring('landscape_theme='.length);
+                        if (theme === 'corporate' || theme === 'light') {
+                            document.documentElement.setAttribute('data-theme', theme);
+                        }
+                        break;
+                    }
+                }
+            } catch (e) {}
+        })();
+    </script>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -13,9 +36,11 @@
 <body>
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Landscape TSI</a>
+                <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
+                    <partial name="_BrandLogo" />
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -62,11 +87,26 @@
                         }
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <li class="nav-item ms-sm-auto d-flex align-items-center gap-2">
-                                <span class="nav-user">@User.Identity.Name</span>
-                                <form asp-controller="Account" asp-action="Logout" method="post">
-                                    <button class="md-button md-button-text" type="submit">Cerrar sesión</button>
-                                </form>
+                            <li class="nav-item ms-sm-auto d-flex align-items-center">
+                                <div class="dropdown">
+                                    <button class="nav-link dropdown-toggle d-flex align-items-center gap-2 border-0 bg-transparent py-1 px-2 text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="nav-user">@User.Identity.Name</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center gap-2" asp-controller="Account" asp-action="Preferences">
+                                                <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                Preferencias de cuenta
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form asp-controller="Account" asp-action="Logout" method="post" class="px-2 py-1">
+                                                <button class="dropdown-item text-danger border-0 bg-transparent p-0" type="submit">Cerrar sesión</button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
                             </li>
                         }
                         else

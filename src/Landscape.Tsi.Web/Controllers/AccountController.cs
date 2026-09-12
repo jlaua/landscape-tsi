@@ -18,13 +18,22 @@ public sealed class AccountController(
     IAuthenticationAuditWriter auditWriter,
     IConfiguration configuration) : Controller
 {
+    public const string ThemeCookieName = "landscape_theme";
+    public const string ThemeLight = "light";
+    public const string ThemeCorporate = "corporate";
+
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null) => View(new LoginViewModel
+    public IActionResult Login(string? returnUrl = null)
     {
-        ReturnUrl = returnUrl,
-        OAuthEnabled = configuration.GetValue<bool>("Authentication:OAuth:Enabled")
-    });
+        var currentTheme = Request.Cookies[ThemeCookieName] == ThemeCorporate ? ThemeCorporate : ThemeLight;
+        return View(new LoginViewModel
+        {
+            ReturnUrl = returnUrl,
+            OAuthEnabled = configuration.GetValue<bool>("Authentication:OAuth:Enabled"),
+            SelectedTheme = currentTheme
+        });
+    }
 
     [HttpPost]
     [AllowAnonymous]
@@ -48,6 +57,19 @@ public sealed class AccountController(
 
         if (result.Succeeded)
         {
+            if (!string.IsNullOrWhiteSpace(model.SelectedTheme))
+            {
+                var themeToPersist = model.SelectedTheme.Trim().ToLowerInvariant() == ThemeCorporate ? ThemeCorporate : ThemeLight;
+                Response.Cookies.Append(ThemeCookieName, themeToPersist, new CookieOptions
+                {
+                    Path = "/",
+                    MaxAge = TimeSpan.FromDays(365),
+                    SameSite = SameSiteMode.Lax,
+                    Secure = Request.IsHttps,
+                    HttpOnly = false
+                });
+            }
+
             return LocalRedirect(SafeReturnUrl(model.ReturnUrl));
         }
 
@@ -101,6 +123,75 @@ public sealed class AccountController(
     [HttpGet]
     [AllowAnonymous]
     public IActionResult AccessDenied() => View();
+
+    [HttpPost("Account/SetTheme")]
+    [HttpPost("SetTheme")]
+    [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
+    public IActionResult SetTheme([FromBody] SetThemeRequest? request)
+    {
+        var rawTheme = request?.Theme?.Trim().ToLowerInvariant()
+                       ?? Request.Form["theme"].FirstOrDefault()?.Trim().ToLowerInvariant()
+                       ?? ThemeLight;
+
+        var validatedTheme = rawTheme == ThemeCorporate ? ThemeCorporate : ThemeLight;
+
+        Response.Cookies.Append(ThemeCookieName, validatedTheme, new CookieOptions
+        {
+            Path = "/",
+            MaxAge = TimeSpan.FromDays(365),
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps,
+            HttpOnly = false
+        });
+
+        if (Request.Headers.Accept.ToString().Contains("application/json") || Request.ContentType?.Contains("application/json") == true)
+        {
+            return Json(new { success = true, theme = validatedTheme });
+        }
+
+        var returnUrl = request?.ReturnUrl ?? Request.Form["returnUrl"].FirstOrDefault();
+        return LocalRedirect(SafeReturnUrl(returnUrl));
+    }
+
+    [HttpGet("Account/Preferences")]
+    [HttpGet("Account/Preferencias")]
+    [HttpGet("Preferencias")]
+    [Authorize]
+    public IActionResult Preferences()
+    {
+        var currentTheme = Request.Cookies[ThemeCookieName] == ThemeCorporate ? ThemeCorporate : ThemeLight;
+        return View(new AccountPreferencesViewModel
+        {
+            UserName = User.Identity?.Name ?? string.Empty,
+            SelectedTheme = currentTheme,
+            StatusMessage = TempData["StatusMessage"] as string
+        });
+    }
+
+    [HttpPost("Account/Preferences")]
+    [HttpPost("Account/Preferencias")]
+    [HttpPost("Preferencias")]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public IActionResult Preferences(AccountPreferencesViewModel model)
+    {
+        var validatedTheme = model.SelectedTheme?.Trim().ToLowerInvariant() == ThemeCorporate
+            ? ThemeCorporate
+            : ThemeLight;
+
+        Response.Cookies.Append(ThemeCookieName, validatedTheme, new CookieOptions
+        {
+            Path = "/",
+            MaxAge = TimeSpan.FromDays(365),
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps,
+            HttpOnly = false
+        });
+
+        TempData["StatusMessage"] = $"Preferencia de tema visual actualizada a '{(validatedTheme == ThemeCorporate ? "Corporativo (Credicorp)" : "Ligero")}'.";
+        return RedirectToAction(nameof(Preferences));
+    }
 
     private string SafeReturnUrl(string? returnUrl) =>
         !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)

@@ -13,11 +13,12 @@ html {
 
 body {
   margin-bottom: 60px;
-  background: #f7f7fb;
-  color: #1b1b1f;
+  background: var(--body-bg, #f7f7fb);
+  color: var(--body-text, #1b1b1f);
   font-family: Inter, Roboto, "Segoe UI", sans-serif;
   font-size: 1rem;
   line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 h1 { font-size: 2rem; line-height: 1.2; }
@@ -33,8 +34,10 @@ h3 { font-size: 1.25rem; line-height: 1.3; }
   text-align: start;
 }
 
-:root {
+:root, [data-theme="light"] {
+  --theme-name: 'light';
   --md-primary: #315da8;
+  --md-primary-hover: #264b88;
   --md-on-primary: #ffffff;
   --md-primary-container: #d9e2ff;
   --md-on-primary-container: #001a41;
@@ -42,10 +45,308 @@ h3 { font-size: 1.25rem; line-height: 1.3; }
   --md-surface-container: #f0eef4;
   --md-outline: #74777f;
   --md-error: #ba1a1a;
+  --body-bg: #f7f7fb;
+  --body-text: #1b1b1f;
+  --navbar-bg: #ffffff;
+  --navbar-border: #dee2e6;
+  --navbar-brand-text: #1b1b1f;
+  --navbar-link-text: #1b1b1f;
+  --navbar-link-active: #315da8;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --footer-bg: #ffffff;
+  --footer-text: #6c757d;
+  --brand-accent: #315da8;
+}
+
+[data-theme="corporate"] {
+  --theme-name: 'corporate';
+  --md-primary: #002a86;
+  --md-primary-hover: #001f66;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #e6f0ff;
+  --md-on-primary-container: #001440;
+  --md-surface: #ffffff;
+  --md-surface-container: #f4f6fa;
+  --md-outline: #5c6b84;
+  --md-error: #ba1a1a;
+  --body-bg: #f5f7fb;
+  --body-text: #101828;
+  --navbar-bg: #0a1b3a;
+  --navbar-border: #162a52;
+  --navbar-brand-text: #ffffff;
+  --navbar-link-text: #e2e8f0;
+  --navbar-link-active: #2ad2c9;
+  --card-bg: #ffffff;
+  --card-border: #dbe3ee;
+  --footer-bg: #0a1b3a;
+  --footer-text: #94a3b8;
+  --brand-accent: #2ad2c9;
+  --brand-accent-green: #77e2ad;
+  --brand-accent-orange: #ff7800;
 }
 
 .navbar {
-  background: var(--md-surface) !important;
+  background: var(--navbar-bg) !important;
+  border-bottom: 1px solid var(--navbar-border) !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+[data-theme="corporate"] .navbar .navbar-brand {
+  color: var(--navbar-brand-text) !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="corporate"] .navbar .nav-link {
+  color: var(--navbar-link-text) !important;
+}
+
+[data-theme="corporate"] .navbar .nav-link:hover,
+[data-theme="corporate"] .navbar .nav-link:focus {
+  color: var(--brand-accent) !important;
+}
+
+[data-theme="corporate"] .navbar .nav-user {
+  color: #ffffff;
+  background: #142b58;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid #234380;
+}
+
+[data-theme="corporate"] .footer {
+  background: var(--footer-bg) !important;
+  color: var(--footer-text) !important;
+  border-top-color: var(--navbar-border) !important;
+}
+
+[data-theme="corporate"] .md-button-filled {
+  background: var(--brand-accent) !important;
+  color: #070d19 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(42, 210, 201, 0.25) !important;
+}
+
+[data-theme="corporate"] .md-button-filled:hover {
+  background: #24b8b0 !important;
+  box-shadow: 0 6px 16px rgba(42, 210, 201, 0.35) !important;
+}
+
+[data-theme="corporate"] .md-button-tonal {
+  background: #002a86 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="corporate"] .md-button-tonal:hover {
+  background: #001f66 !important;
+}
+
+[data-theme="corporate"] .brand-mark {
+  background: linear-gradient(135deg, #002a86 0%, #0a1b3a 100%) !important;
+  color: #2ad2c9 !important;
+  border: 1px solid #1e3a73 !important;
+}
+
+[data-theme="corporate"] .login-card {
+  border-top: 4px solid #2ad2c9 !important;
+  box-shadow: 0 16px 40px rgba(0, 42, 134, 0.12) !important;
+}
+
+/* Theme Selector Segmented Control (Login & Preferences) */
+.theme-selector-group {
+  display: flex;
+  background: #eef2f8;
+  border-radius: 14px;
+  padding: 4px;
+  border: 1px solid #d8e2ee;
+  margin-bottom: 1.25rem;
+}
+
+[data-theme="corporate"] .theme-selector-group {
+  background: #08152e;
+  border-color: #172d54;
+}
+
+.theme-selector-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #556277;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+[data-theme="corporate"] .theme-selector-btn {
+  color: #94a3b8;
+}
+
+.theme-selector-btn:hover {
+  color: #1b1b1f;
+}
+
+[data-theme="corporate"] .theme-selector-btn:hover {
+  color: #f1f5f9;
+}
+
+.theme-selector-btn.active[data-theme-choice="light"] {
+  background: #ffffff;
+  color: #315da8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.theme-selector-btn.active[data-theme-choice="corporate"] {
+  background: #2ad2c9;
+  color: #070d19;
+  box-shadow: 0 2px 8px rgba(42, 210, 201, 0.3);
+}
+
+/* Accessible Toggle Switch for Preferences */
+.theme-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+}
+
+.theme-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 28px;
+}
+
+.theme-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-slider {
+  background-color: #2ad2c9;
+}
+
+.theme-toggle-switch input:focus-visible + .theme-toggle-slider {
+  outline: 2px solid #002a86;
+  outline-offset: 2px;
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-slider:before {
+  transform: translateX(24px);
+}
+
+/* Brand Logo Adaptativo */
+.brand-logo-container {
+  display: inline-flex;
+  align-items: center;
+}
+
+.logo-light-variant {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-corporate-variant {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+[data-theme="corporate"] .logo-light-variant {
+  display: none !important;
+}
+
+[data-theme="corporate"] .logo-corporate-variant {
+  display: inline-flex !important;
+}
+
+.brand-mark-box {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: var(--md-primary-container, #d9e2ff);
+  color: var(--md-primary, #315da8);
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.credicorp-symbol {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+}
+
+.credicorp-text-group {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.credicorp-main-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.credicorp-subtitle {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand-accent, #2ad2c9);
+}
+
+/* Cuando el logo está en la tarjeta de login */
+.login-card .brand-logo-container {
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.login-card .credicorp-main-title {
+  color: var(--md-primary, #002a86);
+  font-size: 1.15rem;
+}
+
+.login-card .credicorp-symbol {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.login-card .brand-mark-box {
+  width: 3.25rem;
+  height: 3.25rem;
+  font-size: 1.6rem;
+  border-radius: 16px;
 }
 
 .skip-link {

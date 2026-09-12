@@ -1,0 +1,127 @@
+@model Landscape.Tsi.Web.Models.AccountPreferencesViewModel
+@{
+    ViewData["Title"] = "Preferencias de cuenta";
+}
+
+<div class="container py-4">
+    <div class="max-w-2xl mx-auto space-y-4" style="max-width: 680px;">
+        
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Preferencias</li>
+                    </ol>
+                </nav>
+                <h1 class="h3 font-bold mb-0">Configuración y Preferencias</h1>
+            </div>
+            <span class="badge rounded-pill px-3 py-2" style="background: var(--md-primary-container); color: var(--md-primary); font-weight: 600;">
+                @Model.UserName
+            </span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm d-flex align-items-center gap-2" role="alert">
+                <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <span>@Model.StatusMessage</span>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        }
+
+        <div class="card border rounded-4 shadow-sm" style="background: var(--card-bg, #ffffff); border-color: var(--card-border, #e2e8f0);">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-4">
+                    <div>
+                        <h2 class="h5 font-bold mb-1" style="color: var(--body-text);">Estilo Visual de la Plataforma</h2>
+                        <p class="text-muted small mb-0">Selecciona el modo de presentación visual para todas las herramientas y catálogos.</p>
+                    </div>
+                </div>
+
+                <form asp-action="Preferences" method="post" id="preferencesForm">
+                    <div class="p-3 rounded-3 border mb-4" style="background: var(--md-surface-container, #f8fafc); border-color: var(--card-border, #e2e8f0);">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="themeIconBox" class="rounded-3 p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: var(--md-primary); color: #ffffff;">
+                                    <svg id="iconLight" style="width:22px;height:22px; display: @(Model.SelectedTheme == "light" ? "block" : "none");" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    <svg id="iconCorporate" style="width:22px;height:22px; display: @(Model.SelectedTheme == "corporate" ? "block" : "none");" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                </div>
+                                <div>
+                                    <span id="themeTitle" class="fw-bold d-block" style="color: var(--body-text);">
+                                        @(Model.SelectedTheme == "corporate" ? "Estilo Corporativo (Credicorp)" : "Estilo Ligero")
+                                    </span>
+                                    <span id="themeDesc" class="text-muted small">
+                                        @(Model.SelectedTheme == "corporate" ? "Colores institucionales azul marino #002A86 y turquesa #2AD2C9 con imagotipo Credicorp." : "Diseño claro y neutro estándar de Landscape TSI con Material Design 3.")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Flag Toggle Switch Accessible -->
+                            <div class="ms-3">
+                                <label class="theme-toggle-switch" for="themeToggle">
+                                    <input type="checkbox" id="themeToggle" role="switch" aria-checked="@(Model.SelectedTheme == "corporate" ? "true" : "false")" @(Model.SelectedTheme == "corporate" ? "checked" : "") onchange="onThemeToggleChange(this)" />
+                                    <span class="theme-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" asp-for="SelectedTheme" id="hiddenSelectedTheme" />
+                    <input type="hidden" asp-for="UserName" />
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary px-3 py-2 rounded-pill">Volver al inicio</a>
+                        <button type="submit" class="md-button md-button-filled px-4">Guardar preferencia</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function onThemeToggleChange(checkbox) {
+            var theme = checkbox.checked ? 'corporate' : 'light';
+            checkbox.setAttribute('aria-checked', checkbox.checked ? 'true' : 'false');
+            
+            // Actualizar hidden input
+            var hidden = document.getElementById('hiddenSelectedTheme');
+            if (hidden) hidden.value = theme;
+
+            // Actualizar textos e iconos
+            var title = document.getElementById('themeTitle');
+            var desc = document.getElementById('themeDesc');
+            var iconLight = document.getElementById('iconLight');
+            var iconCorporate = document.getElementById('iconCorporate');
+
+            if (theme === 'corporate') {
+                if (title) title.textContent = 'Estilo Corporativo (Credicorp)';
+                if (desc) desc.textContent = 'Colores institucionales azul marino #002A86 y turquesa #2AD2C9 con imagotipo Credicorp.';
+                if (iconLight) iconLight.style.display = 'none';
+                if (iconCorporate) iconCorporate.style.display = 'block';
+            } else {
+                if (title) title.textContent = 'Estilo Ligero';
+                if (desc) desc.textContent = 'Diseño claro y neutro estándar de Landscape TSI con Material Design 3.';
+                if (iconLight) iconLight.style.display = 'block';
+                if (iconCorporate) iconCorporate.style.display = 'none';
+            }
+
+            // Aplicar en caliente al documento para previsualización inmediata
+            document.documentElement.setAttribute('data-theme', theme);
+
+            // Actualizar cookie
+            document.cookie = 'landscape_theme=' + encodeURIComponent(theme) + '; path=/; max-age=31536000; SameSite=Lax';
+
+            // Notificar al servidor en segundo plano
+            try {
+                fetch('/SetTheme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ theme: theme })
+                }).catch(function() {});
+            } catch(e) {}
+        }
+    </script>
+}

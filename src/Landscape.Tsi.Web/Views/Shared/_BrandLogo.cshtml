@@ -1,0 +1,34 @@
+@*
+    Componente parcial de marca con representación adaptativa según el tema activo (Ligero vs Corporativo Credicorp)
+*@
+@{
+    var cssClass = ViewData["LogoClass"] as string ?? "";
+    var showText = ViewData["ShowText"] as bool? ?? true;
+}
+
+<div class="brand-logo-container @cssClass">
+    <!-- Logotipo Estilo Ligero -->
+    <div class="logo-light-variant">
+        <span class="brand-mark-box" aria-hidden="true">L</span>
+        @if (showText)
+        {
+            <span class="brand-text-light font-bold">Landscape TSI</span>
+        }
+    </div>
+
+    <!-- Logotipo Estilo Corporativo (Grupo Credicorp) -->
+    <div class="logo-corporate-variant">
+        <svg class="credicorp-symbol" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M10 6C6 12 6 28 10 34C13 31 15 25 15 20C15 15 13 9 10 6Z" fill="#2AD2C9"/>
+            <path d="M18 10C15 14 15 26 18 30C21 27 23 23 23 20C23 17 21 13 18 10Z" fill="#77E2AD"/>
+            <path d="M26 14C24 17 24 23 26 26C28 24 29 22 29 20C29 18 28 16 26 14Z" fill="#4BB7C3"/>
+        </svg>
+        @if (showText)
+        {
+            <div class="credicorp-text-group">
+                <span class="credicorp-main-title">CREDICORP</span>
+                <span class="credicorp-subtitle">LANDSCAPE TSI</span>
+            </div>
+        }
+    </div>
+</div>
