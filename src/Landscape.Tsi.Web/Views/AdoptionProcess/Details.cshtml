@@ -782,8 +782,8 @@
         document.querySelectorAll('.btn-op-model').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.getElementById('opImplId').value = this.dataset.implId || '';
-                if (this.dataset.tipoId) document.getElementById('opTipo').value = this.dataset.tipoId;
-                if (this.dataset.modId) document.getElementById('opModalidad').value = this.dataset.modId;
+                document.getElementById('opTipo').value = this.dataset.tipoId || '';
+                document.getElementById('opModalidad').value = this.dataset.modId || '';
             });
         });
     });

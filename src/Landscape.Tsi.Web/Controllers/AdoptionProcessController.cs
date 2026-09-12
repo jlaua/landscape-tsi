@@ -330,17 +330,30 @@ public sealed class AdoptionProcessController(
         var actor = ActorId();
         if (actor is null) return Forbid();
 
-        var result = await adoptionService.SaveOperationModelAsync(new SaveOperationModelCommand(
-            TecnologiaImplementadaId: tecnologiaImplementadaId,
-            TipoOperacionId: tipoOperacionId,
-            ModalidadLaboralId: modalidadLaboralId,
-            ActorUserId: actor.Value,
-            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+        if (tecnologiaImplementadaId <= 0)
+        {
+            TempData["ErrorMessage"] = "Debe especificar una tecnología implementada válida para configurar su modelo de operación.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
 
-        if (result.Succeeded)
-            TempData["SuccessMessage"] = result.Message;
-        else
-            TempData["ErrorMessage"] = result.Message;
+        try
+        {
+            var result = await adoptionService.SaveOperationModelAsync(new SaveOperationModelCommand(
+                TecnologiaImplementadaId: tecnologiaImplementadaId,
+                TipoOperacionId: tipoOperacionId,
+                ModalidadLaboralId: modalidadLaboralId,
+                ActorUserId: actor.Value,
+                CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+
+            if (result.Succeeded)
+                TempData["SuccessMessage"] = result.Message;
+            else
+                TempData["ErrorMessage"] = result.Message;
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"Error al guardar el modelo de operación: {ex.Message}";
+        }
 
         return RedirectToAction(nameof(Details), new { id });
     }

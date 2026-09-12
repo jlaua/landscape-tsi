@@ -584,7 +584,7 @@ public sealed class AdoptionProcessService(
         {
             await using var updateCmd = connection.CreateCommand();
             updateCmd.CommandText = @"UPDATE dbo.TModeloDeOperacion
-                SET idTipoModeloOperacion = @tipoId, idModalidadLaboral = @modalidadId
+                SET idTipoModeloDeOperacion = @tipoId, idModalidadLaboral = @modalidadId
                 WHERE idModeloOperacion = @id;";
             var p1 = updateCmd.CreateParameter(); p1.ParameterName = "@tipoId"; p1.Value = command.TipoOperacionId; updateCmd.Parameters.Add(p1);
             var p2 = updateCmd.CreateParameter(); p2.ParameterName = "@modalidadId"; p2.Value = command.ModalidadLaboralId; updateCmd.Parameters.Add(p2);
@@ -594,7 +594,7 @@ public sealed class AdoptionProcessService(
         else
         {
             await using var insertCmd = connection.CreateCommand();
-            insertCmd.CommandText = @"INSERT INTO dbo.TModeloDeOperacion (idTecnologiaTSIimplementadaSubsidiaria, idTipoModeloOperacion, idModalidadLaboral)
+            insertCmd.CommandText = @"INSERT INTO dbo.TModeloDeOperacion (idTecnologiaTSIimplementadaSubsidiaria, idTipoModeloDeOperacion, idModalidadLaboral)
                 VALUES (@implId, @tipoId, @modalidadId);";
             var ip1 = insertCmd.CreateParameter(); ip1.ParameterName = "@implId"; ip1.Value = command.TecnologiaImplementadaId; insertCmd.Parameters.Add(ip1);
             var ip2 = insertCmd.CreateParameter(); ip2.ParameterName = "@tipoId"; ip2.Value = command.TipoOperacionId; insertCmd.Parameters.Add(ip2);
@@ -680,10 +680,10 @@ public sealed class AdoptionProcessService(
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             SELECT m.idModeloOperacion, m.idTecnologiaTSIimplementadaSubsidiaria,
-                   m.idTipoModeloOperacion, t.TipoModeloDeOperacion,
+                   m.idTipoModeloDeOperacion, t.TipoModeloDeOperacion,
                    m.idModalidadLaboral, l.TipoModalidadLaboral
             FROM dbo.TModeloDeOperacion m
-            LEFT JOIN dbo.TTipoOperacion t ON t.idTipoModeloOperacion = m.idTipoModeloOperacion
+            LEFT JOIN dbo.TTipoOperacion t ON t.idTipoModeloOperacion = m.idTipoModeloDeOperacion
             LEFT JOIN dbo.TModalidadLaboral l ON l.idModalidadLaboral = m.idModalidadLaboral;";
 
         try

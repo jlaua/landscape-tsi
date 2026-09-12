@@ -223,7 +223,38 @@ public sealed class AdoptionProcessIntegrationTests
             Assert.True(driverResult.Succeeded, driverResult.Message);
             var driverId = driverResult.EntityId!.Value;
 
-            // 8. Query Detail and verify alignment and contracts
+            // 7.b Save Operation Model for implemented technology (Insert)
+            int tipoOpId;
+            int modLabId;
+            await using (var conn = await scope.OpenAsync())
+            {
+                await using var cmdTipo = new SqlCommand("SELECT TOP 1 idTipoModeloOperacion FROM dbo.TTipoOperacion ORDER BY idTipoModeloOperacion", conn);
+                tipoOpId = Convert.ToInt32(await cmdTipo.ExecuteScalarAsync());
+
+                await using var cmdMod = new SqlCommand("SELECT TOP 1 idModalidadLaboral FROM dbo.TModalidadLaboral ORDER BY idModalidadLaboral", conn);
+                modLabId = Convert.ToInt32(await cmdMod.ExecuteScalarAsync());
+            }
+
+            var opModelResult = await service.SaveOperationModelAsync(new SaveOperationModelCommand(
+                TecnologiaImplementadaId: implId,
+                TipoOperacionId: tipoOpId,
+                ModalidadLaboralId: modLabId,
+                ActorUserId: actorUserId,
+                CorrelationId: correlationId));
+
+            Assert.True(opModelResult.Succeeded, opModelResult.Message);
+
+            // Test Update of Operation Model
+            var updateOpModelResult = await service.SaveOperationModelAsync(new SaveOperationModelCommand(
+                TecnologiaImplementadaId: implId,
+                TipoOperacionId: tipoOpId,
+                ModalidadLaboralId: modLabId,
+                ActorUserId: actorUserId,
+                CorrelationId: correlationId));
+
+            Assert.True(updateOpModelResult.Succeeded, updateOpModelResult.Message);
+
+            // 8. Query Detail and verify alignment, contracts, and operation model
             var detail = await service.GetProcessDetailAsync(processId);
             Assert.NotNull(detail);
             Assert.Equal(bbId, detail.BuildingBlockId);
@@ -236,6 +267,9 @@ public sealed class AdoptionProcessIntegrationTests
             Assert.Single(implDto.Contratos[0].Adendas);
             Assert.Single(implDto.Drivers);
             Assert.Equal(6250.00m, implDto.Drivers[0].CostoTotal);
+            Assert.NotNull(implDto.ModeloOperacion);
+            Assert.Equal(tipoOpId, implDto.ModeloOperacion.TipoOperacionId);
+            Assert.Equal(modLabId, implDto.ModeloOperacion.ModalidadLaboralId);
         }
         finally
         {

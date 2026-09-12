@@ -132,6 +132,7 @@ public sealed class AdoptionProcessSchemaIntegrationTests
         var vendorCols = columns.Where(c => c.StartsWith("TVendor.")).ToList();
         Assert.True(contactoCols.Count > 0);
         Assert.True(modeloCols.Count > 0);
+        Assert.Contains(modeloCols, c => c.StartsWith("TModeloDeOperacion.idTipoModeloDeOperacion"));
         Assert.True(vendorCols.Count > 0);
     }
 }
