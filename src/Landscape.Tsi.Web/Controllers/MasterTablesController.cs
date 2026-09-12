@@ -1,5 +1,6 @@
 using System.Security.Claims;
 
+using Landscape.Tsi.Application.Adoption;
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Web.Models;
@@ -17,6 +18,9 @@ public sealed class MasterTablesController(
     IDeletionImpactService deletionImpactService,
     IBuildingBlockRelatedService buildingBlockRelatedService,
     IBuildingBlockTechnologyMappingService technologyMappingService,
+    IAdoptionProcessService adoptionService,
+    IAssociationImpactService associationImpactService,
+    IAssignmentService assignmentService,
     IEffectiveAccessService effectiveAccessService,
     ILogger<MasterTablesController> logger) : Controller
 {
@@ -193,7 +197,19 @@ public sealed class MasterTablesController(
     }
 
     [HttpGet("{catalogRoute}/details/{id:int}")]
-    public async Task<IActionResult> CatalogDetails(string catalogRoute, int id, string? capabilitySearch, string? functionalitySearch, string? technologySearch, int capabilityPage = 1, int functionalityPage = 1, int technologyPage = 1, int relatedPageSize = 10, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> CatalogDetails(
+        string catalogRoute,
+        int id,
+        string? capabilitySearch,
+        string? functionalitySearch,
+        string? technologySearch,
+        int capabilityPage = 1,
+        int functionalityPage = 1,
+        int technologyPage = 1,
+        int relatedPageSize = 10,
+        string? functionalitySortBy = null,
+        string? functionalitySortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || definition.Code == "dominio")
@@ -203,7 +219,7 @@ public sealed class MasterTablesController(
         var record = await catalogService.GetAsync(definition, id, cancellationToken);
         if (record is null) return NotFound();
         var related = definition.Code == "building-block"
-            ? await buildingBlockRelatedService.GetAsync(id, capabilitySearch, functionalitySearch, technologySearch, capabilityPage, functionalityPage, technologyPage, relatedPageSize, cancellationToken)
+            ? await buildingBlockRelatedService.GetAsync(id, capabilitySearch, functionalitySearch, technologySearch, capabilityPage, functionalityPage, technologyPage, relatedPageSize, functionalitySortBy, functionalitySortDirection, cancellationToken)
             : null;
         var technologyMapping = definition.Code == "building-block"
             ? await technologyMappingService.GetBuildingBlockRelationsAsync(id, technologySearch, null, cancellationToken)
@@ -218,6 +234,10 @@ public sealed class MasterTablesController(
             var foreignKey = child.Columns.Single(column => column.ReferenceCatalogCode == definition.Code);
             relatedRecords = await catalogService.ListRelatedAsync(child, foreignKey, id, functionalitySearch, functionalityPage, relatedPageSize, cancellationToken);
         }
+        var adoptionDetail = definition.Code == "building-block"
+            ? await adoptionService.GetProcessDetailByBuildingBlockAsync(id, cancellationToken)
+            : null;
+
         return View(new CatalogDetailViewModel
         {
             Definition = definition,
@@ -226,7 +246,13 @@ public sealed class MasterTablesController(
             Related = related,
             RelatedRecords = relatedRecords,
             TechnologyMapping = technologyMapping,
-            TechnologyRelations = technologyRelations
+            TechnologyRelations = technologyRelations,
+            FunctionalitySortBy = functionalitySortBy,
+            FunctionalitySortDirection = functionalitySortDirection,
+            FunctionalitySearch = functionalitySearch,
+            CapabilitySearch = capabilitySearch,
+            TechnologySearch = technologySearch,
+            AdoptionDetail = adoptionDetail
         });
     }
 
@@ -380,6 +406,184 @@ public sealed class MasterTablesController(
             TempData["ErrorMessage"] = $"No fue posible actualizar {definition.Name}. Intente nuevamente.";
         }
         return RedirectToAction(definition.EditorMode == CatalogEditorMode.Page ? nameof(CatalogEditForm) : nameof(CatalogDetails), new { catalogRoute, id });
+    }
+
+    [HttpGet("building-block/{id:int}/capability-candidates")]
+    public async Task<IActionResult> CapabilityCandidates(int id, string? search, CancellationToken cancellationToken)
+    {
+        var candidates = await associationImpactService.GetCapabilityCandidatesAsync(id, search, cancellationToken);
+        return Json(candidates);
+    }
+
+    [HttpGet("building-block/{id:int}/capability-reassign-impact")]
+    public async Task<IActionResult> CapabilityReassignImpact(int id, int capabilityId, int targetBuildingBlockId, CancellationToken cancellationToken)
+    {
+        var impact = await associationImpactService.PreviewCapabilityReassignmentAsync(capabilityId, targetBuildingBlockId, cancellationToken);
+        return impact is null ? NotFound() : Json(impact);
+    }
+
+    [HttpGet("building-block/{id:int}/functionality-candidates")]
+    public async Task<IActionResult> FunctionalityCandidates(int id, int? capabilityId, string? search, CancellationToken cancellationToken)
+    {
+        var candidates = await associationImpactService.GetFunctionalityCandidatesAsync(id, capabilityId, search, cancellationToken);
+        return Json(candidates);
+    }
+
+    [HttpGet("building-block/{id:int}/functionality-reassign-impact")]
+    public async Task<IActionResult> FunctionalityReassignImpact(int id, int functionalityId, int targetCapabilityId, CancellationToken cancellationToken)
+    {
+        var impact = await associationImpactService.PreviewFunctionalityReassignmentAsync(functionalityId, targetCapabilityId, cancellationToken);
+        return impact is null ? NotFound() : Json(impact);
+    }
+
+    [HttpGet("building-block-options")]
+    public async Task<IActionResult> GetBuildingBlockOptions(CancellationToken cancellationToken)
+    {
+        var capDefinition = MasterCatalogRegistry.GetByCode("capacidad-seguridad");
+        if (capDefinition is null) return NotFound();
+        var options = await catalogService.GetOptionsAsync(capDefinition, cancellationToken);
+        if (options.TryGetValue("idBuildingBlock", out var list))
+        {
+            return Json(list.Select(o => new { id = o.Id, name = o.Label }));
+        }
+        return Json(Array.Empty<object>());
+    }
+
+    [HttpGet("capability-options")]
+    public async Task<IActionResult> GetCapabilityOptions(CancellationToken cancellationToken)
+    {
+        var funcDefinition = MasterCatalogRegistry.GetByCode("funcionalidad");
+        if (funcDefinition is null) return NotFound();
+        var options = await catalogService.GetOptionsAsync(funcDefinition, cancellationToken);
+        if (options.TryGetValue("idCapacidad", out var list))
+        {
+            return Json(list.Select(o => new { id = o.Id, name = o.Label }));
+        }
+        return Json(Array.Empty<object>());
+    }
+
+    [HttpPost("building-block/{id:int}/associate-capability")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssociateCapability(int id, [FromForm] int capabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new AssignCapabilityCommand(capabilityId, id, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.AssignCapabilityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Capacidad de Seguridad fue asociada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/reassign-capability")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReassignCapability(int id, [FromForm] int capabilityId, [FromForm] int sourceBuildingBlockId, [FromForm] int targetBuildingBlockId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new ReassignCapabilityCommand(capabilityId, sourceBuildingBlockId, targetBuildingBlockId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.ReassignCapabilityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Capacidad de Seguridad fue reasignada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/associate-functionality")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssociateFunctionality(int id, [FromForm] int functionalityId, [FromForm] int targetCapabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new AssignFunctionalityCommand(functionalityId, targetCapabilityId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.AssignFunctionalityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Funcionalidad fue asociada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/reassign-functionality")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReassignFunctionality(int id, [FromForm] int functionalityId, [FromForm] int sourceCapabilityId, [FromForm] int targetCapabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new ReassignFunctionalityCommand(functionalityId, sourceCapabilityId, targetCapabilityId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.ReassignFunctionalityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Funcionalidad fue reasignada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
     }
 
     private static void EnsureDomainIsEnabled()

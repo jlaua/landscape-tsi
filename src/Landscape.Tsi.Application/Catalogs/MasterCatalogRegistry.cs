@@ -96,6 +96,14 @@ public static class MasterCatalogRegistry
         Relationship("tipo-operacion", "modelo-operacion", "1", "N", "FK_TModeloDeOperacion_TTipoOperacion")
     ];
 
+    public static readonly IReadOnlyList<MasterCatalogDefinition> ReportingCatalogs =
+        Catalogs.Where(catalog => catalog.IncludeInReporting).ToArray();
+
+    public static readonly IReadOnlyList<CatalogRelationDefinition> ReportingRelations =
+        Relations.Where(relation =>
+            (GetByCode(relation.ParentCatalogCode)?.IncludeInReporting ?? false) &&
+            (GetByCode(relation.ChildCatalogCode)?.IncludeInReporting ?? false)).ToArray();
+
     public static bool IsAdministrable(string code) => GetByCode(code) is not null;
     public static MasterCatalogDefinition? GetByCode(string code) => Catalogs.SingleOrDefault(catalog => string.Equals(catalog.Code, code, StringComparison.Ordinal));
     public static MasterCatalogDefinition? GetByRoute(string route) => Catalogs.SingleOrDefault(catalog => string.Equals(catalog.Route, route, StringComparison.Ordinal));

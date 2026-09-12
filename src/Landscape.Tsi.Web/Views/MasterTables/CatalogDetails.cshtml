@@ -20,20 +20,226 @@
             <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Technologies.TotalCount</span><span class="report-kpi-label">Tecnologías TSI relacionadas</span></div>
         </div>
 
-        <h3>Capacidades de Seguridad <span class="result-count">(@Model.Related.Capabilities.TotalCount)</span></h3>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h3 class="mb-0">Capacidades de Seguridad <span class="result-count">(@Model.Related.Capabilities.TotalCount)</span></h3>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="md-button md-button-tonal" data-bs-toggle="modal" data-bs-target="#associate-capability-modal">+ Asociar capacidad</button>
+            }
+        </div>
         <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"><input type="hidden" name="functionalitySearch" value="" /><input type="hidden" name="technologySearch" value="" /><label for="capability-search">Buscar capacidades</label><input id="capability-search" name="capabilitySearch" class="form-control" type="search" /><button class="md-button md-button-tonal" type="submit">Buscar</button></form>
         @if (Model.Related.Capabilities.TotalCount == 0) { <p class="empty-state">No existen Capacidades de Seguridad asociadas a este Building Block.</p> }
-        else { <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0"><table><thead><tr><th>Capacidad</th><th>Estado de Capacidad</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Capabilities.Items) { <tr><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Capabilities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)">Anterior</a> }@if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)">Siguiente</a> }</div> }
+        else { <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0"><table><thead><tr><th>Capacidad</th><th>Estado de Capacidad</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Capabilities.Items) { <tr><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a><button type="button" class="md-button md-button-text btn-reassign-cap" data-cap-id="@row.Id" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-capability-modal">Reasignar</button> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Capabilities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)">Anterior</a> }@if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)">Siguiente</a> }</div> }
 
-        <h3>Funcionalidades <span class="result-count">(@Model.Related.Functionalities.TotalCount)</span></h3>
-        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"><input type="hidden" name="capabilitySearch" value="" /><input type="hidden" name="technologySearch" value="" /><label for="functionality-search">Buscar funcionalidades</label><input id="functionality-search" name="functionalitySearch" class="form-control" type="search" /><button class="md-button md-button-tonal" type="submit">Buscar</button></form>
+        @{
+            var capSortAria = string.Equals(Model.FunctionalitySortBy, "capacity", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapDir = string.Equals(Model.FunctionalitySortBy, "capacity", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var funcSortAria = string.Equals(Model.FunctionalitySortBy, "functionality", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextFuncDir = string.Equals(Model.FunctionalitySortBy, "functionality", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var statusSortAria = string.Equals(Model.FunctionalitySortBy, "status", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextStatusDir = string.Equals(Model.FunctionalitySortBy, "status", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+        }
+
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h3 class="mb-0">Funcionalidades <span class="result-count">(@Model.Related.Functionalities.TotalCount)</span></h3>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="md-button md-button-tonal" data-bs-toggle="modal" data-bs-target="#associate-functionality-modal">+ Asociar funcionalidad</button>
+            }
+        </div>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <input type="hidden" name="capabilitySearch" value="" />
+            <input type="hidden" name="technologySearch" value="" />
+            <input type="hidden" name="functionalitySortBy" value="@Model.FunctionalitySortBy" />
+            <input type="hidden" name="functionalitySortDirection" value="@Model.FunctionalitySortDirection" />
+            <label for="functionality-search">Buscar funcionalidades</label>
+            <input id="functionality-search" name="functionalitySearch" class="form-control" type="search" />
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+        </form>
         @if (Model.Related.Functionalities.TotalCount == 0) { <p class="empty-state">No existen Funcionalidades asociadas a las capacidades de este Building Block.</p> }
-        else { <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0"><table><thead><tr><th>Funcionalidad</th><th>Capacidad</th><th>Estado de Funcionalidad</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Functionalities.Items) { <tr><td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("funcionalidad")</td><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Functionalities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)">Anterior</a> }@if (Model.Related.Functionalities.Page < Model.Related.Functionalities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)">Siguiente</a> }</div> }
+        else {
+            <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col" aria-sort="@capSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="capacity" asp-route-functionalitySortDirection="@nextCapDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                    Capacidad @(capSortAria == "ascending" ? "▲" : capSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@funcSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="functionality" asp-route-functionalitySortDirection="@nextFuncDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                    Funcionalidad @(funcSortAria == "ascending" ? "▲" : funcSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@statusSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="status" asp-route-functionalitySortDirection="@nextStatusDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                    Estado de funcionalidad @(statusSortAria == "ascending" ? "▲" : statusSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Related.Functionalities.Items) {
+                        <tr>
+                            <td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td>
+                            <td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("funcionalidad")</td>
+                            <td data-label="Estado de funcionalidad">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                            <td class="table-actions">
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) {
+                                    <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a>
+                                    <button type="button" class="md-button md-button-text btn-reassign-func" data-func-id="@row.Id" data-func-name="@row.DisplayValues.GetValueOrDefault("funcionalidad")" data-cap-id="@row.DisplayValues.GetValueOrDefault("idCapacidad")" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-functionality-modal">Reasignar</button>
+                                }
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) {
+                                    <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages</p>
+            <div class="pagination-shell">
+                @if (Model.Related.Functionalities.Page > 1) {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)" asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch">Anterior</a>
+                }
+                @if (Model.Related.Functionalities.Page < Model.Related.Functionalities.TotalPages) {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)" asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch">Siguiente</a>
+                }
+            </div>
+        }
 
         <h3>Tecnologías TSI relacionadas <span class="result-count">(@Model.Related.Technologies.TotalCount)</span></h3>
         @if (Model.TechnologyMapping is not null) { <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="BuildingBlockRelations" asp-route-buildingBlockId="@Model.TechnologyMapping.BuildingBlockId" asp-route-returnUrl="@Context.Request.Path">+ Asociar Tecnología</a> }
         @if (Model.Related.Technologies.TotalCount == 0) { <p class="empty-state">No existen Tecnologías TSI relacionadas con este Building Block.</p> }
         else { <div class="responsive-table" role="region" aria-label="Tecnologías TSI relacionadas" tabindex="0"><table><thead><tr><th>Tecnología TSI</th><th>Familia</th><th>Estado de Adopción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Technologies.Items) { <tr><td data-label="Tecnología">@row.DisplayValues.GetValueOrDefault("tecnologia")</td><td data-label="Familia">@row.DisplayValues.GetValueOrDefault("familia")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estadoAdopcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@row.Id">Ver</a></td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Technologies.Page de @Model.Related.Technologies.TotalPages</p> }
+    </section>
+}
+@if (Model.Definition.Route == "building-block")
+{
+    <section class="report-card related-entities-card" aria-labelledby="adoption-process-title">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <p class="eyebrow">GOBIERNO Y ADOPCIÓN TSI</p>
+                <h2 id="adoption-process-title">Proceso de Adopción y Estándar Corporativo</h2>
+            </div>
+            @if (Model.AdoptionDetail is not null)
+            {
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@Model.AdoptionDetail.Id">Administrar Adopción TSI →</a>
+            }
+            else if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Create" asp-route-buildingBlockId="@Model.Record.Id">+ Iniciar Proceso de Adopción</a>
+            }
+        </div>
+
+        @if (Model.AdoptionDetail is null)
+        {
+            <div class="empty-state">
+                <p>Este Building Block aún no tiene un proceso de adopción formal registrado para la definición de su estándar tecnológico corporativo.</p>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <a class="md-button md-button-tonal" asp-controller="AdoptionProcess" asp-action="Create" asp-route-buildingBlockId="@Model.Record.Id">Iniciar Proceso de Adopción TSI</a>
+                }
+            </div>
+        }
+        else
+        {
+            var adop = Model.AdoptionDetail;
+            <div class="kpi-grid mb-3">
+                <div class="kpi-card"><span>Proceso</span><strong>@adop.Codigo</strong></div>
+                <div class="kpi-card"><span>Estado de Adopción</span><strong>@adop.EstadoAdopcionNombre</strong></div>
+                <div class="kpi-card"><span>Estándar Principal</span><strong>@(adop.EstandarPrincipalVigente?.TecnologiaNombre ?? "Sin definir")</strong></div>
+                <div class="kpi-card"><span>Empresas Convocadas</span><strong>@adop.EmpresasParticipantes.Count</strong></div>
+            </div>
+
+            @if (adop.EstandarPrincipalVigente is not null)
+            {
+                <div class="border rounded p-3 mb-3 bg-white">
+                    <span class="badge bg-success mb-1">ESTÁNDAR PRINCIPAL VIGENTE</span>
+                    <h3 class="h5 mb-1 text-primary">@adop.EstandarPrincipalVigente.TecnologiaNombre</h3>
+                    <p class="text-muted small mb-1">
+                        Vendor: <strong>@(adop.EstandarPrincipalVigente.VendorNombre ?? "Sin vendor")</strong> · 
+                        Vigente desde: <strong>@adop.EstandarPrincipalVigente.FechaInicioVigencia.ToString("dd/MM/yyyy")</strong>
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(adop.EstandarPrincipalVigente.SustentoArquitectura))
+                    {
+                        <p class="small mb-0"><strong>Sustento:</strong> @adop.EstandarPrincipalVigente.SustentoArquitectura</p>
+                    }
+                </div>
+            }
+
+            @if (adop.EstandaresHistoricos.Count > 0)
+            {
+                <h4 class="h6 text-muted mt-3">Histórico de Estándares Reemplazados</h4>
+                <div class="responsive-table">
+                    <table>
+                        <thead>
+                            <tr><th>Tecnología</th><th>Rol</th><th>Inicio</th><th>Fin</th><th>Motivo</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var h in adop.EstandaresHistoricos)
+                        {
+                            <tr>
+                                <td>@h.TecnologiaNombre</td>
+                                <td><span class="badge bg-secondary">@h.RolEstandar</span></td>
+                                <td>@h.FechaInicioVigencia.ToString("dd/MM/yyyy")</td>
+                                <td>@(h.FechaFinVigencia?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>@(h.MotivoCambio ?? "Reemplazado")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <h4 class="h6 text-muted mt-3">Alineamiento de Subsidiarias Convocadas</h4>
+            <div class="responsive-table">
+                <table>
+                    <thead>
+                        <tr><th>Empresa Subsidiaria</th><th>Focal Asignado</th><th>Aplica</th><th>Alineamiento Global</th><th>Tecnologías Impl.</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in adop.EmpresasParticipantes)
+                    {
+                        var eBadge = e.EstadoAlineamiento switch
+                        {
+                            "ALINEADO" => "bg-success",
+                            "HOMOLOGADO" => "bg-info text-dark",
+                            "NO_ALINEADO" => "bg-danger",
+                            "PENDIENTE" => "bg-warning text-dark",
+                            "NO_APLICA" => "bg-secondary",
+                            _ => "bg-light text-dark"
+                        };
+                        <tr>
+                            <td><strong>@e.EmpresaNombre</strong></td>
+                            <td>@(e.ContactoFocalNombre ?? "Sin asignar")</td>
+                            <td>@(e.Aplica ? "Sí" : "No")</td>
+                            <td><span class="badge @eBadge">@e.EstadoAlineamiento</span></td>
+                            <td>@e.TecnologiasImplementadas.Count tecnología(s)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <a class="md-button md-button-tonal" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@adop.Id">Ver Detalle Completo de Contratos y Drivers →</a>
+            </div>
+        }
     </section>
 }
 @if (Model.TechnologyRelations is not null)
@@ -114,4 +320,13 @@
 @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
 {
     <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+}
+
+@if (Model.Definition.Route == "building-block" && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+{
+    <partial name="_AssociateCapabilityModal" model="Model" />
+    <partial name="_ReassignCapabilityModal" model="Model" />
+    <partial name="_AssociateFunctionalityModal" model="Model" />
+    <partial name="_ReassignFunctionalityModal" model="Model" />
+    <script src="~/js/assignment-modals.js" asp-append-version="true"></script>
 }

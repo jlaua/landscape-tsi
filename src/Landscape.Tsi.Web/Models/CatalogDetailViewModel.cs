@@ -11,4 +11,10 @@ public sealed class CatalogDetailViewModel
     public CatalogPageResult? RelatedRecords { get; init; }
     public BuildingTechnologyRelationResult? TechnologyMapping { get; init; }
     public TechnologyRelationResult? TechnologyRelations { get; init; }
+    public string? FunctionalitySortBy { get; init; }
+    public string? FunctionalitySortDirection { get; init; }
+    public string? FunctionalitySearch { get; init; }
+    public string? CapabilitySearch { get; init; }
+    public string? TechnologySearch { get; init; }
+    public Landscape.Tsi.Application.Adoption.AdoptionProcessDetailDto? AdoptionDetail { get; init; }
 }

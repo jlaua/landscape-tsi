@@ -1,0 +1,82 @@
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+
+<div class="modal fade" id="associate-functionality-modal" tabindex="-1" aria-labelledby="associate-functionality-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content md-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">ADMINISTRACIÓN DE RELACIONES</p>
+                    <h2 class="modal-title" id="associate-functionality-title">Asociar Funcionalidad</h2>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Seleccione una Capacidad de Seguridad de este Building Block y la Funcionalidad a asociar.</p>
+
+                <div class="mb-3">
+                    <label for="associate-func-target-cap" class="form-label fw-semibold">Capacidad de Seguridad Destino</label>
+                    <select class="form-select" id="associate-func-target-cap" required>
+                        <option value="">-- Seleccione la Capacidad destino --</option>
+                        @if (Model.Related?.Capabilities.Items != null)
+                        {
+                            foreach (var cap in Model.Related.Capabilities.Items)
+                            {
+                                <option value="@cap.Id">@cap.DisplayValues.GetValueOrDefault("capacidad")</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="func-candidate-search" class="form-label">Buscar funcionalidades</label>
+                    <input type="search" class="form-control" id="func-candidate-search" placeholder="Escriba para filtrar…" />
+                </div>
+
+                <div class="table-responsive mb-3" style="max-height: 240px; overflow-y: auto;" tabindex="0" aria-label="Listado de funcionalidades candidatas">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Funcionalidad</th>
+                                <th>Capacidad Actual</th>
+                                <th>Estado de Asignación</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="func-candidates-tbody">
+                            <tr><td colspan="4" class="text-center py-3">Seleccione primero una Capacidad destino o busque…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="associate-func-impact-panel" hidden class="card p-3 mb-3 border-warning bg-light">
+                    <h3 class="h6 text-warning-emphasis fw-bold mb-2">Advertencia de Impacto</h3>
+                    <div id="associate-func-impact-details"></div>
+                </div>
+
+                <form id="associate-functionality-form" method="post" asp-action="AssociateFunctionality" asp-route-id="@Model.Record.Id">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="functionalityId" id="associate-func-id" />
+                    <input type="hidden" name="targetCapabilityId" id="associate-func-target-cap-id" />
+                    <input type="hidden" name="concurrencyToken" id="associate-func-token" />
+                    <div class="mb-3">
+                        <label for="associate-func-justification" class="form-label">Justificación (opcional)</label>
+                        <input type="text" class="form-control" name="justification" id="associate-func-justification" placeholder="Motivo del cambio" maxlength="250" />
+                    </div>
+                </form>
+
+                <form id="reassign-func-from-assoc-form" method="post" asp-action="ReassignFunctionality" asp-route-id="@Model.Record.Id" hidden>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="functionalityId" id="reassign-func-assoc-id" />
+                    <input type="hidden" name="sourceCapabilityId" id="reassign-func-assoc-source-cap-id" />
+                    <input type="hidden" name="targetCapabilityId" id="reassign-func-assoc-target-cap-id" />
+                    <input type="hidden" name="concurrencyToken" id="reassign-func-assoc-token" />
+                    <input type="hidden" name="justification" id="reassign-func-assoc-justification" />
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="md-button md-button-filled" id="btn-submit-assoc-func" disabled>Asociar Funcionalidad</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,66 @@
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+
+<div class="modal fade" id="associate-capability-modal" tabindex="-1" aria-labelledby="associate-capability-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content md-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">ADMINISTRACIÓN DE RELACIONES</p>
+                    <h2 class="modal-title" id="associate-capability-title">Asociar Capacidad de Seguridad</h2>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Seleccione una Capacidad de Seguridad para asociarla a este Building Block (<strong>@Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</strong>).</p>
+
+                <div class="mb-3">
+                    <label for="cap-candidate-search" class="form-label">Buscar capacidades</label>
+                    <input type="search" class="form-control" id="cap-candidate-search" placeholder="Escriba para filtrar…" />
+                </div>
+
+                <div class="table-responsive mb-3" style="max-height: 240px; overflow-y: auto;" tabindex="0" aria-label="Listado de capacidades candidatas">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Capacidad</th>
+                                <th>Estado de Asignación</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cap-candidates-tbody">
+                            <tr><td colspan="3" class="text-center py-3">Cargando capacidades…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="associate-cap-impact-panel" hidden class="card p-3 mb-3 border-warning bg-light">
+                    <h3 class="h6 text-warning-emphasis fw-bold mb-2">Advertencia de Impacto de Reasignación</h3>
+                    <div id="associate-cap-impact-details"></div>
+                </div>
+
+                <form id="associate-capability-form" method="post" asp-action="AssociateCapability" asp-route-id="@Model.Record.Id">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="capabilityId" id="associate-cap-id" />
+                    <input type="hidden" name="concurrencyToken" id="associate-cap-token" />
+                    <div class="mb-3">
+                        <label for="associate-cap-justification" class="form-label">Justificación (opcional)</label>
+                        <input type="text" class="form-control" name="justification" id="associate-cap-justification" placeholder="Motivo del cambio" maxlength="250" />
+                    </div>
+                </form>
+
+                <form id="reassign-from-assoc-form" method="post" asp-action="ReassignCapability" asp-route-id="@Model.Record.Id" hidden>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="capabilityId" id="reassign-assoc-cap-id" />
+                    <input type="hidden" name="sourceBuildingBlockId" id="reassign-assoc-source-bb-id" />
+                    <input type="hidden" name="targetBuildingBlockId" value="@Model.Record.Id" />
+                    <input type="hidden" name="concurrencyToken" id="reassign-assoc-token" />
+                    <input type="hidden" name="justification" id="reassign-assoc-justification" />
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="md-button md-button-filled" id="btn-submit-assoc-cap" disabled>Asociar Capacidad</button>
+            </div>
+        </div>
+    </div>
+</div>

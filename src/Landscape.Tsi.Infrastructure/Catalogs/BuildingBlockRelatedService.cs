@@ -11,7 +11,18 @@ namespace Landscape.Tsi.Infrastructure.Catalogs;
 
 public sealed class BuildingBlockRelatedService(IdentityDbContext dbContext) : IBuildingBlockRelatedService
 {
-    public async Task<BuildingBlockRelatedResult> GetAsync(int buildingBlockId, string? capabilitySearch, string? functionalitySearch, string? technologySearch, int capabilityPage, int functionalityPage, int technologyPage, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<BuildingBlockRelatedResult> GetAsync(
+        int buildingBlockId,
+        string? capabilitySearch,
+        string? functionalitySearch,
+        string? technologySearch,
+        int capabilityPage,
+        int functionalityPage,
+        int technologyPage,
+        int pageSize,
+        string? functionalitySortBy = null,
+        string? functionalitySortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         pageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
         await OpenAsync(cancellationToken);
@@ -23,13 +34,23 @@ public sealed class BuildingBlockRelatedService(IdentityDbContext dbContext) : I
                    WHERE c.[idBuildingBlock] = @parentId AND (COALESCE(c.[nombreCapacidad], N'') LIKE @search OR COALESCE(s.[nombreEstadoCapacidad], N'') LIKE @search)
                    ", capabilitySearch, buildingBlockId, capabilityPage, pageSize,
                 ["capacidad", "estado", "descripcion", "idBuildingBlock", "idEstadoCapacidad"], cancellationToken);
+
+            var direction = string.Equals(functionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+            var funcOrderBy = functionalitySortBy?.Trim().ToLowerInvariant() switch
+            {
+                "capacity" => $"q.[capacidad] {direction}, q.[funcionalidad] ASC",
+                "functionality" => $"q.[funcionalidad] {direction}, q.[capacidad] ASC",
+                "status" => $"q.[estado] {direction}, q.[capacidad] ASC, q.[funcionalidad] ASC",
+                _ => "q.[capacidad] ASC, q.[funcionalidad] ASC"
+            };
+
             var functionalities = await QueryAsync(
-                 @"SELECT f.[idFuncionalidad] AS [__id], f.[nombreFuncionalidad] AS [funcionalidad], c.[nombreCapacidad] AS [capacidad], s.[nombreEstadoFuncionalidad] AS [estado], f.[idCapacidad] AS [idCapacidad], f.[idEstadoCoberturaFuncionalidad] AS [idEstadoCoberturaFuncionalidad]
+                 @"SELECT f.[idFuncionalidad] AS [__id], c.[nombreCapacidad] AS [capacidad], f.[nombreFuncionalidad] AS [funcionalidad], s.[nombreEstadoFuncionalidad] AS [estado], f.[idCapacidad] AS [idCapacidad], f.[idEstadoCoberturaFuncionalidad] AS [idEstadoCoberturaFuncionalidad]
                    FROM [dbo].[TFuncionalidad] f INNER JOIN [dbo].[TCapacidadDeSeguridad] c ON c.[idCapacidad] = f.[idCapacidad]
                    LEFT JOIN [dbo].[TMEstadoFuncionalidad] s ON s.[idEstadoCoberturaFuncionalidad] = f.[idEstadoCoberturaFuncionalidad]
                    WHERE c.[idBuildingBlock] = @parentId AND (COALESCE(f.[nombreFuncionalidad], N'') LIKE @search OR COALESCE(c.[nombreCapacidad], N'') LIKE @search OR COALESCE(s.[nombreEstadoFuncionalidad], N'') LIKE @search)
                     ", functionalitySearch, buildingBlockId, functionalityPage, pageSize,
-                ["funcionalidad", "capacidad", "estado", "idCapacidad", "idEstadoCoberturaFuncionalidad"], cancellationToken);
+                ["capacidad", "funcionalidad", "estado", "idCapacidad", "idEstadoCoberturaFuncionalidad"], cancellationToken, funcOrderBy);
             var technologies = await QueryAsync(
                  @"SELECT DISTINCT t.[idTecnologiaTSI] AS [__id], t.[nombreTecnologiaAlternativa1-Corporativo] AS [tecnologia], f.[nombreFamilia] AS [familia], a.[nombreEstadoAdopcionTSI] AS [estadoAdopcion]
                    FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] b INNER JOIN [dbo].[TTecnologiaTSI] t ON t.[idTecnologiaTSI] = b.[idTecnologiaTSI]
@@ -43,14 +64,15 @@ public sealed class BuildingBlockRelatedService(IdentityDbContext dbContext) : I
         finally { await CloseAsync(); }
     }
 
-    private async Task<CatalogPageResult> QueryAsync(string sql, string? search, int parentId, int page, int pageSize, IReadOnlyList<string> codes, CancellationToken cancellationToken)
+    private async Task<CatalogPageResult> QueryAsync(string sql, string? search, int parentId, int page, int pageSize, IReadOnlyList<string> codes, CancellationToken cancellationToken, string? customOrderBy = null)
     {
         page = Math.Max(1, page);
         await using var count = CreateCommand($"SELECT COUNT_BIG(*) FROM ({sql}) q", search, parentId, includePaging: false);
         var total = Convert.ToInt32(await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
         var pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
         page = Math.Min(page, pages);
-        await using var command = CreateCommand($"SELECT * FROM ({sql}) q ORDER BY q.[{codes[0]}] OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", search, parentId, includePaging: true);
+        var orderBy = !string.IsNullOrWhiteSpace(customOrderBy) ? customOrderBy : $"q.[{codes[0]}]";
+        await using var command = CreateCommand($"SELECT * FROM ({sql}) q ORDER BY {orderBy} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", search, parentId, includePaging: true);
         Add(command, "@offset", (page - 1) * pageSize); Add(command, "@pageSize", pageSize);
         var rows = new List<CatalogRow>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

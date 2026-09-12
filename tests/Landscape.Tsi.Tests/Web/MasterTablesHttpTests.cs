@@ -118,6 +118,149 @@ public sealed class MasterTablesHttpTests
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Administration/MasterTables/Domain/1/delete-impact")).StatusCode);
     }
 
+    [Fact]
+    public async Task BuildingBlockDetails_ReorganizedColumns_ContainsAccessibleHeadersAndCorrectOrder()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/details/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("aria-sort=\"none\"", html);
+        Assert.Contains("Capacidad", html);
+        Assert.Contains("Funcionalidad", html);
+        Assert.Contains("Estado de funcionalidad", html);
+        Assert.Contains("btn-reassign-cap", html);
+        Assert.Contains("btn-reassign-func", html);
+        Assert.Contains("associate-capability-modal", html);
+        Assert.Contains("reassign-capability-modal", html);
+        Assert.Contains("associate-functionality-modal", html);
+        Assert.Contains("reassign-functionality-modal", html);
+        Assert.Contains("assignment-modals.js", html);
+
+        // Verify column order: Capacidad precedes Funcionalidad
+        var capIdx = html.IndexOf("data-label=\"Capacidad\"", StringComparison.Ordinal);
+        var funcIdx = html.IndexOf("data-label=\"Funcionalidad\"", StringComparison.Ordinal);
+        var stateIdx = html.IndexOf("data-label=\"Estado de funcionalidad\"", StringComparison.Ordinal);
+        Assert.True(capIdx > 0 && capIdx < funcIdx && funcIdx < stateIdx);
+    }
+
+    [Fact]
+    public async Task BuildingBlockDetails_EmptyState_RendersDescriptiveEmptyMessage()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/details/999");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("No existen Funcionalidades asociadas a las capacidades de este Building Block.", html);
+    }
+
+    [Fact]
+    public async Task BuildingBlockDetails_SortingParameters_RendersAriaSort()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/details/1?functionalitySortBy=capacity&functionalitySortDirection=desc");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("aria-sort=\"descending\"", html);
+    }
+
+    [Fact]
+    public async Task CapabilityCandidates_ReturnsJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/1/capability-candidates");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Cap Orfana", json);
+        Assert.Contains("Cap De Otro", json);
+    }
+
+    [Fact]
+    public async Task FunctionalityCandidates_ReturnsJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/1/functionality-candidates");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Func Orfana", json);
+    }
+
+    [Fact]
+    public async Task CapabilityReassignImpact_ReturnsJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/1/capability-reassign-impact?capabilityId=10&targetBuildingBlockId=2");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("BB Destino", json);
+        Assert.Contains("token_cap_123", json);
+    }
+
+    [Fact]
+    public async Task FunctionalityReassignImpact_ReturnsJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/1/functionality-reassign-impact?functionalityId=20&targetCapabilityId=30");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"isCrossBuildingBlock\":true", json);
+        Assert.Contains("token_func_456", json);
+    }
+
+    [Fact]
+    public async Task OptionsEndpoints_ReturnExpectedOptions()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var bbResponse = await client.GetAsync("/Administration/MasterTables/building-block-options");
+        Assert.Equal(HttpStatusCode.OK, bbResponse.StatusCode);
+        var bbJson = await bbResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Building Block 1", bbJson);
+
+        var capResponse = await client.GetAsync("/Administration/MasterTables/capability-options");
+        Assert.Equal(HttpStatusCode.OK, capResponse.StatusCode);
+        var capJson = await capResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Capacidad 10", capJson);
+    }
+
+    [Fact]
+    public async Task AssociateAndReassign_UnauthorizedWithoutEditPermission_ReturnsForbidden()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["capabilityId"] = "10",
+            ["concurrencyToken"] = "token"
+        });
+
+        var response = await client.PostAsync("/Administration/MasterTables/building-block/1/associate-capability?noEdit=true", content);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");
@@ -135,6 +278,10 @@ public sealed class MasterTablesHttpTests
             services.AddSingleton<IBuildingBlockRelatedService, StubBuildingBlockRelatedService>();
             services.RemoveAll<IBuildingBlockTechnologyMappingService>();
             services.AddSingleton<IBuildingBlockTechnologyMappingService, StubTechnologyMappingService>();
+            services.RemoveAll<IAssociationImpactService>();
+            services.AddSingleton<IAssociationImpactService, StubAssociationImpactService>();
+            services.RemoveAll<IAssignmentService>();
+            services.AddSingleton<IAssignmentService, StubAssignmentService>();
             services.RemoveAll<IEffectiveAccessService>();
             services.AddSingleton<IEffectiveAccessService, StubAccessService>();
             services.AddHttpContextAccessor();
@@ -170,13 +317,21 @@ public sealed class MasterTablesHttpTests
     private sealed class StubCatalogService : ICatalogManagementService
     {
         public static string CurrentName { get; private set; } = "Familia de prueba";
-        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName });
+        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName });
         public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null) => Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
         public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new CatalogPageResult([], 1, pageSize, 0));
         public Task<IReadOnlyList<CatalogRelationBucket>> GetRelationCountsAsync(MasterCatalogDefinition parent, MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CatalogRelationBucket>>([]);
         public Task<int> GetRelatedCountAsync(MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, int parentId, CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default) => Task.FromResult<CatalogRow?>(id == 1 ? Row : null);
-        public Task<IReadOnlyDictionary<string, IReadOnlyList<CatalogOption>>> GetOptionsAsync(MasterCatalogDefinition definition, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CatalogOption>>>(new Dictionary<string, IReadOnlyList<CatalogOption>>());
+        public Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default) => Task.FromResult<CatalogRow?>(id is 1 or 999 ? Row : null);
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<CatalogOption>>> GetOptionsAsync(MasterCatalogDefinition definition, CancellationToken cancellationToken = default)
+        {
+            var dict = new Dictionary<string, IReadOnlyList<CatalogOption>>
+            {
+                ["idBuildingBlock"] = [new CatalogOption(1, "Building Block 1"), new CatalogOption(2, "Building Block 2")],
+                ["idCapacidad"] = [new CatalogOption(10, "Capacidad 10"), new CatalogOption(20, "Capacidad 20")]
+            };
+            return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CatalogOption>>>(dict);
+        }
         public Task<int> CreateAsync(MasterCatalogDefinition definition, IReadOnlyDictionary<string, string?> values, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task<bool> UpdateAsync(MasterCatalogDefinition definition, int id, IReadOnlyDictionary<string, string?> values, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
         {
@@ -205,7 +360,88 @@ public sealed class MasterTablesHttpTests
     private sealed class StubBuildingBlockRelatedService : IBuildingBlockRelatedService
     {
         private static readonly CatalogPageResult Empty = new([], 1, 10, 0);
-        public Task<BuildingBlockRelatedResult> GetAsync(int buildingBlockId, string? capabilitySearch, string? functionalitySearch, string? technologySearch, int capabilityPage, int functionalityPage, int technologyPage, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new BuildingBlockRelatedResult(Empty, Empty, Empty));
+        public Task<BuildingBlockRelatedResult> GetAsync(
+            int buildingBlockId,
+            string? capabilitySearch,
+            string? functionalitySearch,
+            string? technologySearch,
+            int capabilityPage,
+            int functionalityPage,
+            int technologyPage,
+            int pageSize,
+            string? functionalitySortBy = null,
+            string? functionalitySortDirection = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (buildingBlockId == 999)
+                return Task.FromResult(new BuildingBlockRelatedResult(Empty, Empty, Empty));
+
+            var capRow = new CatalogRow(10, new Dictionary<string, object?> { ["capacidad"] = "Capacidad Alfa", ["estado"] = "Activo", ["descripcion"] = "Desc" }, new Dictionary<string, string?> { ["capacidad"] = "Capacidad Alfa", ["estado"] = "Activo", ["descripcion"] = "Desc" });
+            var funcRow = new CatalogRow(20, new Dictionary<string, object?> { ["capacidad"] = "Capacidad Alfa", ["funcionalidad"] = "Funcionalidad Beta", ["estado"] = "Activo", ["idCapacidad"] = 10 }, new Dictionary<string, string?> { ["capacidad"] = "Capacidad Alfa", ["funcionalidad"] = "Funcionalidad Beta", ["estado"] = "Activo", ["idCapacidad"] = "10" });
+            return Task.FromResult(new BuildingBlockRelatedResult(
+                new CatalogPageResult([capRow], 1, 10, 1),
+                new CatalogPageResult([funcRow], 1, 10, 1),
+                Empty));
+        }
+    }
+
+    private sealed class StubAssociationImpactService : IAssociationImpactService
+    {
+        public Task<CapabilityReassignmentImpactDto?> PreviewCapabilityReassignmentAsync(int capabilityId, int targetBuildingBlockId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<CapabilityReassignmentImpactDto?>(new CapabilityReassignmentImpactDto(
+                capabilityId, "Capacidad Alfa", 1, "BB Origen", targetBuildingBlockId, "BB Destino", 2, ["Func1", "Func2"], ["Tech1"], [], "token_cap_123"));
+
+        public Task<FunctionalityReassignmentImpactDto?> PreviewFunctionalityReassignmentAsync(int functionalityId, int targetCapabilityId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<FunctionalityReassignmentImpactDto?>(new FunctionalityReassignmentImpactDto(
+                functionalityId, "Funcionalidad Beta", 10, "Cap Origen", 1, "BB Origen", targetCapabilityId, "Cap Destino", 2, "BB Destino", true, [], "token_func_456"));
+
+        public Task<IReadOnlyList<CapabilityCandidateDto>> GetCapabilityCandidatesAsync(int buildingBlockId, string? search = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CapabilityCandidateDto>>([
+                new CapabilityCandidateDto(100, "Cap Orfana", "Activo", null, null, HierarchyAssignmentStatus.Unassigned),
+                new CapabilityCandidateDto(101, "Cap De Otro", "Activo", 99, "Otro BB", HierarchyAssignmentStatus.AssignedToOther)
+            ]);
+
+        public Task<IReadOnlyList<FunctionalityCandidateDto>> GetFunctionalityCandidatesAsync(int buildingBlockId, int? capabilityId = null, string? search = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<FunctionalityCandidateDto>>([
+                new FunctionalityCandidateDto(200, "Func Orfana", "Activo", null, null, null, null, HierarchyAssignmentStatus.Unassigned)
+            ]);
+
+        public Task<string?> GetCapabilityConcurrencyTokenAsync(int capabilityId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("token_cap");
+
+        public Task<string?> GetFunctionalityConcurrencyTokenAsync(int functionalityId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("token_func");
+    }
+
+    private sealed class StubAssignmentService : IAssignmentService
+    {
+        public Task<AssignmentResult> AssignCapabilityAsync(AssignCapabilityCommand command, CancellationToken cancellationToken = default)
+        {
+            if (command.ConcurrencyToken == "conflict")
+                return Task.FromResult(AssignmentResult.ConcurrencyConflict("Conflicto"));
+            return Task.FromResult(AssignmentResult.Success());
+        }
+
+        public Task<AssignmentResult> ReassignCapabilityAsync(ReassignCapabilityCommand command, CancellationToken cancellationToken = default)
+        {
+            if (command.ConcurrencyToken == "conflict")
+                return Task.FromResult(AssignmentResult.ConcurrencyConflict("Conflicto"));
+            return Task.FromResult(AssignmentResult.Success());
+        }
+
+        public Task<AssignmentResult> AssignFunctionalityAsync(AssignFunctionalityCommand command, CancellationToken cancellationToken = default)
+        {
+            if (command.ConcurrencyToken == "conflict")
+                return Task.FromResult(AssignmentResult.ConcurrencyConflict("Conflicto"));
+            return Task.FromResult(AssignmentResult.Success());
+        }
+
+        public Task<AssignmentResult> ReassignFunctionalityAsync(ReassignFunctionalityCommand command, CancellationToken cancellationToken = default)
+        {
+            if (command.ConcurrencyToken == "conflict")
+                return Task.FromResult(AssignmentResult.ConcurrencyConflict("Conflicto"));
+            return Task.FromResult(AssignmentResult.Success());
+        }
     }
 
     private sealed class StubTechnologyMappingService : IBuildingBlockTechnologyMappingService

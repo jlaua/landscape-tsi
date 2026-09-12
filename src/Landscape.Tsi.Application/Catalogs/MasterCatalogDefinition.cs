@@ -37,6 +37,7 @@ public sealed record MasterCatalogDefinition(
     public bool IsReadOnly => Code is "estado-adopcion-tsi" or "fase-adopcion" or "estado-capacidad" or "estado-funcionalidad";
     public bool IsDeletable => Code is "dominio" or "building-block" or "capacidad-seguridad" or "funcionalidad";
     public bool UsesResponsiveDrawer => Code is "capacidad-seguridad" or "funcionalidad" or "casos-uso" or "ciso";
+    public bool IncludeInReporting => Code is "dominio" or "building-block" or "capacidad-seguridad" or "funcionalidad" or "tecnologia-tsi" or "familia";
     public string NavigationRoute => Code == "dominio"
         ? "/Administration/MasterTables/Domain"
         : $"/Administration/MasterTables/{Route}";
