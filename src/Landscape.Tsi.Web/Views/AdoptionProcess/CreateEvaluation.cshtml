@@ -183,7 +183,7 @@
                         <div>
                             <h2 class="h5 fw-bold text-primary mb-1">Convocatoria de Subsidiarias Participantes</h2>
                             <p class="text-muted small mb-0">
-                                Utilice los <strong>checkboxes</strong> para incluir o excluir subsidiarias en lote. Cada subsidiaria convocada puede contar con su contacto focal técnico.
+                                Utilice los <strong>checkboxes</strong> para incluir o excluir subsidiarias en lote.
                             </p>
                         </div>
                         <div class="form-check form-switch fs-6">
@@ -198,9 +198,7 @@
                                 <tr>
                                     <th style="width: 50px;">Sel.</th>
                                     <th>Empresa Subsidiaria</th>
-                                    <th>País / Rubro</th>
-                                    <th>Focal Técnico (Contacto TContactoEmpresaSubsidiaria)</th>
-                                    <th style="width: 120px;">¿Aplica?</th>
+                                    <th style="width: 140px;">¿Aplica?</th>
                                     <th>Justificación si No Aplica</th>
                                 </tr>
                             </thead>
@@ -215,19 +213,6 @@
                                     </td>
                                     <td>
                                         <strong>@Model.Subsidiaries[i].EmpresaNombre</strong>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border">@(Model.Subsidiaries[i].Pais ?? "N/A")</span>
-                                        <span class="small text-muted ms-1">@(Model.Subsidiaries[i].Rubro ?? "")</span>
-                                    </td>
-                                    <td>
-                                        <select asp-for="Subsidiaries[i].ContactoFocalId" class="form-select form-select-sm">
-                                            <option value="">-- Sin contacto focal asignado --</option>
-                                            @foreach (var c in Model.Subsidiaries[i].ContactosDisponibles)
-                                            {
-                                                <option value="@c.Id">@c.Label</option>
-                                            }
-                                        </select>
                                     </td>
                                     <td>
                                         <div class="form-check form-switch">
