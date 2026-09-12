@@ -8,4 +8,5 @@ public interface IReportingService
     Task<CatalogReportDetail> GetRelatedCatalogDetailAsync(string parentCode, string childCode, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CatalogContextKpi>> GetCatalogContextKpisAsync(string catalogCode, int recordId, CancellationToken cancellationToken = default);
     Task<CompanyCisoReport> GetCompanyCisoReportAsync(CompanyCisoReportQuery query, CancellationToken cancellationToken = default);
+    Task<CompanyAdoptionReport> GetCompanyAdoptionReportAsync(CompanyAdoptionReportQuery query, CancellationToken cancellationToken = default);
 }

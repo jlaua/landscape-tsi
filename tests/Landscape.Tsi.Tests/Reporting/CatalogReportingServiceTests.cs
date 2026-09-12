@@ -64,14 +64,9 @@ public sealed class CatalogReportingServiceTests
 
         var result = await service.GetCatalogTotalsAsync(null);
 
-        var codes = result.Select(point => point.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.Equal(6, codes.Count);
-        Assert.Contains("dominio", codes);
-        Assert.Contains("building-block", codes);
-        Assert.Contains("capacidad-seguridad", codes);
-        Assert.Contains("funcionalidad", codes);
-        Assert.Contains("tecnologia-tsi", codes);
-        Assert.Contains("familia", codes);
+        var orderedCodes = result.Select(point => point.Code).ToArray();
+        string[] expectedOrder = ["dominio", "building-block", "capacidad-seguridad", "funcionalidad", "tecnologia-tsi", "familia"];
+        Assert.Equal(expectedOrder, orderedCodes);
 
         string[] excludedCodes =
         [
@@ -89,7 +84,7 @@ public sealed class CatalogReportingServiceTests
 
         foreach (var excluded in excludedCodes)
         {
-            Assert.DoesNotContain(excluded, codes);
+            Assert.DoesNotContain(excluded, orderedCodes);
         }
     }
 

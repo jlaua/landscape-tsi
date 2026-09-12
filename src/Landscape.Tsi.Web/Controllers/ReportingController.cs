@@ -36,6 +36,17 @@ public sealed class ReportingController(IReportingService reporting) : Controlle
         return View(new CompanyCisoReportViewModel(report with { Rows = rows }));
     }
 
+    [HttpGet("adopcion-empresas-tecnologia")]
+    public async Task<IActionResult> CompanyAdoptionByTechnology(
+        string? search, int? dominioId, int? buildingBlockId, int? empresaId,
+        string? alignmentState, int page = 1, int pageSize = 25,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new CompanyAdoptionReportQuery(search, dominioId, buildingBlockId, empresaId, alignmentState, page, pageSize);
+        var report = await reporting.GetCompanyAdoptionReportAsync(query, cancellationToken);
+        return View(report);
+    }
+
     [HttpGet("api/catalogos")]
     public async Task<IActionResult> CatalogTotals([FromQuery] string? group, CancellationToken cancellationToken)
     {

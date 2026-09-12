@@ -40,6 +40,37 @@ public sealed class CompanyCisoHttpTests
     }
 
     [Fact]
+    public async Task CompanyAdoptionByTechnology_Authorized_Returns200AndRendersSections()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/reporteria/adopcion-empresas-tecnologia");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Adopción de Empresas por Tecnología", html);
+        Assert.Contains("Adopción de Empresas por Dominio", html);
+        Assert.Contains("Alineación a Tecnología Corporativa", html);
+    }
+
+    [Fact]
+    public async Task CreateUser_Get_RendersFormattedCardLayout()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Usuarios/Nuevo");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Crear usuario local", html);
+        Assert.Contains("admin-shell", html);
+        Assert.Contains("IDENTIDAD LOCAL", html);
+        Assert.Contains("Justificación de creación", html);
+    }
+
+    [Fact]
     public async Task MissingPermission_Returns403()
     {
         await using var factory = CreateFactory();
@@ -107,7 +138,12 @@ public sealed class CompanyCisoHttpTests
         {
             if (Request.Query.ContainsKey("anonymous")) return Task.FromResult(AuthenticateResult.NoResult());
             var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
-            if (!Request.Query.ContainsKey("noPermission")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogView));
+            if (!Request.Query.ContainsKey("noPermission"))
+            {
+                claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogView));
+                claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.UserManage));
+                claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.UsersCreate));
+            }
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name)));
         }
     }
@@ -125,5 +161,10 @@ public sealed class CompanyCisoHttpTests
         public Task<IReadOnlyList<CatalogReportRelation>> GetCatalogRelationsAsync(string catalogCode, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CatalogReportRelation>>([]);
         public Task<CatalogReportDetail> GetRelatedCatalogDetailAsync(string parentCode, string childCode, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<CatalogContextKpi>> GetCatalogContextKpisAsync(string catalogCode, int recordId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CatalogContextKpi>>([]);
+        public Task<CompanyAdoptionReport> GetCompanyAdoptionReportAsync(CompanyAdoptionReportQuery query, CancellationToken cancellationToken = default)
+        {
+            var kpis = new CompanyAdoptionSummaryKpis(1, 1, 0, 0, 0, 0);
+            return Task.FromResult(new CompanyAdoptionReport(query, kpis, [], [], 0, 1, [], [], []));
+        }
     }
 }

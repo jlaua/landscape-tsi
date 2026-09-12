@@ -95,9 +95,22 @@ public static class MasterCatalogRegistry
         Relationship("tecnologia-tsi-implementada", "modelo-operacion", "1", "N", "FK_TModeloDeOperacion_TTecnologiaTSIimplementadaSubsidiaria"),
         Relationship("tipo-operacion", "modelo-operacion", "1", "N", "FK_TModeloDeOperacion_TTipoOperacion")
     ];
+    private static readonly string[] CanonicalReportingCatalogCodes =
+    [
+        "dominio",
+        "building-block",
+        "capacidad-seguridad",
+        "funcionalidad",
+        "tecnologia-tsi",
+        "familia"
+    ];
 
     public static readonly IReadOnlyList<MasterCatalogDefinition> ReportingCatalogs =
-        Catalogs.Where(catalog => catalog.IncludeInReporting).ToArray();
+        CanonicalReportingCatalogCodes
+            .Select(GetByCode)
+            .Where(catalog => catalog is not null && catalog.IncludeInReporting)
+            .Cast<MasterCatalogDefinition>()
+            .ToArray();
 
     public static readonly IReadOnlyList<CatalogRelationDefinition> ReportingRelations =
         Relations.Where(relation =>

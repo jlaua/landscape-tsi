@@ -7,7 +7,10 @@
 <section class="page-heading" aria-labelledby="report-title">
     <div><p class="eyebrow">ANÁLISIS</p><h1 id="report-title">Reportería de catálogos</h1><p class="supporting-text">Resumen de registros disponibles por catálogo. Los datos se actualizan sin recargar la página.</p></div>
 </section>
-<p><a class="md-button md-button-outlined" asp-controller="Reporting" asp-action="CompaniesAndCiso">Empresas y CISO</a></p>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="md-button md-button-outlined" asp-controller="Reporting" asp-action="CompaniesAndCiso">Empresas y CISO</a>
+    <a class="md-button md-button-outlined" asp-controller="Reporting" asp-action="CompanyAdoptionByTechnology">Adopción de Empresas por Tecnología</a>
+</div>
 <section class="report-kpi-grid report-general-kpis" data-report-general-kpis aria-label="Indicadores generales">
     <div class="report-kpi"><span class="report-kpi-value" data-report-kpi-catalogs>—</span><span class="report-kpi-label">Catálogos disponibles</span></div>
     <div class="report-kpi"><span class="report-kpi-value" data-report-kpi-records>—</span><span class="report-kpi-label">Registros totales</span></div>
@@ -33,10 +36,10 @@
 <section class="report-card" aria-labelledby="report-detail-title" data-report-detail-panel hidden>
     <div class="report-detail-heading"><div><h2 id="report-detail-title" data-report-detail-title>Detalle</h2><p class="supporting-text" data-report-detail-context></p></div><button type="button" class="md-button md-button-text" data-report-back>Volver al resumen</button></div>
     <div class="report-kpi-grid" data-report-context-kpis hidden aria-label="Indicadores del registro seleccionado"></div>
+    <div data-report-relations class="mb-4"></div>
     <div class="report-toolbar report-detail-toolbar"><div class="report-filter-field"><label for="report-detail-search">Buscar en el catálogo</label><input id="report-detail-search" class="form-control" type="search" data-report-detail-search /></div><div class="report-filter-field"><label for="report-detail-sort">Ordenar por</label><select id="report-detail-sort" class="form-select" data-report-detail-sort><option value="">Predeterminado</option></select></div><button type="button" class="md-button md-button-text report-sort-direction" data-report-detail-sort-direction aria-pressed="false">Ascendente</button><span class="loading-status" data-report-detail-status role="status" aria-live="polite"></span></div>
     <div class="report-table-wrap"><table class="data-grid data-table report-detail-table"><caption class="visually-hidden">Detalle del catálogo seleccionado</caption><thead data-report-detail-head></thead><tbody data-report-detail-body></tbody></table></div>
     <nav class="report-pagination" aria-label="Paginación del detalle"><button type="button" class="md-button md-button-outlined" data-report-detail-prev>Anterior</button><span class="report-page-info" data-report-detail-page></span><button type="button" class="md-button md-button-outlined" data-report-detail-next>Siguiente</button></nav>
-    <div data-report-relations></div>
 </section>
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
