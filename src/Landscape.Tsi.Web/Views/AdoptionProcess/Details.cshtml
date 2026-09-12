@@ -372,7 +372,7 @@
                                                         <strong class="small text-muted">Drivers de Costo y Proyección:</strong>
                                                         @if (tech.Drivers.Count > 0)
                                                         {
-                                                            <span class="small fw-bold text-success">Total: @tech.Drivers[0].Moneda @tech.Drivers.Sum(d => d.CostoTotal):N2</span>
+                                                            <span class="small fw-bold text-success">Total: @($"{tech.Drivers[0].Moneda} {tech.Drivers.Sum(d => d.CostoTotal):N2}")</span>
                                                         }
                                                     </div>
                                                     @if (tech.Drivers.Count == 0)
@@ -401,7 +401,7 @@
                                                                         <td>@(drv.UnidadMedida ?? "—")</td>
                                                                         <td>@(drv.Cantidad.HasValue ? drv.Cantidad.Value.ToString("N2") : "—")</td>
                                                                         <td>@(drv.PrecioUnitario.HasValue ? $"{drv.Moneda} {drv.PrecioUnitario.Value:N2}" : "—")</td>
-                                                                        <td><strong>@drv.Moneda @drv.CostoTotal:N2</strong></td>
+                                                                        <td><strong>@($"{drv.Moneda} {drv.CostoTotal:N2}")</strong></td>
                                                                         <td>
                                                                             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                                                             {

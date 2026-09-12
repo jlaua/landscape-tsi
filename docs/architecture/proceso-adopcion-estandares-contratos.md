@@ -87,3 +87,9 @@ Para cada empresa subsidiaria convocada:
 - Todas las mutaciones de procesos, estándares, contratos, adendas, drivers y modelos operativos se registran en `dbo.TAuditOperation` mediante `IAuditTrailService`.
 - Todas las acciones POST en `AdoptionProcessController` exigen token antiforgery (`@Html.AntiForgeryToken()`) y autorización server-side con la política `Permissions.CatalogEdit`.
 - Las consultas de solo lectura exigen `Permissions.CatalogView`.
+
+---
+
+## 5. Backlog de Futuras Evoluciones
+
+- **[BACKLOG-TSI-01] Entidad Servicio y Tarifario por Rango de Horas**: Incorporación de la entidad `Servicio` (Implementación, Migración, Operación) y su tarifario por rangos de horas de mano de obra (tipo driver) para proyectar el costo de servicios profesionales por subsidiaria. Detalle de especificación técnica en [`backlog-entidad-servicio-y-tarifario.md`](./backlog-entidad-servicio-y-tarifario.md).
