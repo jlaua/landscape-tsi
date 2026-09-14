@@ -993,9 +993,6 @@
             });
         });
 
-        // Inicializar estado al cargar el DOM
-        refreshAllSubsidiaryParticipation();
-
         // --- 6. Modo de Definición de Estándar Corporativo & Convergencia ---
         const modePending = document.getElementById('modePending');
         const modeDefined = document.getElementById('modeDefined');
@@ -1103,8 +1100,10 @@
         }
 
         function updateConvergenceTable() {
-            const isPending = modePending && modePending.checked;
-            const standardId = selectStandardTech ? selectStandardTech.value : '';
+            const mPending = document.getElementById('modePending');
+            const isPending = mPending ? mPending.checked : true;
+            const selStd = document.getElementById('selectStandardTech');
+            const standardId = selStd ? selStd.value : '';
 
             subCheckboxes.forEach(cb => {
                 const empId = cb.dataset.empresaId;
@@ -1299,7 +1298,7 @@
         function prepareTechModal(selectEl, contextLabel, initialTab) {
             currentTargetSelect = selectEl;
             if (modalTechContextName) {
-                modalTechContextName.innerText = contextLabel || selectEl?.dataset.contextLabel || 'Tecnología TSI';
+                modalTechContextName.innerText = contextLabel || selectEl?.dataset?.contextLabel || 'Tecnología TSI';
             }
             if (quickCreateAlert) {
                 quickCreateAlert.classList.add('d-none');
@@ -1311,12 +1310,20 @@
 
             if (initialTab === 'create') {
                 if (tabCreateBtn) {
-                    tabCreateBtn.click();
+                    if (window.bootstrap && bootstrap.Tab) {
+                        bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
+                    } else {
+                        tabCreateBtn.click();
+                    }
                 }
                 setTimeout(() => quickTechNombre?.focus(), 250);
             } else {
                 if (tabSearchBtn) {
-                    tabSearchBtn.click();
+                    if (window.bootstrap && bootstrap.Tab) {
+                        bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+                    } else {
+                        tabSearchBtn.click();
+                    }
                 }
                 if (inputTechSearch) inputTechSearch.value = '';
                 renderTechResults('');
@@ -1626,8 +1633,14 @@
             });
         });
 
-        // Initialize default mode
-        setStandardMode('pending');
+        // Initialize state safely after all listeners and variables are fully declared
+        try {
+            renderTechResults('');
+            setStandardMode('pending');
+            refreshAllSubsidiaryParticipation();
+        } catch (e) {
+            console.warn('Initialization error in CreateEvaluation:', e);
+        }
     });
 </script>
 }
