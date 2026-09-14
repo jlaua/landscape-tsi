@@ -22,4 +22,8 @@ public sealed class CatalogDetailViewModel
     public CatalogPageResult? ImplementedOperationModels { get; init; }
     public CatalogPageResult? ImplementedDrivers { get; init; }
     public CatalogPageResult? ImplementedServices { get; init; }
+
+    public CatalogPageResult? ProcessCompanies { get; init; }
+    public CatalogPageResult? ProcessStandards { get; init; }
+    public CatalogPageResult? ProcessServices { get; init; }
 }

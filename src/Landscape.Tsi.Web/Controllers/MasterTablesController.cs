@@ -313,9 +313,48 @@ public sealed class MasterTablesController(
             }
         }
 
+        CatalogPageResult? processCompanies = null;
+        CatalogPageResult? processStandards = null;
+        CatalogPageResult? processServices = null;
+
+        if (definition.Code == "proceso-adopcion-tsi")
+        {
+            var compDef = MasterCatalogRegistry.GetByCode("proceso-adopcion-empresa");
+            if (compDef is not null)
+            {
+                var fk = compDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processCompanies = await catalogService.ListRelatedAsync(compDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var stdDef = MasterCatalogRegistry.GetByCode("estandar-tecnologia-historico");
+            if (stdDef is not null)
+            {
+                var fk = stdDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processStandards = await catalogService.ListRelatedAsync(stdDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var srvDef = MasterCatalogRegistry.GetByCode("servicio-tecnologia");
+            if (srvDef is not null)
+            {
+                var fk = srvDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processServices = await catalogService.ListRelatedAsync(srvDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+        }
+
         var adoptionDetail = definition.Code == "building-block"
             ? await adoptionService.GetProcessDetailByBuildingBlockAsync(id, cancellationToken)
-            : null;
+            : (definition.Code == "proceso-adopcion-tsi"
+                ? await adoptionService.GetProcessDetailAsync(id, cancellationToken)
+                : null);
 
         var options = await catalogService.GetOptionsAsync(definition, cancellationToken);
         if (definition.Code == "building-block")
@@ -360,7 +399,10 @@ public sealed class MasterTablesController(
             ImplementedContracts = implementedContracts,
             ImplementedOperationModels = implementedOperationModels,
             ImplementedDrivers = implementedDrivers,
-            ImplementedServices = implementedServices
+            ImplementedServices = implementedServices,
+            ProcessCompanies = processCompanies,
+            ProcessStandards = processStandards,
+            ProcessServices = processServices
         });
     }
 
@@ -377,7 +419,7 @@ public sealed class MasterTablesController(
     [HttpPost("{catalogRoute}/{id:int}/delete")]
     [Authorize(Policy = Permissions.CatalogDelete)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteCatalog(string catalogRoute, int id, string? confirmation, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteCatalog(string catalogRoute, int id, string? confirmation, string? returnUrl, CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || !definition.IsDeletable) return NotFound();
@@ -391,6 +433,10 @@ public sealed class MasterTablesController(
                 : result.ErrorMessage ?? "No fue posible eliminar el registro.";
             if (result.Succeeded)
             {
+                if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                {
+                    return Redirect(returnUrl);
+                }
                 return RedirectToAction(nameof(Catalog), new { catalogRoute });
             }
         }
@@ -399,32 +445,43 @@ public sealed class MasterTablesController(
             logger.LogError(exception, "Error al eliminar {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
             TempData["ErrorMessage"] = "No fue posible eliminar el registro. La operación fue revertida.";
         }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
         return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
     }
 
     [HttpGet("{catalogRoute}/create")]
     [Authorize(Policy = Permissions.CatalogCreate)]
-    public async Task<IActionResult> CatalogCreateForm(string catalogRoute, CancellationToken cancellationToken)
+    public async Task<IActionResult> CatalogCreateForm(string catalogRoute, string? returnUrl, string? initialKey, string? initialValue, CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
         {
             return NotFound();
         }
-        if (definition.EditorMode == CatalogEditorMode.Modal)
+        if (definition.EditorMode == CatalogEditorMode.Modal && string.IsNullOrWhiteSpace(returnUrl))
         {
             return RedirectToAction(nameof(Catalog), new { catalogRoute });
+        }
+        var initialValues = new Dictionary<string, string?>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(initialKey) && !string.IsNullOrWhiteSpace(initialValue))
+        {
+            initialValues[initialKey] = initialValue;
         }
         return View("CatalogEditor", new CatalogEditorViewModel
         {
             Definition = definition,
-            Options = await catalogService.GetOptionsAsync(definition, cancellationToken)
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            ReturnUrl = returnUrl,
+            InitialValues = initialValues
         });
     }
 
     [HttpGet("{catalogRoute}/edit/{id:int}")]
     [Authorize(Policy = Permissions.CatalogEdit)]
-    public async Task<IActionResult> CatalogEditForm(string catalogRoute, int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> CatalogEditForm(string catalogRoute, int id, string? returnUrl, CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
@@ -436,14 +493,15 @@ public sealed class MasterTablesController(
         {
             Definition = definition,
             Record = record,
-            Options = await catalogService.GetOptionsAsync(definition, cancellationToken)
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            ReturnUrl = returnUrl
         });
     }
 
     [HttpPost("{catalogRoute}/create")]
     [Authorize(Policy = Permissions.CatalogCreate)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateCatalog(string catalogRoute, CatalogInputModel input, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateCatalog(string catalogRoute, CatalogInputModel input, string? returnUrl, CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
@@ -459,6 +517,10 @@ public sealed class MasterTablesController(
         {
             var id = await catalogService.CreateAsync(definition, input.Values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
             TempData["SuccessMessage"] = $"{definition.Name} se creó correctamente.";
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
             return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
         }
         catch (CatalogValidationException exception)
@@ -470,13 +532,17 @@ public sealed class MasterTablesController(
             logger.LogError(exception, "Error al crear {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
             TempData["ErrorMessage"] = $"No fue posible crear {definition.Name}. Intente nuevamente.";
         }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return RedirectToAction(nameof(CatalogCreateForm), new { catalogRoute, returnUrl });
+        }
         return RedirectToAction(definition.EditorMode == CatalogEditorMode.Page ? nameof(CatalogCreateForm) : nameof(Catalog), new { catalogRoute });
     }
 
     [HttpPost("{catalogRoute}/edit/{id:int}")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditCatalog(string catalogRoute, int id, CatalogInputModel input, CancellationToken cancellationToken)
+    public async Task<IActionResult> EditCatalog(string catalogRoute, int id, CatalogInputModel input, string? returnUrl, CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
@@ -495,13 +561,17 @@ public sealed class MasterTablesController(
             if (string.IsNullOrWhiteSpace(input.ConcurrencyToken) || !string.Equals(input.ConcurrencyToken, CatalogConcurrencyToken.Create(current), StringComparison.Ordinal))
             {
                 TempData["ErrorMessage"] = "El registro fue modificado por otro usuario. Revise los cambios antes de volver a guardar.";
-                return RedirectToAction(nameof(CatalogEditForm), new { catalogRoute, id });
+                return RedirectToAction(nameof(CatalogEditForm), new { catalogRoute, id, returnUrl });
             }
             if (!await catalogService.UpdateAsync(definition, id, input.Values, actorUserId, HttpContext.TraceIdentifier, cancellationToken))
             {
                 return NotFound();
             }
             TempData["SuccessMessage"] = $"{definition.Name} se actualizó correctamente.";
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
             return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
         }
         catch (CatalogValidationException exception)
@@ -512,6 +582,10 @@ public sealed class MasterTablesController(
         {
             logger.LogError(exception, "Error al editar {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
             TempData["ErrorMessage"] = $"No fue posible actualizar {definition.Name}. Intente nuevamente.";
+        }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return RedirectToAction(nameof(CatalogEditForm), new { catalogRoute, id, returnUrl });
         }
         return RedirectToAction(definition.EditorMode == CatalogEditorMode.Page ? nameof(CatalogEditForm) : nameof(CatalogDetails), new { catalogRoute, id });
     }

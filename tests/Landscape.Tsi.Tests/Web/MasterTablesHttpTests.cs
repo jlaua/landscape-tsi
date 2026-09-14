@@ -344,6 +344,38 @@ public sealed class MasterTablesHttpTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task AdoptionProcessDetails_ReturnsOk_WithChildCatalogSections()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/proceso-adopcion-tsi/details/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ENTIDADES HIJAS Y GESTIÓN INTEGRAL", html);
+        Assert.Contains("Empresas en Proceso de Adopción", html);
+        Assert.Contains("Estándares y Tecnologías Asignadas", html);
+        Assert.Contains("Servicios de Tecnología Asociados", html);
+        Assert.Contains("Tablero de Adopción", html);
+    }
+
+    [Fact]
+    public async Task CatalogCreateForm_WithReturnUrl_ReturnsOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/proceso-adopcion-empresa/create?returnUrl=%2FAdministration%2FMasterTables%2Fproceso-adopcion-tsi%2Fdetails%2F1&initialKey=proceso&initialValue=1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("MANTENIMIENTO AMPLIADO", html);
+        Assert.Contains("name=\"returnUrl\"", html);
+        Assert.Contains("value=\"/Administration/MasterTables/proceso-adopcion-tsi/details/1\"", html);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");

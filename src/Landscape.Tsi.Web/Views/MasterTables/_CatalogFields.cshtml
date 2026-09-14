@@ -5,7 +5,7 @@
 @foreach (var column in Model.Definition.Columns)
 {
     var sensitiveEdit = Model.IsEdit && CatalogDisplayPrivacy.IsSensitive(Model.Definition, column.Code);
-    var rawValue = sensitiveEdit ? null : Model.Record?.Values.GetValueOrDefault(column.Code)?.ToString();
+    var rawValue = sensitiveEdit ? null : (Model.Record?.Values.GetValueOrDefault(column.Code)?.ToString() ?? Model.InitialValues?.GetValueOrDefault(column.Code));
     <div class="md-field @(column.IsMultiline ? "form-grid-wide" : null)">
         <label for="field-@column.Code">@column.Label</label>
         @if (column.Type == CatalogFieldType.ForeignKey)

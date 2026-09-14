@@ -85,9 +85,20 @@
         <dl class="detail-grid">
             @foreach (var column in Model.Definition.Columns)
             {
+                var displayVal = Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—";
+                var rawVal = Model.Record.Values.GetValueOrDefault(column.Code);
                 <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)">
                     <dt>@column.Label</dt>
-                    <dd>@(Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—")</dd>
+                    <dd>
+                        @if (!string.IsNullOrWhiteSpace(column.ReferenceCatalogCode) && rawVal is int refId && displayVal != "—")
+                        {
+                            <a class="text-primary text-decoration-underline" asp-action="CatalogDetails" asp-route-catalogRoute="@column.ReferenceCatalogCode" asp-route-id="@refId">@displayVal</a>
+                        }
+                        else
+                        {
+                            @displayVal
+                        }
+                    </dd>
                 </div>
             }
         </dl>
@@ -372,6 +383,276 @@
                                         @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                         {
                                             <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+@if (Model.Definition.Route == "proceso-adopcion-tsi")
+{
+    <section class="report-card related-entities-card" aria-labelledby="adoption-process-children-title">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">ENTIDADES HIJAS Y GESTIÓN INTEGRAL</p>
+                <h2 id="adoption-process-children-title">Empresas Participantes, Estándares Designados y Servicios TSI</h2>
+            </div>
+            <div>
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@Model.Record.Id">
+                    Gestionar en Tablero de Adopción (#@Model.Record.DisplayValues.GetValueOrDefault("codigoProceso")) →
+                </a>
+            </div>
+        </div>
+
+        <div class="report-kpi-grid mb-4">
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessCompanies?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Empresas Convocadas</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessStandards?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Estándares Designados</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessServices?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Servicios TSI Asociados</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value" style="font-size: 1.15rem; line-height: 1.3;">@(Model.AdoptionDetail?.EstandarPrincipalVigente?.TecnologiaNombre ?? "Pendiente")</span>
+                <span class="report-kpi-label">Estándar Principal Vigente</span>
+            </div>
+        </div>
+
+        <!-- 1. Empresas Participantes en el Proceso de Adopción -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Empresas en Proceso de Adopción <span class="result-count">(@(Model.ProcessCompanies?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Convocar Empresa</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="proceso-adopcion-empresa">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessCompanies is null || Model.ProcessCompanies.TotalCount == 0)
+            {
+                <p class="empty-state">No existen empresas subsidiarias registradas para este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Empresas en proceso de adopción" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Empresa Subsidiaria</th>
+                                <th>Participación / Aplica</th>
+                                <th>Justificación por No Participar</th>
+                                <th>Fecha Incorporación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessCompanies.Items)
+                            {
+                                var aplicaRaw = row.DisplayValues.GetValueOrDefault("aplica");
+                                var aplica = string.Equals(aplicaRaw, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "Aplica", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "Sí", StringComparison.OrdinalIgnoreCase);
+                                <tr>
+                                    <td data-label="Empresa">
+                                        <strong>@(row.DisplayValues.GetValueOrDefault("empresa") ?? "Empresa no especificada")</strong>
+                                    </td>
+                                    <td data-label="Aplica">
+                                        @if (aplica)
+                                        {
+                                            <span class="badge bg-success">Aplica</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">No participa</span>
+                                        }
+                                    </td>
+                                    <td data-label="Justificación">
+                                        @(row.DisplayValues.GetValueOrDefault("justificacionNoAplica") ?? "—")
+                                    </td>
+                                    <td data-label="Fecha Incorporación">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaIncorporacion") ?? "—")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 2. Histórico y Designación de Estándares Tecnológicos -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Estándares y Tecnologías Asignadas <span class="result-count">(@(Model.ProcessStandards?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Asignar Estándar</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="estandar-tecnologia-historico">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessStandards is null || Model.ProcessStandards.TotalCount == 0)
+            {
+                <p class="empty-state">No se han registrado asignaciones históricas de estándar para este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Estándares asignados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tecnología TSI</th>
+                                <th>Rol de Estándar</th>
+                                <th>Estado de Vigencia</th>
+                                <th>Inicio Vigencia</th>
+                                <th>Fin Vigencia</th>
+                                <th>Sustento / Motivo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessStandards.Items)
+                            {
+                                var rol = row.DisplayValues.GetValueOrDefault("rolEstandar") ?? "—";
+                                var estado = row.DisplayValues.GetValueOrDefault("estadoVigencia") ?? "—";
+                                var isPrincipal = rol.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+                                var isVigente = estado.Contains("VIGENTE", StringComparison.OrdinalIgnoreCase);
+                                <tr>
+                                    <td data-label="Tecnología">
+                                        <strong>@(row.DisplayValues.GetValueOrDefault("tecnologia") ?? "Tecnología no especificada")</strong>
+                                    </td>
+                                    <td data-label="Rol">
+                                        @if (isPrincipal)
+                                        {
+                                            <span class="badge bg-primary">@rol</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@rol</span>
+                                        }
+                                    </td>
+                                    <td data-label="Estado Vigencia">
+                                        @if (isVigente)
+                                        {
+                                            <span class="badge bg-success">@estado</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">@estado</span>
+                                        }
+                                    </td>
+                                    <td data-label="Inicio Vigencia">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaInicioVigencia") ?? "—")
+                                    </td>
+                                    <td data-label="Fin Vigencia">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaFinVigencia") ?? "—")
+                                    </td>
+                                    <td data-label="Sustento">
+                                        @(row.DisplayValues.GetValueOrDefault("sustentoArquitectura") ?? row.DisplayValues.GetValueOrDefault("motivoCambio") ?? "—")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 3. Servicios Técnicos TSI Asociados -->
+        <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Servicios de Tecnología Asociados <span class="result-count">(@(Model.ProcessServices?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Nuevo Servicio</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="servicio-tecnologia">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessServices is null || Model.ProcessServices.TotalCount == 0)
+            {
+                <p class="empty-state">No existen servicios de TI vinculados directamente a este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Servicios relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre del Servicio</th>
+                                <th>Tipo de Servicio</th>
+                                <th>Tecnología</th>
+                                <th>Empresa</th>
+                                <th>Proveedor</th>
+                                <th>Estado</th>
+                                <th>Costo Estimado</th>
+                                <th>Moneda</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessServices.Items)
+                            {
+                                <tr>
+                                    <td data-label="Código">
+                                        <strong>@row.DisplayValues.GetValueOrDefault("codigoServicio")</strong>
+                                    </td>
+                                    <td data-label="Servicio">
+                                        @row.DisplayValues.GetValueOrDefault("nombreServicio")
+                                    </td>
+                                    <td data-label="Tipo">
+                                        @(row.DisplayValues.GetValueOrDefault("tipoServicio") ?? "—")
+                                    </td>
+                                    <td data-label="Tecnología">
+                                        @(row.DisplayValues.GetValueOrDefault("tecnologia") ?? "—")
+                                    </td>
+                                    <td data-label="Empresa">
+                                        @(row.DisplayValues.GetValueOrDefault("empresa") ?? "—")
+                                    </td>
+                                    <td data-label="Proveedor">
+                                        @(row.DisplayValues.GetValueOrDefault("proveedor") ?? "—")
+                                    </td>
+                                    <td data-label="Estado">
+                                        <span class="badge bg-secondary">@(row.DisplayValues.GetValueOrDefault("estadoServicio") ?? "EVALUACION")</span>
+                                    </td>
+                                    <td data-label="Costo Estimado">
+                                        @(row.DisplayValues.GetValueOrDefault("costoTotalEstimado") ?? "—")
+                                    </td>
+                                    <td data-label="Moneda">
+                                        @(row.DisplayValues.GetValueOrDefault("moneda") ?? "USD")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
                                         }
                                     </td>
                                 </tr>

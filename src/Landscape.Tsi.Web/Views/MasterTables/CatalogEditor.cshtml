@@ -4,5 +4,9 @@
 <section class="catalog-shell wide-editor-shell" aria-labelledby="editor-title"><div><p class="eyebrow">MANTENIMIENTO AMPLIADO</p><h1 id="editor-title">@(Model.IsEdit ? "Editar" : "Crear") @Model.Definition.Name</h1><p class="supporting-text">Complete los datos y revise las relaciones antes de guardar.</p></div>
 @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
 <form method="post" asp-action="@(Model.IsEdit ? "EditCatalog" : "CreateCatalog")" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record?.Id" data-confirm-message="¿Desea guardar estos datos?" data-loading-form>
-    <div class="wide-editor-card"><partial name="_CatalogFields" model="Model" /></div><div class="editor-actions"><a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Cancelar</a><button class="md-button md-button-filled" type="submit" data-loading-text="Guardando…">Guardar</button></div>
+    @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+    {
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    }
+    <div class="wide-editor-card"><partial name="_CatalogFields" model="Model" /></div><div class="editor-actions"><a class="md-button md-button-text" href="@(string.IsNullOrEmpty(Model.ReturnUrl) ? Url.Action("Catalog", new { catalogRoute = Model.Definition.Route }) : Model.ReturnUrl)">Cancelar</a><button class="md-button md-button-filled" type="submit" data-loading-text="Guardando…">Guardar</button></div>
 </form></section>
