@@ -66,6 +66,36 @@ public sealed class MasterTablesController(
         });
     }
 
+    [HttpGet("Domain/{id:int}/building-blocks-capacidades")]
+    public async Task<IActionResult> DomainBuildingBlocksCapabilities(int id, CancellationToken cancellationToken)
+    {
+        EnsureDomainIsEnabled();
+        var domain = await dominioService.GetAsync(id, cancellationToken);
+        if (domain is null) return NotFound();
+
+        var parent = MasterCatalogRegistry.GetByCode("dominio")!;
+        var bbDef = MasterCatalogRegistry.GetByCode("building-block")!;
+        var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad")!;
+        var foreignKeyDomain = bbDef.Columns.Single(c => c.ReferenceCatalogCode == parent.Code);
+        var foreignKeyBB = capDef.Columns.Single(c => c.ReferenceCatalogCode == bbDef.Code);
+
+        var bbResult = await catalogService.ListRelatedAsync(bbDef, foreignKeyDomain, id, null, 1, 50, cancellationToken);
+        var items = new List<object>();
+
+        foreach (var bb in bbResult.Items)
+        {
+            var capCount = await catalogService.GetRelatedCountAsync(capDef, foreignKeyBB, bb.Id, cancellationToken);
+            items.Add(new
+            {
+                id = bb.Id,
+                nombre = bb.DisplayValues.GetValueOrDefault("nombre") ?? $"BB #{bb.Id}",
+                capacidadesCount = capCount
+            });
+        }
+
+        return Json(new { items });
+    }
+
     [HttpGet("Domain/{id:int}/delete-impact")]
     [Authorize(Policy = Permissions.CatalogDelete)]
     public async Task<IActionResult> DomainDeleteImpact(int id, CancellationToken cancellationToken)
@@ -234,15 +264,89 @@ public sealed class MasterTablesController(
             var foreignKey = child.Columns.Single(column => column.ReferenceCatalogCode == definition.Code);
             relatedRecords = await catalogService.ListRelatedAsync(child, foreignKey, id, functionalitySearch, functionalityPage, relatedPageSize, cancellationToken);
         }
+
+        CatalogPageResult? implementedContracts = null;
+        CatalogPageResult? implementedOperationModels = null;
+        CatalogPageResult? implementedDrivers = null;
+        CatalogPageResult? implementedServices = null;
+
+        if (definition.Code == "tecnologia-tsi-implementada")
+        {
+            var contractDef = MasterCatalogRegistry.GetByCode("contrato-tecnologia");
+            if (contractDef is not null)
+            {
+                var fk = contractDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedContracts = await catalogService.ListRelatedAsync(contractDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var opModelDef = MasterCatalogRegistry.GetByCode("modelo-operacion");
+            if (opModelDef is not null)
+            {
+                var fk = opModelDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedOperationModels = await catalogService.ListRelatedAsync(opModelDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var driverDef = MasterCatalogRegistry.GetByCode("driver");
+            if (driverDef is not null)
+            {
+                var fk = driverDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedDrivers = await catalogService.ListRelatedAsync(driverDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var serviceDef = MasterCatalogRegistry.GetByCode("servicio-tecnologia");
+            if (serviceDef is not null)
+            {
+                var fk = serviceDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedServices = await catalogService.ListRelatedAsync(serviceDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+        }
+
         var adoptionDetail = definition.Code == "building-block"
             ? await adoptionService.GetProcessDetailByBuildingBlockAsync(id, cancellationToken)
             : null;
+
+        var options = await catalogService.GetOptionsAsync(definition, cancellationToken);
+        if (definition.Code == "building-block")
+        {
+            var mutableOptions = options.ToDictionary(k => k.Key, k => k.Value, StringComparer.Ordinal);
+            var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad");
+            if (capDef is not null)
+            {
+                var capOptions = await catalogService.GetOptionsAsync(capDef, cancellationToken);
+                foreach (var (k, v) in capOptions)
+                {
+                    mutableOptions[k] = v;
+                }
+            }
+            var funcDef = MasterCatalogRegistry.GetByCode("funcionalidad");
+            if (funcDef is not null)
+            {
+                var funcOptions = await catalogService.GetOptionsAsync(funcDef, cancellationToken);
+                foreach (var (k, v) in funcOptions)
+                {
+                    mutableOptions[k] = v;
+                }
+            }
+            options = mutableOptions;
+        }
 
         return View(new CatalogDetailViewModel
         {
             Definition = definition,
             Record = record,
-            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            Options = options,
             Related = related,
             RelatedRecords = relatedRecords,
             TechnologyMapping = technologyMapping,
@@ -252,7 +356,11 @@ public sealed class MasterTablesController(
             FunctionalitySearch = functionalitySearch,
             CapabilitySearch = capabilitySearch,
             TechnologySearch = technologySearch,
-            AdoptionDetail = adoptionDetail
+            AdoptionDetail = adoptionDetail,
+            ImplementedContracts = implementedContracts,
+            ImplementedOperationModels = implementedOperationModels,
+            ImplementedDrivers = implementedDrivers,
+            ImplementedServices = implementedServices
         });
     }
 
@@ -584,6 +692,129 @@ public sealed class MasterTablesController(
         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             return Ok(new { message = TempData["SuccessMessage"] });
         return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/quick-update")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateBuildingBlockQuickFields(
+        int id,
+        [FromForm] string? faseAdopcion,
+        [FromForm] string? rutaEntregable,
+        CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByCode("building-block")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var existing = await catalogService.GetAsync(definition, id, cancellationToken);
+        if (existing is null) return NotFound();
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var col in definition.Columns)
+        {
+            values[col.Code] = existing.Values.GetValueOrDefault(col.Code)?.ToString();
+        }
+        values["faseAdopcion"] = faseAdopcion;
+        values["rutaEntregable"] = rutaEntregable;
+
+        try
+        {
+            await catalogService.UpdateAsync(definition, id, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = "Campos del Building Block actualizados correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al actualizar campos rápidos de Building Block {Id}. Correlación: {CorrelationId}", id, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible actualizar los campos del Building Block.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{buildingBlockId:int}/create-capability")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateCapabilityForBuildingBlock(
+        int buildingBlockId,
+        [FromForm] string nombre,
+        [FromForm] string? estado,
+        [FromForm] string? descripcion,
+        CancellationToken cancellationToken)
+    {
+        var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            TempData["ErrorMessage"] = "El nombre de la Capacidad es obligatorio.";
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+        }
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["buildingBlock"] = buildingBlockId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["nombre"] = nombre.Trim(),
+            ["estado"] = estado,
+            ["descripcion"] = descripcion
+        };
+
+        try
+        {
+            await catalogService.CreateAsync(capDef, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = $"Capacidad \"{nombre.Trim()}\" creada correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al crear capacidad para Building Block {BuildingBlockId}. Correlación: {CorrelationId}", buildingBlockId, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible crear la capacidad.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+    }
+
+    [HttpPost("building-block/{buildingBlockId:int}/create-functionality")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateFunctionalityForBuildingBlock(
+        int buildingBlockId,
+        [FromForm] int capacidadId,
+        [FromForm] string nombre,
+        [FromForm] string? estado,
+        [FromForm] string? descripcion,
+        CancellationToken cancellationToken)
+    {
+        var funcDef = MasterCatalogRegistry.GetByCode("funcionalidad")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            TempData["ErrorMessage"] = "El nombre de la Funcionalidad es obligatorio.";
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+        }
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["capacidad"] = capacidadId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["nombre"] = nombre.Trim(),
+            ["estado"] = estado,
+            ["descripcion"] = descripcion
+        };
+
+        try
+        {
+            await catalogService.CreateAsync(funcDef, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = $"Funcionalidad \"{nombre.Trim()}\" creada correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al crear funcionalidad para Building Block {BuildingBlockId}. Correlación: {CorrelationId}", buildingBlockId, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible crear la funcionalidad.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
     }
 
     private static void EnsureDomainIsEnabled()

@@ -247,6 +247,80 @@ public sealed class AdoptionProcessHttpTests
         Assert.Contains("modal-change-status", content);
         Assert.Contains("Cambiar Estado", content);
         Assert.Contains("Editar Evaluación", content);
+        Assert.Contains("Reportería & Seguimiento", content);
+        Assert.Contains("Eliminar tecnología", content);
+    }
+
+    [Fact]
+    public async Task DeleteImplementedTechnology_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["tecnologiaImplementadaId"] = "10"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/1/DeleteImplementedTechnology", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteImplementedTechnology_WithoutEditPermission_ReturnsForbiddenOrBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["tecnologiaImplementadaId"] = "10"
+        });
+        var response = await client.PostAsync("/Administration/AdoptionProcess/1/DeleteImplementedTechnology?noEdit=true", content);
+        Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetEvaluationReports_WithAuthorizedUser_Returns200AndRendersAllFourReports()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/1/Reports");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+
+        // Verifica que se muestre el título y las 4 pestañas/secciones del usuario
+        Assert.Contains("Seguimiento y Reportería Operacional", content);
+        Assert.Contains("a) Alcance del Proceso", content);
+        Assert.Contains("b) Vencimiento de Contratos & Proyección", content);
+        Assert.Contains("3) Volumetría por Empresa", content);
+        Assert.Contains("4) Capacidades por Empresa", content);
+
+        // Verifica elementos clave de cada reporte
+        Assert.Contains("WAF AS-IS", content);
+        Assert.Contains("Throughput GB Acum", content);
+        Assert.Contains("Data Transfer", content);
+        Assert.Contains("Matriz de Cobertura de Capacidades", content);
+    }
+
+    [Fact]
+    public async Task GetEvaluationReports_WithAlternateRoute_Returns200()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/Evaluations/1/Reports");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvaluationReports_InvalidId_ReturnsNotFound()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/0/Reports");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -339,6 +413,9 @@ public sealed class AdoptionProcessHttpTests
         public Task<AdoptionResult> RegisterImplementedTechnologyAsync(RegisterImplementedTechnologyCommand command, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok", 1));
 
+        public Task<AdoptionResult> DeleteImplementedTechnologyAsync(int procesoId, int tecnologiaImplementadaId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
         public Task<AdoptionResult> SaveContractAsync(SaveContractCommand command, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok", 1));
 
@@ -360,7 +437,32 @@ public sealed class AdoptionProcessHttpTests
         public Task<AdoptionResult> BatchConveneCompaniesAsync(int procesoId, IEnumerable<ConveneCompanyInput> companies, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok", 1));
 
+        public Task<AdoptionResult> RemoveCompanyFromProcessAsync(int procesoId, int procesoEmpresaId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
         public Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivo, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> FinalizeEvaluationWithStandardAsync(FinalizeEvaluationWithStandardCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<EvaluationReportsDto?> GetEvaluationReportsAsync(int procesoId, CancellationToken cancellationToken = default)
+        {
+            if (procesoId <= 0) return Task.FromResult<EvaluationReportsDto?>(null);
+
+            var scopeRow = new EvaluationScopeReportRowDto(1, "Banco Subsidiaria", "Perú", DateTime.Today.AddMonths(12), "F5 WAAP", "Contrato", "Logicalis", "Autogestionado");
+            var milestone = new ContractTimelineMilestoneDto("Dic-26", 2026, 12, false);
+            var expRow = new ContractExpirationRowDto(1, 1, "Banco Subsidiaria", "F5 WAAP", 250m, 35, 120m, DateTime.Today.AddMonths(12), "Dic-26", new Dictionary<string, bool> { ["Dic-26"] = true });
+            var expReport = new ContractExpirationReportDto([milestone], [expRow], new Dictionary<string, decimal> { ["Dic-26"] = 250m }, new Dictionary<string, int> { ["Dic-26"] = 35 }, new Dictionary<string, decimal> { ["Dic-26"] = 120m }, 250m, 35, 120m);
+            var volRow = new CompanyVolumeReportRowDto(1, "Banco Subsidiaria", "F5 WAAP", 1.5m, 2.0m, 40, 35, 12, 15m, 25m, 120m, 145m, 450m, "15 KB / 45 KB");
+            var volReport = new CompanyVolumeReportDto([volRow], 1.5m, 2.0m, 40, 35, 12, 15m, 25m, 120m, 145m, 450m);
+            var capCell = new CompanyCapabilityMatrixCellDto(1, "WAF", "A", null);
+            var matrixRow = new CompanyCapabilityMatrixRowDto(1, "Banco Subsidiaria", "F5 WAAP", new Dictionary<string, CompanyCapabilityMatrixCellDto> { ["WAF"] = capCell }, "Comentario prueba");
+            var matrixReport = new CompanyCapabilitiesMatrixDto(["WAF"], [matrixRow]);
+
+            return Task.FromResult<EvaluationReportsDto?>(new EvaluationReportsDto(
+                procesoId, "PROC-TEST-001", "Evaluación WAAP Test", 1, "Application Security", "Seguridad", "Líder TSI", DateTime.Today, DateTime.Today.AddMonths(6), "En Evaluación",
+                [scopeRow], expReport, volReport, matrixReport));
+        }
     }
 }

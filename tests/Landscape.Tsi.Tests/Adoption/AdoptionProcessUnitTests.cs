@@ -1,5 +1,9 @@
 using Landscape.Tsi.Application.Adoption;
+using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Adoption;
+using Landscape.Tsi.Infrastructure.Adoption;
+using Landscape.Tsi.Infrastructure.Catalogs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Tests.Adoption;
 
@@ -86,6 +90,31 @@ public sealed class AdoptionProcessUnitTests
     }
 
     [Fact]
+    public void SaveContractCommand_WithPayg_AllowsNullDates()
+    {
+        var command = new SaveContractCommand(
+            TecnologiaImplementadaId: 10,
+            NumeroContrato: "PAYG-AWS-001",
+            EsAdenda: false,
+            ContratoPadreId: null,
+            FechaInicio: null,
+            FechaFin: null,
+            FechaAdjudicacion: null,
+            RutaDocumento: null,
+            Monto: null,
+            Moneda: "USD",
+            Observaciones: "Suscripción por uso bajo demanda",
+            ActorUserId: Guid.NewGuid(),
+            CorrelationId: "test-corr",
+            EsPayg: true);
+
+        Assert.True(command.EsPayg);
+        Assert.Null(command.FechaInicio);
+        Assert.Null(command.FechaFin);
+        Assert.Null(command.FechaAdjudicacion);
+    }
+
+    [Fact]
     public void TechnologyAdoptionEvolution_MaintainsBackwardCompatibilityProperties()
     {
         var techImpl = new TTecnologiaTSIimplementadaSubsidiaria
@@ -137,5 +166,230 @@ public sealed class AdoptionProcessUnitTests
         Assert.Null(inputNoAplica.ContactoFocalId);
         Assert.False(inputNoAplica.Aplica);
         Assert.Equal("No aplica por normativa local", inputNoAplica.JustificacionNoAplica);
+    }
+
+    [Fact]
+    public void SaveContractCommand_WithEdit_AllowsContratoId()
+    {
+        var command = new SaveContractCommand(
+            TecnologiaImplementadaId: 10,
+            NumeroContrato: "CT-2025-001-MOD",
+            EsAdenda: false,
+            ContratoPadreId: null,
+            FechaInicio: new DateTime(2025, 1, 1),
+            FechaFin: new DateTime(2026, 1, 1),
+            FechaAdjudicacion: null,
+            RutaDocumento: "https://docs.corp/ct-mod.pdf",
+            Monto: 50000m,
+            Moneda: "USD",
+            Observaciones: "Contrato editado con nuevos términos",
+            ActorUserId: Guid.NewGuid(),
+            CorrelationId: "corr-123",
+            EsPayg: false,
+            ContratoId: 42);
+
+        Assert.Equal(42, command.ContratoId);
+        Assert.Equal("CT-2025-001-MOD", command.NumeroContrato);
+        Assert.Equal(50000m, command.Monto);
+    }
+
+    [Fact]
+    public void SaveDriverCommand_WithEdit_AllowsDriverId()
+    {
+        var command = new SaveDriverCommand(
+            TecnologiaImplementadaId: 10,
+            Descripcion: "Licencias Actualizadas",
+            UnidadMedida: "Usuarios",
+            Cantidad: 300,
+            PrecioUnitario: 50m,
+            Moneda: "USD",
+            ActorUserId: Guid.NewGuid(),
+            CorrelationId: "corr-456",
+            DriverId: 77);
+
+        Assert.Equal(77, command.DriverId);
+        Assert.Equal("Licencias Actualizadas", command.Descripcion);
+        Assert.Equal(300, command.Cantidad);
+        Assert.Equal(50m, command.PrecioUnitario);
+    }
+
+    [Fact]
+    public async Task BatchConveneCompaniesAsync_UnselectedCompanies_AreRemovedFromProcess()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 1,
+            CodigoProceso = "PROC-001",
+            NombreProceso = "Proceso Test",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1,
+            FechaInicio = DateTime.UtcNow
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        // Pre-populate with 3 companies: 101, 102, 103
+        ctx.AdoptionProcessCompanies.AddRange(
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 1, IdProcesoAdopcionTSI = 1, IdEmpresaSubsidiaria = 101, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 2, IdProcesoAdopcionTSI = 1, IdEmpresaSubsidiaria = 102, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 3, IdProcesoAdopcionTSI = 1, IdEmpresaSubsidiaria = 103, Aplica = true }
+        );
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+
+        // Batch convene with only company 102 (101 and 103 were unchecked/deselected)
+        var selected = new[] { new ConveneCompanyInput(102, null, true, null) };
+        var result = await service.BatchConveneCompaniesAsync(1, selected, Guid.NewGuid(), "corr-1");
+
+        Assert.True(result.Succeeded);
+
+        var remaining = await ctx.AdoptionProcessCompanies.Where(c => c.IdProcesoAdopcionTSI == 1).ToListAsync();
+        Assert.Single(remaining);
+        Assert.Equal(102, remaining[0].IdEmpresaSubsidiaria);
+    }
+
+    [Fact]
+    public async Task RemoveCompanyFromProcessAsync_RemovesCompanyAndClearsLinkedImplementedTech()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 1,
+            CodigoProceso = "PROC-001",
+            NombreProceso = "Proceso Test",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1,
+            FechaInicio = DateTime.UtcNow
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var procCompany = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 5,
+            IdProcesoAdopcionTSI = 1,
+            IdEmpresaSubsidiaria = 201,
+            Aplica = true
+        };
+        ctx.AdoptionProcessCompanies.Add(procCompany);
+
+        var implTech = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 50,
+            IdEmpresaSubsidiaria = 201,
+            IdTecnologiaTSI = 301,
+            IdBuildingBlock = 10,
+            IdProcesoAdopcionEmpresa = 5,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.Add(implTech);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var result = await service.RemoveCompanyFromProcessAsync(1, 5, Guid.NewGuid(), "corr-2");
+
+        Assert.True(result.Succeeded);
+
+        var exists = await ctx.AdoptionProcessCompanies.AnyAsync(c => c.IdProcesoAdopcionEmpresa == 5);
+        Assert.False(exists);
+
+        var updatedTech = await ctx.ImplementedTechnologies.FindAsync(50);
+        Assert.NotNull(updatedTech);
+        Assert.Null(updatedTech.IdProcesoAdopcionEmpresa);
+    }
+
+    [Fact]
+    public async Task DeleteImplementedTechnologyAsync_RemovesTechAndCascadesContractsAndDrivers()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var implTech = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 10,
+            IdEmpresaSubsidiaria = 1,
+            IdTecnologiaTSI = 100,
+            IdBuildingBlock = 5,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.Add(implTech);
+
+        var parentContract = new TContratoTecnologia
+        {
+            IdContratoTecnologia = 1,
+            IdTecnologiaTSIimplementadaSubsidiaria = 10,
+            NumeroContrato = "CT-001",
+            EsAdenda = false
+        };
+        var adendaContract = new TContratoTecnologia
+        {
+            IdContratoTecnologia = 2,
+            IdTecnologiaTSIimplementadaSubsidiaria = 10,
+            NumeroContrato = "CT-001-A1",
+            EsAdenda = true,
+            IdContratoPadre = 1
+        };
+        ctx.TechnologyContracts.AddRange(parentContract, adendaContract);
+
+        var driver = new TDriver
+        {
+            IdDriver = 1,
+            IdTecnologiaTSIimplementadaSubsidiaria = 10,
+            DescripcionDriver = "Driver Test",
+            Cantidad = 10,
+            PrecioUnitario = 100m
+        };
+        ctx.Drivers.Add(driver);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var result = await service.DeleteImplementedTechnologyAsync(1, 10, Guid.NewGuid(), "corr-del-tech");
+
+        Assert.True(result.Succeeded);
+
+        var techExists = await ctx.ImplementedTechnologies.AnyAsync(t => t.IdTecnologiaTSIimplementadaSubsidiaria == 10);
+        Assert.False(techExists);
+
+        var contractsRemaining = await ctx.TechnologyContracts.Where(c => c.IdTecnologiaTSIimplementadaSubsidiaria == 10).ToListAsync();
+        Assert.Empty(contractsRemaining);
+
+        var driversRemaining = await ctx.Drivers.Where(d => d.IdTecnologiaTSIimplementadaSubsidiaria == 10).ToListAsync();
+        Assert.Empty(driversRemaining);
+    }
+
+    [Fact]
+    public async Task DeleteImplementedTechnologyAsync_NonExistent_ReturnsFailure()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var result = await service.DeleteImplementedTechnologyAsync(1, 999, Guid.NewGuid(), "corr-not-found");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("La tecnología implementada no existe.", result.Message);
+    }
+
+    private sealed class NullAuditTrail : IAuditTrailService
+    {
+        public Task RecordCreateAsync(string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, string? description = null, int affectedRecordCount = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RecordUpdateAsync(string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, string? description = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RecordRelationAsync(string actionType, string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, string? description = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<Landscape.Tsi.Domain.Identity.AuditOperation> BeginDeleteAsync(string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, int affectedRecordCount, string? description = null, CancellationToken cancellationToken = default) => Task.FromResult(new Landscape.Tsi.Domain.Identity.AuditOperation());
+        public void AddSnapshot(Landscape.Tsi.Domain.Identity.AuditOperation operation, string entityCode, string physicalTableName, string primaryKeyJson, string foreignKeysJson, string rowDataJson, int deleteOrder, int restoreOrder, bool isRoot, string? displayName = null) { }
     }
 }

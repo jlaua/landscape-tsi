@@ -164,14 +164,33 @@ public sealed class AdoptionEvaluationTests
                     TotalEmpresas = 3,
                     EmpresasConAdopcion = 1,
                     EmpresasNoAplica = 1,
-                    IsActivo = false
+                    IsActivo = false,
+                    IsCancelada = true
+                },
+                new EvaluationProcessSummaryViewModel
+                {
+                    Id = 4,
+                    Codigo = "EVAL-004",
+                    Nombre = "Evaluación SIEM",
+                    BuildingBlockId = 25,
+                    BuildingBlockName = "Security Information and Event Management",
+                    DominioName = "Monitoreo y SOC",
+                    EstadoId = 4,
+                    EstadoAdopcion = "ESTANDARIZADO",
+                    TotalEmpresas = 6,
+                    EmpresasConAdopcion = 6,
+                    EmpresasNoAplica = 0,
+                    IsActivo = true,
+                    IsTerminada = true
                 }
             ]
         };
 
         Assert.Equal(2, vm.TotalActivas);
-        Assert.Equal(12, vm.TotalConvocadas);
-        Assert.Equal(7, vm.TotalConAdopcion);
+        Assert.Equal(1, vm.TotalTerminadas);
+        Assert.Equal(1, vm.TotalCanceladas);
+        Assert.Equal(18, vm.TotalConvocadas);
+        Assert.Equal(13, vm.TotalConAdopcion);
         Assert.Equal(2, vm.TotalNoAplica);
     }
 
@@ -208,5 +227,102 @@ public sealed class AdoptionEvaluationTests
         Assert.Equal(2, model.Familias.Count);
         Assert.Equal(2, model.TecnologiasCatalogo.Count);
         Assert.Equal("CyberArk Privilege Cloud", model.TecnologiasCatalogo[0].Nombre);
+    }
+
+    [Fact]
+    public void FinalizeEvaluationWithStandardViewModel_InitializesCorrectly()
+    {
+        var vm = new FinalizeEvaluationWithStandardViewModel
+        {
+            ProcesoId = 10,
+            CodigoProceso = "PROC-2026-WAAP",
+            NombreProceso = "Evaluación WAAP",
+            BuildingBlockId = 3,
+            BuildingBlockNombre = "WAAP",
+            TecnologiaId = 44,
+            RolEstandar = "PRINCIPAL",
+            FechaInicioVigencia = new DateTime(2026, 9, 15),
+            MotivoAdjudicacion = "Sustitución tecnológica por consolidación multicloud",
+            SustentoArquitectura = "Mejor costo por request y capacidades de bot protection avanzadas",
+            NumeroContratoCorporativo = "CORP-WAAP-2026-001",
+            MontoContratoCorporativo = 500000m,
+            MonedaContratoCorporativo = "USD",
+            EsPaygContratoCorporativo = false,
+            SubsidiariasAlineadasIds = [1, 2, 3]
+        };
+
+        Assert.Equal(10, vm.ProcesoId);
+        Assert.Equal("PROC-2026-WAAP", vm.CodigoProceso);
+        Assert.Equal(44, vm.TecnologiaId);
+        Assert.Equal("PRINCIPAL", vm.RolEstandar);
+        Assert.Equal(3, vm.SubsidiariasAlineadasIds.Count);
+        Assert.False(vm.EsPaygContratoCorporativo);
+        Assert.Equal(500000m, vm.MontoContratoCorporativo);
+    }
+
+    [Fact]
+    public void ImplementedTechnologyDto_SupportsCorporateInstanceFlag()
+    {
+        var dtoCorp = new ImplementedTechnologyDto(
+            1, 2, "BCP", 3, 44, "Akamai Kona", "Akamai", true, "v2.0", "ALINEADO", null, [], [], true);
+        
+        var dtoLocal = new ImplementedTechnologyDto(
+            2, 5, "Mibanco", 3, 44, "Akamai Kona", "Akamai", true, "v1.8", "ALINEADO", null, [], [], false);
+
+        Assert.True(dtoCorp.EsInstanciaCorporativa);
+        Assert.False(dtoLocal.EsInstanciaCorporativa);
+    }
+
+    [Fact]
+    public void CreateEvaluation_OnlyParticipatingCompanies_AreEligibleForAsIs()
+    {
+        var model = new CreateEvaluationViewModel
+        {
+            Codigo = "EVAL-TEST-001",
+            Nombre = "Evaluación WAAP",
+            BuildingBlockId = 1,
+            Subsidiaries = [
+                new SubsidiaryCheckboxItem { EmpresaId = 1, EmpresaNombre = "ASB Panamá", Selected = false, Aplica = false, JustificacionNoAplica = "Se considerará Credicorp Capital" },
+                new SubsidiaryCheckboxItem { EmpresaId = 2, EmpresaNombre = "BCP Bolivia", Selected = true, Aplica = true },
+                new SubsidiaryCheckboxItem { EmpresaId = 3, EmpresaNombre = "BCP Miami", Selected = true, Aplica = true },
+                new SubsidiaryCheckboxItem { EmpresaId = 4, EmpresaNombre = "BCP Perú", Selected = false, Aplica = false, JustificacionNoAplica = "Tienen Radware contratado hasta 2028" },
+                new SubsidiaryCheckboxItem { EmpresaId = 5, EmpresaNombre = "Empresa No Convocada", Selected = false, Aplica = false }
+            ],
+            SubsidiaryAsIsList = [
+                new SubsidiaryAsIsInputModel { EmpresaId = 1, EmpresaNombre = "ASB Panamá", TieneTecnologia = true, TecnologiaId = 10 },
+                new SubsidiaryAsIsInputModel { EmpresaId = 2, EmpresaNombre = "BCP Bolivia", TieneTecnologia = true, TecnologiaId = 20 },
+                new SubsidiaryAsIsInputModel { EmpresaId = 3, EmpresaNombre = "BCP Miami", TieneTecnologia = true, TecnologiaId = 20 },
+                new SubsidiaryAsIsInputModel { EmpresaId = 4, EmpresaNombre = "BCP Perú", TieneTecnologia = true, TecnologiaId = 30 },
+                new SubsidiaryAsIsInputModel { EmpresaId = 5, EmpresaNombre = "Empresa No Convocada", TieneTecnologia = true, TecnologiaId = 40 }
+            ]
+        };
+
+        // Participan solo las que tienen Selected = true
+        var participatingIds = model.Subsidiaries
+            .Where(s => s.Selected)
+            .Select(s => s.EmpresaId)
+            .ToHashSet();
+
+        // Empresas a registrar en TProcesoAdopcionEmpresa (participantes y no participantes con justificación)
+        var companiesToConvene = model.Subsidiaries
+            .Where(s => s.Selected || !string.IsNullOrWhiteSpace(s.JustificacionNoAplica))
+            .ToList();
+
+        var eligibleAsIs = model.SubsidiaryAsIsList
+            .Where(a => participatingIds.Contains(a.EmpresaId) && a.TieneTecnologia && a.TecnologiaId.HasValue && a.TecnologiaId.Value > 0)
+            .ToList();
+
+        Assert.Equal(2, eligibleAsIs.Count);
+        Assert.Contains(eligibleAsIs, a => a.EmpresaId == 2);
+        Assert.Contains(eligibleAsIs, a => a.EmpresaId == 3);
+        Assert.DoesNotContain(eligibleAsIs, a => a.EmpresaId == 1); // No seleccionada
+        Assert.DoesNotContain(eligibleAsIs, a => a.EmpresaId == 4); // No seleccionada
+        Assert.DoesNotContain(eligibleAsIs, a => a.EmpresaId == 5); // No seleccionada
+
+        // Verificar que las empresas no participantes con justificación se mantienen para registro con Aplica=false
+        Assert.Equal(4, companiesToConvene.Count);
+        Assert.Contains(companiesToConvene, c => c.EmpresaId == 1 && !c.Selected && !string.IsNullOrWhiteSpace(c.JustificacionNoAplica));
+        Assert.Contains(companiesToConvene, c => c.EmpresaId == 4 && !c.Selected && !string.IsNullOrWhiteSpace(c.JustificacionNoAplica));
+        Assert.DoesNotContain(companiesToConvene, c => c.EmpresaId == 5); // Ni seleccionada ni justificada
     }
 }

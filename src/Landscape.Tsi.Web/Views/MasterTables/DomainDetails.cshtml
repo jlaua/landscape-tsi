@@ -113,6 +113,18 @@
     </div>
 </section>
 
+<section class="report-card" aria-labelledby="bb-capabilities-chart-title">
+    <p class="eyebrow">DISTRIBUCIÓN DE CAPACIDADES</p>
+    <h2 id="bb-capabilities-chart-title">Capacidades por Building Block</h2>
+    <p class="text-muted small mb-3">Conteo de capacidades de seguridad por cada Building Block perteneciente a este Dominio. Desplácese horizontalmente para ver todos los bloques.</p>
+    <p data-bb-cap-status role="status">Cargando gráfico…</p>
+    <div id="domain-bb-capabilities-container" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; padding-bottom: 1rem;">
+        <div style="height: 380px; min-width: 800px; position: relative;">
+            <canvas id="domain-bb-capabilities-chart" data-domain-id="@Model.Record.Id" aria-label="Gráfico de barras de capacidades por Building Block" role="img"></canvas>
+        </div>
+    </div>
+</section>
+
 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
 {
     <div class="modal fade" id="edit-domain-modal" tabindex="-1" aria-labelledby="edit-domain-title" aria-hidden="true">
@@ -178,4 +190,5 @@
 
 @section Scripts {
     <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+    <script src="~/js/domain-bb-capabilities.js" asp-append-version="true"></script>
 }

@@ -35,7 +35,7 @@ public sealed class CatalogMapMetadataTests
         Assert.True(MasterCatalogRegistry.EntityMetadata.Single(entity => entity.Code == "funcionalidad").IsDeletable);
         Assert.True(MasterCatalogRegistry.EntityMetadata.Single(entity => entity.Code == "capacidad-seguridad").IsDeletable);
         Assert.Equal(CatalogEntityType.Master, MasterCatalogRegistry.EntityMetadata.Single(entity => entity.PhysicalTableName == "TModalidadLaboral").EntityType);
-        Assert.Equal(CatalogEntityType.Transactional, MasterCatalogRegistry.EntityMetadata.Single(entity => entity.PhysicalTableName == "TModeloDeOperacion").EntityType);
+        Assert.Equal(CatalogEntityType.Master, MasterCatalogRegistry.EntityMetadata.Single(entity => entity.PhysicalTableName == "TModeloDeOperacion").EntityType);
         Assert.All(entities, entity =>
         {
             Assert.False(string.IsNullOrWhiteSpace(entity.GetProperty("logicalName").GetString()));
@@ -70,7 +70,22 @@ public sealed class CatalogMapMetadataTests
             ["postura-roadmap"] = "M",
             ["estado-adopcion-tsi"] = "M",
             ["modalidad-laboral"] = "M",
-            ["tipo-operacion"] = "M"
+            ["tipo-operacion"] = "M",
+            ["tipo-servicio"] = "M",
+            ["actividad-nivel-soporte"] = "M",
+            ["modelo-operacion"] = "M",
+            ["contrato-tecnologia"] = "T",
+            ["proceso-adopcion-tsi"] = "T",
+            ["proceso-adopcion-empresa"] = "T",
+            ["estandar-tecnologia-historico"] = "T",
+            ["tecnologia-tsi-implementada"] = "T",
+            ["driver"] = "T",
+            ["servicio-tecnologia"] = "T",
+            ["tarifario-proyecto-horas"] = "T",
+            ["tarifario-operacion"] = "T",
+            ["vendor"] = "T",
+            ["contacto-vendor"] = "T",
+            ["contacto-partner"] = "T"
         };
 
         var administrable = MasterCatalogRegistry.EntityMetadata
@@ -94,13 +109,13 @@ public sealed class CatalogMapMetadataTests
         Assert.Equal("Arquitectura de seguridad", entities.Single(entity => entity.PhysicalTableName == "TMPosturaRoadmap").Group);
         Assert.Equal("Arquitectura de seguridad", entities.Single(entity => entity.PhysicalTableName == "TMEstadoAdopcionTSI").Group);
 
-        Assert.Equal(10, entities.Count(entity => entity.Group == "Arquitectura de seguridad"));
-        Assert.Equal(2, entities.Count(entity => entity.Group == "Tecnología"));
-        Assert.Equal(2, entities.Count(entity => entity.Group == "Organización"));
-        Assert.Equal(2, entities.Count(entity => entity.Group == "Operación"));
+        Assert.Equal(12, entities.Count(entity => entity.Group == "Arquitectura de seguridad"));
+        Assert.Equal(3, entities.Count(entity => entity.Group == "Tecnología"));
+        Assert.Equal(6, entities.Count(entity => entity.Group == "Organización"));
+        Assert.Equal(10, entities.Count(entity => entity.Group == "Operación"));
 
         Assert.Equal(
-            ["Tecnología TSI", "Casos de Uso"],
+            ["Tecnología TSI", "Casos de Uso", "Tecnología TSI Implementada por Empresa"],
             entities.Where(entity => entity.Group == "Tecnología").Select(entity => entity.LogicalName).ToArray());
     }
 

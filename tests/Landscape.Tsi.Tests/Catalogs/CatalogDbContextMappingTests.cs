@@ -39,7 +39,13 @@ public sealed class CatalogDbContextMappingTests
             [typeof(TEstandarTecnologiaHistorico)] = "TEstandarTecnologiaHistorico",
             [typeof(TContratoTecnologia)] = "TContratoTecnologia",
             [typeof(TTecnologiaTSIimplementadaSubsidiaria)] = "TTecnologiaTSIimplementadaSubsidiaria",
-            [typeof(TDriver)] = "TDriver"
+            [typeof(TDriver)] = "TDriver",
+            // Entidades de Servicios y Tarifarios
+            [typeof(TTipoServicio)] = "TTipoServicio",
+            [typeof(TServicioTecnologia)] = "TServicioTecnologia",
+            [typeof(TTarifarioProyectoHoras)] = "TTarifarioProyectoHoras",
+            [typeof(TActividadNivelSoporte)] = "TActividadNivelSoporte",
+            [typeof(TTarifarioOperacion)] = "TTarifarioOperacion"
         };
 
         Assert.Equal(expected.Count, context.Model.GetEntityTypes().Count());

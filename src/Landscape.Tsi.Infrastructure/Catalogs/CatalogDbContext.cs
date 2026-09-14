@@ -35,6 +35,13 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TTecnologiaTSIimplementadaSubsidiaria> ImplementedTechnologies => Set<TTecnologiaTSIimplementadaSubsidiaria>();
     public DbSet<TDriver> Drivers => Set<TDriver>();
 
+    // Entidades de Servicios y Tarifarios
+    public DbSet<TTipoServicio> ServiceTypes => Set<TTipoServicio>();
+    public DbSet<TServicioTecnologia> TechnologyServices => Set<TServicioTecnologia>();
+    public DbSet<TTarifarioProyectoHoras> ProjectRateCards => Set<TTarifarioProyectoHoras>();
+    public DbSet<TActividadNivelSoporte> SupportLevelActivities => Set<TActividadNivelSoporte>();
+    public DbSet<TTarifarioOperacion> OperationRateCards => Set<TTarifarioOperacion>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         Map<TmDominio>(b, "TMDominio", "iddominio", (e, p) => { p(e, x => x.Dominio, "dominio"); p(e, x => x.DescripcionDominio, "descripcionDominio"); p(e, x => x.Referencias, "referencias"); p(e, x => x.HomologacionDimensionSegunCiber, "homologacionDimensionSegunCiber"); p(e, x => x.HomologacionDimensionSegunLineamiento, "homologacionDimensionSegunLineamiento"); p(e, x => x.SubDominioCvt, "subDominioCVT"); p(e, x => x.Ejemplos, "Ejemplos"); });
@@ -140,6 +147,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.IdTecnologiaTSIimplementadaSubsidiaria).HasColumnName("idTecnologiaTSIimplementadaSubsidiaria");
             entity.Property(x => x.NumeroContrato).HasColumnName("numeroContrato").HasMaxLength(100);
             entity.Property(x => x.EsAdenda).HasColumnName("esAdenda");
+            entity.Property(x => x.EsPayg).HasColumnName("esPayg");
             entity.Property(x => x.IdContratoPadre).HasColumnName("idContratoPadre");
             entity.Property(x => x.FechaInicio).HasColumnName("fechaInicio").HasColumnType("date");
             entity.Property(x => x.FechaFin).HasColumnName("fechaFin").HasColumnType("date");
@@ -166,6 +174,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.IdBuildingBlock).HasColumnName("idBuildingBlock");
             entity.Property(x => x.IdProcesoAdopcionEmpresa).HasColumnName("idProcesoAdopcionEmpresa");
             entity.Property(x => x.EsTecnologiaPrimaria).HasColumnName("esTecnologiaPrimaria");
+            entity.Property(x => x.EsInstanciaCorporativa).HasColumnName("esInstanciaCorporativa");
             entity.Property(x => x.VersionDesplegada).HasColumnName("versionDesplegada").HasMaxLength(50);
 
             entity.HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
@@ -188,6 +197,102 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
 
             entity.HasOne<TTecnologiaTSIimplementadaSubsidiaria>().WithMany().HasForeignKey(x => x.IdTecnologiaTSIimplementadaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Mapeo TTipoServicio
+        b.Entity<TTipoServicio>(entity =>
+        {
+            entity.ToTable("TTipoServicio", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdTipoServicio);
+            entity.Property(x => x.IdTipoServicio).HasColumnName("idTipoServicio").ValueGeneratedOnAdd();
+            entity.Property(x => x.Codigo).HasColumnName("codigo").HasMaxLength(20);
+            entity.Property(x => x.Nombre).HasColumnName("nombre").HasMaxLength(100);
+            entity.Property(x => x.Descripcion).HasColumnName("descripcion").HasMaxLength(500);
+            entity.Property(x => x.Orden).HasColumnName("orden");
+            entity.Property(x => x.EsActivo).HasColumnName("esActivo");
+        });
+
+        // Mapeo TServicioTecnologia
+        b.Entity<TServicioTecnologia>(entity =>
+        {
+            entity.ToTable("TServicioTecnologia", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdServicio);
+            entity.Property(x => x.IdServicio).HasColumnName("idServicio").ValueGeneratedOnAdd();
+            entity.Property(x => x.CodigoServicio).HasColumnName("codigoServicio").HasMaxLength(50);
+            entity.Property(x => x.NombreServicio).HasColumnName("nombreServicio").HasMaxLength(200);
+            entity.Property(x => x.Descripcion).HasColumnName("descripcion").HasMaxLength(1000);
+            entity.Property(x => x.IdTipoServicio).HasColumnName("idTipoServicio");
+            entity.Property(x => x.IdTecnologiaTSI).HasColumnName("idTecnologiaTSI");
+            entity.Property(x => x.IdTecnologiaTSIimplementadaSubsidiaria).HasColumnName("idTecnologiaTSIimplementadaSubsidiaria");
+            entity.Property(x => x.IdEmpresaSubsidiaria).HasColumnName("idEmpresaSubsidiaria");
+            entity.Property(x => x.IdProcesoAdopcionTSI).HasColumnName("idProcesoAdopcionTSI");
+            entity.Property(x => x.IdVendor).HasColumnName("idVendor");
+            entity.Property(x => x.NombreProveedorServicio).HasColumnName("nombreProveedorServicio").HasMaxLength(150);
+            entity.Property(x => x.EstadoServicio).HasColumnName("estadoServicio").HasMaxLength(30);
+            entity.Property(x => x.CostoTotalEstimado).HasColumnName("costoTotalEstimado").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
+            entity.Property(x => x.FechaCreacion).HasColumnName("fechaCreacion").HasColumnType("datetime2(0)");
+            entity.Property(x => x.UsuarioCreacion).HasColumnName("usuarioCreacion").HasMaxLength(100);
+            entity.Property(x => x.FechaModificacion).HasColumnName("fechaModificacion").HasColumnType("datetime2(0)");
+            entity.Property(x => x.UsuarioModificacion).HasColumnName("usuarioModificacion").HasMaxLength(100);
+
+            entity.HasOne<TTipoServicio>().WithMany().HasForeignKey(x => x.IdTipoServicio).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TTecnologiaTSI>().WithMany().HasForeignKey(x => x.IdTecnologiaTSI).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TTecnologiaTSIimplementadaSubsidiaria>().WithMany().HasForeignKey(x => x.IdTecnologiaTSIimplementadaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TProcesoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionTSI).OnDelete(DeleteBehavior.NoAction);
+            entity.HasMany(x => x.TarifariosProyecto).WithOne().HasForeignKey(x => x.IdServicio).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.TarifariosOperacion).WithOne().HasForeignKey(x => x.IdServicio).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Mapeo TTarifarioProyectoHoras
+        b.Entity<TTarifarioProyectoHoras>(entity =>
+        {
+            entity.ToTable("TTarifarioProyectoHoras", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdTarifarioProyecto);
+            entity.Property(x => x.IdTarifarioProyecto).HasColumnName("idTarifarioProyecto").ValueGeneratedOnAdd();
+            entity.Property(x => x.IdServicio).HasColumnName("idServicio");
+            entity.Property(x => x.Complejidad).HasColumnName("complejidad").HasMaxLength(50);
+            entity.Property(x => x.RangoHorasDesde).HasColumnName("rangoHorasDesde");
+            entity.Property(x => x.RangoHorasHasta).HasColumnName("rangoHorasHasta");
+            entity.Property(x => x.TarifaHora).HasColumnName("tarifaHora").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.HorasEstimadas).HasColumnName("horasEstimadas").HasColumnType("decimal(10,2)");
+            entity.Property(x => x.Subtotal).HasColumnName("subtotal").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
+            entity.Property(x => x.Observaciones).HasColumnName("observaciones").HasMaxLength(500);
+        });
+
+        // Mapeo TActividadNivelSoporte
+        b.Entity<TActividadNivelSoporte>(entity =>
+        {
+            entity.ToTable("TActividadNivelSoporte", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdActividadSoporte);
+            entity.Property(x => x.IdActividadSoporte).HasColumnName("idActividadSoporte").ValueGeneratedOnAdd();
+            entity.Property(x => x.NivelSoporte).HasColumnName("nivelSoporte").HasMaxLength(10);
+            entity.Property(x => x.DescripcionActividad).HasColumnName("descripcionActividad").HasMaxLength(300);
+            entity.Property(x => x.OrdenVisual).HasColumnName("ordenVisual");
+            entity.Property(x => x.EsActivo).HasColumnName("esActivo");
+        });
+
+        // Mapeo TTarifarioOperacion
+        b.Entity<TTarifarioOperacion>(entity =>
+        {
+            entity.ToTable("TTarifarioOperacion", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdTarifarioOperacion);
+            entity.Property(x => x.IdTarifarioOperacion).HasColumnName("idTarifarioOperacion").ValueGeneratedOnAdd();
+            entity.Property(x => x.IdServicio).HasColumnName("idServicio");
+            entity.Property(x => x.NivelSoporte).HasColumnName("nivelSoporte").HasMaxLength(10);
+            entity.Property(x => x.Modalidad).HasColumnName("modalidad").HasMaxLength(50);
+            entity.Property(x => x.DetalleModalidad).HasColumnName("detalleModalidad").HasMaxLength(250);
+            entity.Property(x => x.HorasBaseMensual).HasColumnName("horasBaseMensual");
+            entity.Property(x => x.Expertise).HasColumnName("expertise").HasMaxLength(20);
+            entity.Property(x => x.Locacion).HasColumnName("locacion").HasMaxLength(20);
+            entity.Property(x => x.TarifaHora).HasColumnName("tarifaHora").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.TarifaMensual).HasColumnName("tarifaMensual").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.CantidadMeses).HasColumnName("cantidadMeses");
+            entity.Property(x => x.HorasEstimadas).HasColumnName("horasEstimadas").HasColumnType("decimal(10,2)");
+            entity.Property(x => x.Subtotal).HasColumnName("subtotal").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
         });
     }
 

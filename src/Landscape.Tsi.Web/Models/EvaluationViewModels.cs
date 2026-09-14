@@ -13,7 +13,9 @@ public sealed class EvaluationsIndexViewModel
     public IReadOnlyList<CatalogOption> Dominios { get; set; } = [];
     public IReadOnlyList<CatalogOption> BuildingBlocks { get; set; } = [];
     public IReadOnlyList<CatalogOption> EstadosAdopcion { get; set; } = [];
-    public int TotalActivas => Processes.Count(p => p.IsActivo);
+    public int TotalActivas => Processes.Count(p => p.IsActivo && !p.IsTerminada && !p.IsCancelada);
+    public int TotalTerminadas => Processes.Count(p => p.IsTerminada);
+    public int TotalCanceladas => Processes.Count(p => p.IsCancelada || !p.IsActivo);
     public int TotalConvocadas => Processes.Sum(p => p.TotalEmpresas);
     public int TotalConAdopcion => Processes.Sum(p => p.EmpresasConAdopcion);
     public int TotalNoAplica => Processes.Sum(p => p.EmpresasNoAplica);
@@ -37,6 +39,8 @@ public sealed class EvaluationProcessSummaryViewModel
     public int EmpresasConAdopcion { get; set; }
     public int EmpresasNoAplica { get; set; }
     public bool IsActivo { get; set; } = true;
+    public bool IsCancelada { get; set; }
+    public bool IsTerminada { get; set; }
     public string? EstandarPrincipal { get; set; }
     public string? PartnerPrincipal { get; set; }
 }
@@ -117,6 +121,7 @@ public sealed class SubsidiaryAsIsInputModel
     public int EmpresaId { get; set; }
     public string EmpresaNombre { get; set; } = string.Empty;
     public bool TieneTecnologia { get; set; } = true;
+    public bool EsInstanciaCorporativa { get; set; } = false;
     public int? TecnologiaId { get; set; }
     public string? TecnologiaNombre { get; set; }
     public string? VersionDesplegada { get; set; }
@@ -125,6 +130,7 @@ public sealed class SubsidiaryAsIsInputModel
     public string? PartnerNombre { get; set; }
     public string? PartnerContacto { get; set; }
     public string? NumeroContrato { get; set; }
+    public bool EsPayg { get; set; }
     public DateTime? FechaInicioContrato { get; set; }
     public DateTime? FechaFinContrato { get; set; }
     public decimal? MontoContratado { get; set; }
@@ -206,6 +212,38 @@ public sealed class EditEvaluationViewModel
     public string? MotivoCambioEstandar { get; set; }
     public string? SustentoArquitecturaEstandar { get; set; }
     public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
+}
+
+public sealed class FinalizeEvaluationWithStandardViewModel
+{
+    public int ProcesoId { get; set; }
+    public string CodigoProceso { get; set; } = string.Empty;
+    public string NombreProceso { get; set; } = string.Empty;
+    public int BuildingBlockId { get; set; }
+    public string BuildingBlockNombre { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Debe seleccionar la tecnología adjudicada como estándar.")]
+    public int TecnologiaId { get; set; }
+    public string RolEstandar { get; set; } = "PRINCIPAL";
+    public DateTime FechaInicioVigencia { get; set; } = DateTime.Today;
+
+    public string? MotivoAdjudicacion { get; set; }
+    public string? SustentoArquitectura { get; set; }
+
+    // Contrato Corporativo Maestro (Opcional)
+    public string? NumeroContratoCorporativo { get; set; }
+    public decimal? MontoContratoCorporativo { get; set; }
+    public string MonedaContratoCorporativo { get; set; } = "USD";
+    public DateTime? FechaInicioContratoCorporativo { get; set; }
+    public DateTime? FechaFinContratoCorporativo { get; set; }
+    public DateTime? FechaAdjudicacionContratoCorporativo { get; set; }
+    public bool EsPaygContratoCorporativo { get; set; }
+
+    // Drivers Corporativos Negociados
+    public List<DriverInputModel> DriversCorporativos { get; set; } = [];
+
+    // Subsidiarias que adoptan de inmediato la instancia corporativa
+    public List<int> SubsidiariasAlineadasIds { get; set; } = [];
 }
 
 public sealed record TechnologyCatalogItem(int Id, string Nombre, string? Familia = null);

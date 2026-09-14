@@ -77,7 +77,8 @@ public sealed record ImplementedTechnologyDto(
     string EstadoAlineamiento,
     OperationModelDto? ModeloOperacion,
     IReadOnlyList<ContractDto> Contratos,
-    IReadOnlyList<DriverDto> Drivers);
+    IReadOnlyList<DriverDto> Drivers,
+    bool EsInstanciaCorporativa = false);
 
 public sealed record ContractDto(
     int Id,
@@ -86,14 +87,15 @@ public sealed record ContractDto(
     bool EsAdenda,
     int? ContratoPadreId,
     string? ContratoPadreNumero,
-    DateTime FechaInicio,
-    DateTime FechaFin,
+    DateTime? FechaInicio,
+    DateTime? FechaFin,
     DateTime? FechaAdjudicacion,
     string? RutaDocumento,
     decimal? Monto,
     string Moneda,
     string? Observaciones,
-    IReadOnlyList<ContractDto> Adendas);
+    IReadOnlyList<ContractDto> Adendas,
+    bool EsPayg = false);
 
 public sealed record DriverDto(
     int Id,
@@ -103,7 +105,10 @@ public sealed record DriverDto(
     decimal? Cantidad,
     decimal? PrecioUnitario,
     string Moneda,
-    decimal CostoTotal);
+    decimal Subtotal)
+{
+    public decimal CostoTotal => Subtotal;
+}
 
 public sealed record OperationModelDto(
     int Id,
@@ -154,22 +159,25 @@ public sealed record RegisterImplementedTechnologyCommand(
     bool EsPrimaria,
     string? VersionDesplegada,
     Guid ActorUserId,
-    string CorrelationId);
+    string CorrelationId,
+    bool EsInstanciaCorporativa = false);
 
 public sealed record SaveContractCommand(
     int TecnologiaImplementadaId,
     string NumeroContrato,
     bool EsAdenda,
     int? ContratoPadreId,
-    DateTime FechaInicio,
-    DateTime FechaFin,
+    DateTime? FechaInicio,
+    DateTime? FechaFin,
     DateTime? FechaAdjudicacion,
     string? RutaDocumento,
     decimal? Monto,
     string Moneda,
     string? Observaciones,
     Guid ActorUserId,
-    string CorrelationId);
+    string CorrelationId,
+    bool EsPayg = false,
+    int? ContratoId = null);
 
 public sealed record SaveDriverCommand(
     int TecnologiaImplementadaId,
@@ -179,7 +187,8 @@ public sealed record SaveDriverCommand(
     decimal? PrecioUnitario,
     string Moneda,
     Guid ActorUserId,
-    string CorrelationId);
+    string CorrelationId,
+    int? DriverId = null);
 
 public sealed record SaveOperationModelCommand(
     int TecnologiaImplementadaId,
@@ -193,6 +202,33 @@ public sealed record ConveneCompanyInput(
     int? ContactoFocalId,
     bool Aplica,
     string? JustificacionNoAplica);
+
+public sealed record CorporateDriverItemDto(
+    string Descripcion,
+    string? UnidadMedida,
+    decimal? Cantidad,
+    decimal? PrecioUnitario,
+    string? Moneda);
+
+public sealed record FinalizeEvaluationWithStandardCommand(
+    int ProcesoId,
+    int BuildingBlockId,
+    int TecnologiaId,
+    string RolEstandar,
+    DateTime FechaInicioVigencia,
+    string? MotivoAdjudicacion,
+    string? SustentoArquitectura,
+    string? NumeroContratoCorporativo,
+    decimal? MontoContratoCorporativo,
+    string? MonedaContratoCorporativo,
+    DateTime? FechaInicioContratoCorporativo,
+    DateTime? FechaFinContratoCorporativo,
+    DateTime? FechaAdjudicacionContratoCorporativo,
+    bool EsPaygContratoCorporativo,
+    IReadOnlyList<CorporateDriverItemDto>? DriversCorporativos,
+    IReadOnlyList<int>? SubsidiariasAlineadasIds,
+    Guid ActorUserId,
+    string CorrelationId);
 
 public sealed record BuildingBlockCapabilitiesDto(
     int BuildingBlockId,

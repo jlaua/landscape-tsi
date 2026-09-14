@@ -51,9 +51,10 @@ public sealed class TContratoTecnologia
     public int IdTecnologiaTSIimplementadaSubsidiaria { get; set; }
     public string NumeroContrato { get; set; } = string.Empty;
     public bool EsAdenda { get; set; }
+    public bool EsPayg { get; set; }
     public int? IdContratoPadre { get; set; }
-    public DateTime FechaInicio { get; set; }
-    public DateTime FechaFin { get; set; }
+    public DateTime? FechaInicio { get; set; }
+    public DateTime? FechaFin { get; set; }
     public DateTime? FechaAdjudicacion { get; set; }
     public string? RutaDocumentoContrato { get; set; }
     public decimal? MontoContratado { get; set; }
@@ -71,6 +72,7 @@ public sealed class TTecnologiaTSIimplementadaSubsidiaria
     public int? IdBuildingBlock { get; set; }
     public int? IdProcesoAdopcionEmpresa { get; set; }
     public bool EsTecnologiaPrimaria { get; set; } = true;
+    public bool EsInstanciaCorporativa { get; set; } = false;
     public string? VersionDesplegada { get; set; }
 }
 

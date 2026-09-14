@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Landscape.Tsi.Web.Controllers;
 
 [Authorize(Policy = Permissions.CatalogView)]
+[Route("Documentation/EntityView")]
 [Route("Administration/EntityView")]
 public sealed class EntityViewController : Controller
 {

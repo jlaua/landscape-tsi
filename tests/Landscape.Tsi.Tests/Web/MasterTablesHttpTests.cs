@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
@@ -105,6 +106,24 @@ public sealed class MasterTablesHttpTests
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Administration/MasterTables/{route}/create")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Administration/MasterTables/{route}/edit/1")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/Administration/MasterTables/{route}/1/delete-impact")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ImplementedTechnologyDetails_RendersTitleAndChildTablesSections()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/MasterTables/tecnologia-tsi-implementada/details/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var content = await response.Content.ReadAsStringAsync();
+        var decoded = System.Net.WebUtility.HtmlDecode(content);
+        Assert.Contains("Tecnología TSI Implementada por Empresa", decoded);
+        Assert.Contains("Contratos, Modelo de Operación y Drivers", decoded);
+        Assert.Contains("Contratos y Adendas de la Tecnología", decoded);
+        Assert.Contains("Modelo de Operación", decoded);
+        Assert.Contains("Drivers de Costo y Volumetría", decoded);
     }
 
     [Fact]
@@ -259,6 +278,70 @@ public sealed class MasterTablesHttpTests
 
         var response = await client.PostAsync("/Administration/MasterTables/building-block/1/associate-capability?noEdit=true", content);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DomainBuildingBlocksCapabilities_ReturnsExpectedJson()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/Domain/1/building-blocks-capacidades");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("items", json);
+    }
+
+    [Fact]
+    public async Task UpdateBuildingBlockQuickFields_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["faseAdopcion"] = "2",
+            ["rutaEntregable"] = "https://docs.corp/entregable.pdf"
+        });
+
+        var response = await client.PostAsync("/Administration/MasterTables/building-block/1/quick-update", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateCapabilityForBuildingBlock_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["nombre"] = "Nueva Capacidad Test",
+            ["estado"] = "1",
+            ["descripcion"] = "Descripción de prueba"
+        });
+
+        var response = await client.PostAsync("/Administration/MasterTables/building-block/1/create-capability", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateFunctionalityForBuildingBlock_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["capacidadId"] = "10",
+            ["nombre"] = "Nueva Funcionalidad Test",
+            ["estado"] = "1",
+            ["descripcion"] = "Descripción de prueba func"
+        });
+
+        var response = await client.PostAsync("/Administration/MasterTables/building-block/1/create-functionality", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

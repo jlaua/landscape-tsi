@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<IAssignmentService, AssignmentService>();
         services.AddScoped<IReportingService, CatalogReportingService>();
         services.AddScoped<IAdoptionProcessService, AdoptionProcessService>();
+        services.AddScoped<IServiceManagementService, ServiceManagementService>();
         services.AddScoped<LandscapeCookieAuthenticationEvents>();
         services.AddScoped<BootstrapAdminInitializer>();
         return services;

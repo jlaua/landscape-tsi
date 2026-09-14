@@ -17,4 +17,9 @@ public sealed class CatalogDetailViewModel
     public string? CapabilitySearch { get; init; }
     public string? TechnologySearch { get; init; }
     public Landscape.Tsi.Application.Adoption.AdoptionProcessDetailDto? AdoptionDetail { get; init; }
+
+    public CatalogPageResult? ImplementedContracts { get; init; }
+    public CatalogPageResult? ImplementedOperationModels { get; init; }
+    public CatalogPageResult? ImplementedDrivers { get; init; }
+    public CatalogPageResult? ImplementedServices { get; init; }
 }

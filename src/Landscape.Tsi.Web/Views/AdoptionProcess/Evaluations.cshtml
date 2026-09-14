@@ -51,19 +51,15 @@
     <div class="kpi-grid mb-4" aria-label="Indicadores Clave de Evaluaciones">
         <div class="kpi-card">
             <span>Evaluaciones Activas</span>
-            <strong>@Model.TotalActivas</strong>
+            <strong class="text-primary">@Model.TotalActivas</strong>
         </div>
         <div class="kpi-card">
-            <span>Empresas Convocadas</span>
-            <strong>@Model.TotalConvocadas</strong>
+            <span>Evaluaciones Terminadas</span>
+            <strong class="text-success">@Model.TotalTerminadas</strong>
         </div>
         <div class="kpi-card">
-            <span>Adopción Confirmada</span>
-            <strong>@Model.TotalConAdopcion</strong>
-        </div>
-        <div class="kpi-card">
-            <span>Declaradas No Aplica</span>
-            <strong>@Model.TotalNoAplica</strong>
+            <span>Evaluaciones Canceladas</span>
+            <strong class="text-danger">@Model.TotalCanceladas</strong>
         </div>
     </div>
 
@@ -163,7 +159,7 @@
                     </td>
                     <td data-label="Estado">
                         <div class="d-flex align-items-center gap-1">
-                            <span class="badge @(p.IsActivo ? "bg-info text-dark" : "bg-secondary")">
+                            <span class="badge @(p.IsCancelada || !p.IsActivo ? "bg-danger text-white" : p.IsTerminada ? "bg-success text-white" : "bg-info text-dark")">
                                 @p.EstadoAdopcion
                             </span>
                             @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
@@ -201,7 +197,10 @@
                         </div>
                     </td>
                     <td data-label="Acciones" class="text-end text-nowrap">
-                        <a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@p.Id" title="Ver detalle">
+                        <a class="btn btn-sm btn-outline-info text-dark" asp-action="Reports" asp-route-id="@p.Id" title="Ver seguimiento y reportes de la evaluación">
+                            📊 Reportes
+                        </a>
+                        <a class="btn btn-sm btn-outline-primary ms-1" asp-action="Details" asp-route-id="@p.Id" title="Ver detalle">
                             Detalle
                         </a>
                         @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
@@ -209,16 +208,6 @@
                             <a class="btn btn-sm btn-outline-secondary ms-1" asp-action="EditEvaluation" asp-route-id="@p.Id" title="Editar evaluación completa">
                                 Editar
                             </a>
-                            <button type="button" class="btn btn-sm btn-outline-info text-dark ms-1 btn-change-status-row"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modal-change-status-eval"
-                                    data-id="@p.Id"
-                                    data-code="@p.Codigo"
-                                    data-name="@p.Nombre"
-                                    data-status-id="@p.EstadoId"
-                                    title="Cambiar estado del proceso">
-                                Estado
-                            </button>
                             <button type="button" class="btn btn-sm btn-outline-danger btn-deactivate ms-1"
                                     data-bs-toggle="modal"
                                     data-bs-target="#modal-deactivate"

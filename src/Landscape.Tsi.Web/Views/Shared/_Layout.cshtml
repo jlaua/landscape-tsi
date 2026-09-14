@@ -50,6 +50,19 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Inicio</a>
                         </li>
+                        <li class="nav-item dropdown">
+                            <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Documentación
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Documentation" asp-action="Index">Arquitectura del Sistema</a></li>
+                                @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                    Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                                {
+                                    <li><a class="dropdown-item" asp-controller="EntityView" asp-action="Index">Vista de entidades</a></li>
+                                }
+                            </ul>
+                        </li>
                         @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
                                 Landscape.Tsi.Application.Identity.Permissions.UserManage) ||
                             User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
@@ -71,9 +84,6 @@
                                     {
                                         <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Index">Tablas Maestras</a></li>
                                         <li><a class="dropdown-item" asp-controller="TechnologyMapping" asp-action="Index">Mapeo de Tecnologías TSI</a></li>
-                                        <li><a class="dropdown-item" asp-controller="AdoptionProcess" asp-action="Evaluations">Procesos de Adopción TSI</a></li>
-                                        <li><a class="dropdown-item" asp-controller="EntityView" asp-action="Index">Vista de entidades</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Index">Reportería</a></li>
                                     }
                                 </ul>
                             </li>
@@ -85,6 +95,20 @@
                                     <li><span class="dropdown-item text-muted d-flex justify-content-between align-items-center">Exploraciones <span class="badge bg-secondary text-white ms-2" style="font-size:0.65rem;">Próximamente</span></span></li>
                                     <li><a class="dropdown-item fw-bold" asp-controller="AdoptionProcess" asp-action="Evaluations">Evaluaciones</a></li>
                                     <li><span class="dropdown-item text-muted d-flex justify-content-between align-items-center">Implementaciones <span class="badge bg-secondary text-white ms-2" style="font-size:0.65rem;">Próximamente</span></span></li>
+                                </ul>
+                            </li>
+                        }
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                            Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                        {
+                            <li class="nav-item dropdown">
+                                <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Reportería
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Index">Reportería de catálogos</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompaniesAndCiso">Empresas y CISO</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompanyAdoptionByTechnology">Adopción de Empresas por Tecnología</a></li>
                                 </ul>
                             </li>
                         }

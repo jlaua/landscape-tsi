@@ -18,7 +18,22 @@ public static class CatalogCommandValidator
             ["ciso"] = ["empresa", "nombre"],
             ["postura-roadmap"] = ["nombre"],
             ["modalidad-laboral"] = ["nombre"],
-            ["tipo-operacion"] = ["nombre"]
+            ["tipo-operacion"] = ["nombre"],
+            ["tipo-servicio"] = ["codigo", "nombre"],
+            ["actividad-nivel-soporte"] = ["nivelSoporte", "descripcionActividad"],
+            ["modelo-operacion"] = ["tecnologiaImplementada", "tipoOperacion"],
+            ["contrato-tecnologia"] = ["tecnologiaImplementada", "numeroContrato"],
+            ["proceso-adopcion-tsi"] = ["codigoProceso", "nombreProceso"],
+            ["proceso-adopcion-empresa"] = ["proceso", "empresa"],
+            ["estandar-tecnologia-historico"] = ["buildingBlock", "tecnologia"],
+            ["tecnologia-tsi-implementada"] = ["empresa", "tecnologia"],
+            ["driver"] = ["tecnologiaImplementada", "descripcionDriver"],
+            ["servicio-tecnologia"] = ["codigoServicio", "nombreServicio"],
+            ["tarifario-proyecto-horas"] = ["servicio", "complejidad"],
+            ["tarifario-operacion"] = ["servicio", "nivelSoporte"],
+            ["vendor"] = ["nombreVendor"],
+            ["contacto-vendor"] = ["vendor", "nombreContactoVendor"],
+            ["contacto-partner"] = ["vendor", "nombreContactoPartner"]
         };
 
     public static Dictionary<string, object?> Normalize(

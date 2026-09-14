@@ -21,6 +21,9 @@
             <p class="supporting-text">Código: <strong>@p.Codigo</strong> · Building Block: <a asp-controller="MasterTables" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@p.BuildingBlockId">@p.BuildingBlockNombre</a></p>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            <a asp-action="Reports" asp-route-id="@p.Id" class="btn btn-outline-info text-dark btn-sm fw-semibold shadow-sm d-inline-flex align-items-center gap-1" title="Ver los 4 reportes de seguimiento de esta evaluación">
+                <span>📊 Reportería & Seguimiento</span>
+            </a>
             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
             {
                 <button type="button" class="badge bg-primary fs-6 border-0 text-white d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#modal-change-status" title="Haga clic para cambiar el estado del proceso">
@@ -29,6 +32,9 @@
                 </button>
                 <button type="button" class="btn btn-outline-primary btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modal-change-status" title="Cambiar estado del proceso de adopción">
                     🔄 Cambiar Estado
+                </button>
+                <button type="button" class="btn btn-success btn-sm fw-bold text-white shadow-sm" data-bs-toggle="modal" data-bs-target="#modal-finalize-evaluation" title="Adjudicar estándar corporativo y finalizar evaluación">
+                    🏆 Adjudicar Estándar y Finalizar
                 </button>
                 <a asp-action="EditEvaluation" asp-route-id="@p.Id" class="btn btn-outline-secondary btn-sm fw-semibold" title="Editar datos y estado de la evaluación">
                     ✏️ Editar Evaluación
@@ -99,8 +105,8 @@
                     </div>
                     @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                     {
-                        <button type="button" class="btn btn-sm btn-primary mt-2 mt-md-0 ms-md-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-set-standard">
-                            🏆 Oficializar Estándar Resultante
+                        <button type="button" class="btn btn-sm btn-success fw-bold text-white mt-2 mt-md-0 ms-md-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-finalize-evaluation">
+                            🏆 Adjudicar Estándar y Finalizar
                         </button>
                     }
                 </div>
@@ -194,12 +200,22 @@
 
     <!-- SECCIÓN 2: SUBSIDIARIAS Y REALIDAD DE ADOPCIÓN -->
     <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h2 class="h5 mb-0">2. Convocatoria a Empresas Subsidiarias y Adopción Real</h2>
-            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
-            {
-                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-convene-company">+ Convocar Subsidiaria</button>
-            }
+        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h2 class="h5 mb-0">2. Convocatoria a Empresas Subsidiarias y Adopción Real</h2>
+                <small class="text-muted">Puede ordenar las empresas arrastrándolas con el ratón mediante el icono <span class="fw-bold">⠿</span>.</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnResetCompanyOrder" title="Restablecer orden predeterminado">
+                    <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span class="small">Restablecer Orden</span>
+                </button>
+                <span id="orderSavedFeedback" class="badge bg-success-subtle text-success border border-success-subtle small d-none">✓ Orden guardado</span>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-convene-company">+ Convocar Subsidiaria</button>
+                }
+            </div>
         </div>
         <div class="card-body">
             @if (p.EmpresasParticipantes.Count == 0)
@@ -208,7 +224,7 @@
             }
             else
             {
-                <div class="accordion" id="accordionEmpresas">
+                <div class="accordion" id="accordionEmpresas" data-proceso-id="@p.Id">
                     @foreach (var emp in p.EmpresasParticipantes)
                     {
                         var badgeClass = emp.EstadoAlineamiento switch
@@ -221,9 +237,12 @@
                             _ => "bg-light text-dark"
                         };
 
-                        <div class="accordion-item mb-2 border rounded">
-                            <h3 class="accordion-header" id="heading-@emp.ProcesoEmpresaId">
-                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@emp.ProcesoEmpresaId" aria-expanded="false" aria-controls="collapse-@emp.ProcesoEmpresaId">
+                        <div class="accordion-item mb-2 border rounded company-draggable-item" data-proceso-emp-id="@emp.ProcesoEmpresaId">
+                            <div class="d-flex align-items-center justify-content-between p-1 pe-2 bg-light border-bottom rounded-top">
+                                <span class="company-drag-handle px-2 py-2 text-secondary cursor-grab" title="Arrastrar para reordenar" style="cursor: grab; user-select: none;">
+                                    <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                </span>
+                                <button class="accordion-button collapsed py-2 shadow-none bg-transparent flex-grow-1 border-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@emp.ProcesoEmpresaId" aria-expanded="false" aria-controls="collapse-@emp.ProcesoEmpresaId">
                                     <div class="d-flex w-100 justify-content-between align-items-center pe-3">
                                         <div>
                                             <strong>@emp.EmpresaNombre</strong>
@@ -238,7 +257,18 @@
                                         </div>
                                     </div>
                                 </button>
-                            </h3>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                {
+                                    <form method="post" asp-action="RemoveCompany" asp-route-id="@p.Id" class="d-inline ms-1" onsubmit="return confirm('¿Está seguro de que desea eliminar a @emp.EmpresaNombre de este proceso de evaluación?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="procesoEmpresaId" value="@emp.ProcesoEmpresaId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 d-inline-flex align-items-center gap-1" title="Eliminar empresa del proceso">
+                                            <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            <span class="d-none d-sm-inline small">Eliminar</span>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
                             <div id="collapse-@emp.ProcesoEmpresaId" class="accordion-collapse collapse" aria-labelledby="heading-@emp.ProcesoEmpresaId" data-bs-parent="#accordionEmpresas">
                                 <div class="accordion-body">
                                     @if (!emp.Aplica)
@@ -248,12 +278,25 @@
                                         </div>
                                     }
 
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                         <h4 class="h6 mb-0">Tecnologías Implementadas por @emp.EmpresaNombre</h4>
-                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit) && emp.Aplica)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-outline-success btn-add-tech" data-empresa-id="@emp.EmpresaId" data-proceso-emp-id="@emp.ProcesoEmpresaId" data-bs-toggle="modal" data-bs-target="#modal-register-tech">+ Registrar Tecnología Implementada</button>
-                                        }
+                                        <div class="d-flex gap-2">
+                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit) && emp.Aplica)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success btn-add-tech" data-empresa-id="@emp.EmpresaId" data-proceso-emp-id="@emp.ProcesoEmpresaId" data-bs-toggle="modal" data-bs-target="#modal-register-tech">+ Registrar Tecnología Implementada</button>
+                                            }
+                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                            {
+                                                <form method="post" asp-action="RemoveCompany" asp-route-id="@p.Id" class="d-inline" onsubmit="return confirm('¿Está seguro de que desea eliminar a @emp.EmpresaNombre de este proceso de evaluación?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="procesoEmpresaId" value="@emp.ProcesoEmpresaId" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" title="Eliminar empresa del proceso">
+                                                        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        <span>Eliminar Empresa</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
                                     </div>
 
                                     @if (emp.TecnologiasImplementadas.Count == 0)
@@ -273,6 +316,14 @@
                                                             {
                                                                 <span class="badge bg-primary ms-1">Primaria</span>
                                                             }
+                                                            @if (tech.EsInstanciaCorporativa)
+                                                            {
+                                                                <span class="badge bg-purple text-white ms-1" style="background-color: #6f42c1;" title="Instancia Centralizada / Tenant Corporativo Credicorp">🏛️ Instancia Corporativa</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary-subtle text-dark border ms-1" title="Instancia Propia / Infraestructura de la Subsidiaria">🏢 Instancia Local</span>
+                                                            }
                                                             <span class="badge @(tech.EstadoAlineamiento == "ALINEADO" ? "bg-success" : (tech.EstadoAlineamiento == "HOMOLOGADO" ? "bg-info text-dark" : "bg-danger")) ms-1">@tech.EstadoAlineamiento</span>
                                                         </h5>
                                                         <span class="small text-muted">Versión Desplegada: <strong>@(tech.VersionDesplegada ?? "No especificada")</strong> · Vendor: @(tech.VendorNombre ?? "Sin vendor")</span>
@@ -280,9 +331,26 @@
                                                     <div>
                                                         @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                                         {
+                                                            <form method="post" asp-action="DeleteImplementedTechnology" asp-route-id="@p.Id" class="d-inline me-1" onsubmit="return confirm('¿Está seguro de que desea eliminar la tecnología implementada \'@tech.TecnologiaNombre\' de @emp.EmpresaNombre? Esta acción eliminará también sus contratos, drivers y servicios vinculados.');">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="tecnologiaImplementadaId" value="@tech.Id" />
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" title="Eliminar tecnología implementada">
+                                                                    <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                    <span>Eliminar tecnología</span>
+                                                                </button>
+                                                            </form>
                                                             <button type="button" class="btn btn-sm btn-outline-secondary btn-op-model me-1" data-impl-id="@tech.Id" data-tipo-id="@tech.ModeloOperacion?.TipoOperacionId" data-mod-id="@tech.ModeloOperacion?.ModalidadLaboralId" data-bs-toggle="modal" data-bs-target="#modal-operation-model">Modelo Operación</button>
                                                             <button type="button" class="btn btn-sm btn-outline-primary btn-add-contract me-1" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-contract">+ Contrato</button>
-                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-driver" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-driver">+ Driver</button>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-driver me-1" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-driver">+ Driver</button>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-tech-service" 
+                                                                    data-impl-id="@tech.Id" 
+                                                                    data-empresa-id="@emp.EmpresaId" 
+                                                                    data-empresa-nombre="@emp.EmpresaNombre" 
+                                                                    data-tech-id="@tech.TecnologiaId" 
+                                                                    data-tech-nombre="@tech.TecnologiaNombre" 
+                                                                    data-vendor-nombre="@tech.VendorNombre"
+                                                                    data-bs-toggle="modal" 
+                                                                    data-bs-target="#modal-create-service">+ Servicios</button>
                                                         }
                                                     </div>
                                                 </div>
@@ -319,9 +387,24 @@
                                                                 @foreach (var c in tech.Contratos)
                                                                 {
                                                                     <tr class="table-primary-subtle">
-                                                                        <td><strong>@c.NumeroContrato</strong></td>
+                                                                        <td>
+                                                                            <strong>@c.NumeroContrato</strong>
+                                                                            @if (c.EsPayg)
+                                                                            {
+                                                                                <span class="badge bg-info-subtle text-dark border border-info ms-1">PAYG</span>
+                                                                            }
+                                                                        </td>
                                                                         <td><span class="badge bg-primary">Principal</span></td>
-                                                                        <td>@c.FechaInicio.ToString("dd/MM/yyyy") - @c.FechaFin.ToString("dd/MM/yyyy")</td>
+                                                                        <td>
+                                                                            @if (c.EsPayg)
+                                                                            {
+                                                                                <span class="badge bg-info-subtle text-dark border border-info">PAYG</span>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                @($"{c.FechaInicio?.ToString("dd/MM/yyyy") ?? "—"} - {c.FechaFin?.ToString("dd/MM/yyyy") ?? "—"}")
+                                                                            }
+                                                                        </td>
                                                                         <td>@(c.Monto.HasValue ? $"{c.Moneda} {c.Monto:N2}" : "—")</td>
                                                                         <td>
                                                                             @if (!string.IsNullOrWhiteSpace(c.RutaDocumento))
@@ -336,6 +419,22 @@
                                                                         <td>
                                                                             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                                                             {
+                                                                                <button type="button" class="btn btn-xs btn-outline-primary btn-edit-contract me-1 py-0 px-1"
+                                                                                        data-contract-id="@c.Id"
+                                                                                        data-impl-id="@tech.Id"
+                                                                                        data-is-adenda="false"
+                                                                                        data-parent-id=""
+                                                                                        data-parent-num=""
+                                                                                        data-num="@c.NumeroContrato"
+                                                                                        data-monto="@(c.Monto?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                        data-moneda="@c.Moneda"
+                                                                                        data-payg="@(c.EsPayg ? "true" : "false")"
+                                                                                        data-inicio="@(c.FechaInicio?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                        data-fin="@(c.FechaFin?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                        data-adj="@(c.FechaAdjudicacion?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                        data-doc="@(c.RutaDocumento ?? "")"
+                                                                                        data-obs="@(c.Observaciones ?? "")"
+                                                                                        data-bs-toggle="modal" data-bs-target="#modal-save-contract">Editar</button>
                                                                                 <button type="button" class="btn btn-xs btn-outline-success btn-add-adenda me-1 py-0 px-1" data-impl-id="@tech.Id" data-parent-id="@c.Id" data-parent-num="@c.NumeroContrato" data-bs-toggle="modal" data-bs-target="#modal-save-contract">+ Adenda</button>
                                                                                 <form method="post" asp-action="DeleteContract" asp-route-id="@p.Id" asp-route-contractId="@c.Id" class="d-inline" onsubmit="return confirm('¿Eliminar contrato y sus adendas?');">
                                                                                     @Html.AntiForgeryToken()
@@ -347,9 +446,24 @@
                                                                     @foreach (var ad in c.Adendas)
                                                                     {
                                                                         <tr>
-                                                                            <td class="ps-4">↳ @ad.NumeroContrato</td>
+                                                                            <td class="ps-4">
+                                                                                ↳ @ad.NumeroContrato
+                                                                                @if (ad.EsPayg)
+                                                                                {
+                                                                                    <span class="badge bg-info-subtle text-dark border border-info ms-1">PAYG</span>
+                                                                                }
+                                                                            </td>
                                                                             <td><span class="badge bg-info text-dark">Adenda</span></td>
-                                                                            <td>@ad.FechaInicio.ToString("dd/MM/yyyy") - @ad.FechaFin.ToString("dd/MM/yyyy")</td>
+                                                                            <td>
+                                                                                @if (ad.EsPayg)
+                                                                                {
+                                                                                    <span class="badge bg-info-subtle text-dark border border-info">PAYG</span>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    @($"{ad.FechaInicio?.ToString("dd/MM/yyyy") ?? "—"} - {ad.FechaFin?.ToString("dd/MM/yyyy") ?? "—"}")
+                                                                                }
+                                                                            </td>
                                                                             <td>@(ad.Monto.HasValue ? $"{ad.Moneda} {ad.Monto:N2}" : "—")</td>
                                                                             <td>
                                                                                 @if (!string.IsNullOrWhiteSpace(ad.RutaDocumento))
@@ -364,6 +478,22 @@
                                                                             <td>
                                                                                 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                                                                 {
+                                                                                    <button type="button" class="btn btn-xs btn-outline-primary btn-edit-contract me-1 py-0 px-1"
+                                                                                            data-contract-id="@ad.Id"
+                                                                                            data-impl-id="@tech.Id"
+                                                                                            data-is-adenda="true"
+                                                                                            data-parent-id="@c.Id"
+                                                                                            data-parent-num="@c.NumeroContrato"
+                                                                                            data-num="@ad.NumeroContrato"
+                                                                                            data-monto="@(ad.Monto?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                            data-moneda="@ad.Moneda"
+                                                                                            data-payg="@(ad.EsPayg ? "true" : "false")"
+                                                                                            data-inicio="@(ad.FechaInicio?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                            data-fin="@(ad.FechaFin?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                            data-adj="@(ad.FechaAdjudicacion?.ToString("yyyy-MM-dd") ?? "")"
+                                                                                            data-doc="@(ad.RutaDocumento ?? "")"
+                                                                                            data-obs="@(ad.Observaciones ?? "")"
+                                                                                            data-bs-toggle="modal" data-bs-target="#modal-save-contract">Editar</button>
                                                                                     <form method="post" asp-action="DeleteContract" asp-route-id="@p.Id" asp-route-contractId="@ad.Id" class="d-inline" onsubmit="return confirm('¿Eliminar esta adenda?');">
                                                                                         @Html.AntiForgeryToken()
                                                                                         <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
@@ -418,6 +548,15 @@
                                                                         <td>
                                                                             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                                                                             {
+                                                                                <button type="button" class="btn btn-xs btn-outline-primary btn-edit-driver me-1 py-0 px-1"
+                                                                                        data-driver-id="@drv.Id"
+                                                                                        data-impl-id="@tech.Id"
+                                                                                        data-desc="@drv.Descripcion"
+                                                                                        data-unidad="@(drv.UnidadMedida ?? "")"
+                                                                                        data-moneda="@drv.Moneda"
+                                                                                        data-cant="@(drv.Cantidad?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                        data-precio="@(drv.PrecioUnitario?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                        data-bs-toggle="modal" data-bs-target="#modal-save-driver">Editar</button>
                                                                                 <form method="post" asp-action="DeleteDriver" asp-route-id="@p.Id" asp-route-driverId="@drv.Id" class="d-inline" onsubmit="return confirm('¿Eliminar este driver?');">
                                                                                     @Html.AntiForgeryToken()
                                                                                     <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
@@ -431,9 +570,588 @@
                                                         </div>
                                                     }
                                                 </div>
+
+                                                <!-- Servicios y Tarifarios de TI Vinculados (1:N) -->
+                                                @{
+                                                    var techServices = Model.Services.Where(s => s.TecnologiaImplementadaId == tech.Id).ToList();
+                                                }
+                                                <div class="mt-3 pt-2 border-top">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <strong class="small text-muted">Servicios y Tarifarios de TI Vinculados:</strong>
+                                                        <div>
+                                                            @if (techServices.Count > 0)
+                                                            {
+                                                                <span class="small fw-bold text-success me-2">Total Servicios: @($"{techServices[0].Moneda} {techServices.Sum(s => s.CostoTotalEstimado):N2}")</span>
+                                                            }
+                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                            {
+                                                                <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 btn-add-tech-service"
+                                                                        data-impl-id="@tech.Id" 
+                                                                        data-empresa-id="@emp.EmpresaId" 
+                                                                        data-empresa-nombre="@emp.EmpresaNombre" 
+                                                                        data-tech-id="@tech.TecnologiaId" 
+                                                                        data-tech-nombre="@tech.TecnologiaNombre" 
+                                                                        data-vendor-nombre="@tech.VendorNombre"
+                                                                        data-bs-toggle="modal" 
+                                                                        data-bs-target="#modal-create-service">+ Servicio</button>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                    @if (techServices.Count == 0)
+                                                    {
+                                                        <p class="small text-muted mb-0">Sin servicios registrados para esta tecnología implementada.</p>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="d-flex flex-column gap-2 mt-2">
+                                                            @foreach (var srv in techServices)
+                                                            {
+                                                                var srvTypeBadge = srv.TipoServicioCodigo switch
+                                                                {
+                                                                    "IMPLEMENTACION" => "bg-primary",
+                                                                    "MIGRACION" => "bg-info text-dark",
+                                                                    "OPERACION" => "bg-success",
+                                                                    _ => "bg-secondary"
+                                                                };
+
+                                                                <div class="border rounded p-2 bg-light-subtle">
+                                                                    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                                                                        <div>
+                                                                            <span class="badge @srvTypeBadge me-1">@srv.TipoServicioNombre</span>
+                                                                            <strong class="small">@srv.Codigo: @srv.Nombre</strong>
+                                                                            <span class="badge bg-secondary-subtle text-dark border ms-1 small">@srv.Estado</span>
+                                                                            @if (!string.IsNullOrWhiteSpace(srv.NombreProveedorServicio))
+                                                                            {
+                                                                                <span class="small text-muted ms-2">· Proveedor: @srv.NombreProveedorServicio</span>
+                                                                            }
+                                                                        </div>
+                                                                        <div class="d-flex align-items-center gap-1">
+                                                                            <span class="fw-bold text-success small me-2">@($"{srv.Moneda} {srv.CostoTotalEstimado:N2}")</span>
+                                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                            {
+                                                                                <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 btn-edit-tech-service me-1"
+                                                                                        data-service-id="@srv.Id"
+                                                                                        data-codigo="@srv.Codigo"
+                                                                                        data-nombre="@srv.Nombre"
+                                                                                        data-descripcion="@(srv.Descripcion ?? "")"
+                                                                                        data-tipo-id="@srv.TipoServicioId"
+                                                                                        data-estado="@srv.Estado"
+                                                                                        data-moneda="@srv.Moneda"
+                                                                                        data-proveedor="@(srv.NombreProveedorServicio ?? "")"
+                                                                                        data-tech-id="@(srv.TecnologiaTsiId?.ToString() ?? "")"
+                                                                                        data-impl-id="@tech.Id"
+                                                                                        data-empresa-id="@emp.EmpresaId"
+                                                                                        data-empresa-nombre="@emp.EmpresaNombre"
+                                                                                        data-tech-nombre="@tech.TecnologiaNombre"
+                                                                                        data-vendor-nombre="@tech.VendorNombre"
+                                                                                        data-bs-toggle="modal"
+                                                                                        data-bs-target="#modal-create-service">Editar</button>
+                                                                                if (srv.TipoServicioCodigo is "IMPLEMENTACION" or "MIGRACION")
+                                                                                {
+                                                                                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 btn-add-project-rate"
+                                                                                            data-service-id="@srv.Id"
+                                                                                            data-service-name="@srv.Nombre (@srv.TipoServicioNombre)"
+                                                                                            data-bs-toggle="modal"
+                                                                                            data-bs-target="#modal-add-project-rate">+ Rango Horas</button>
+                                                                                }
+                                                                                else if (srv.TipoServicioCodigo == "OPERACION")
+                                                                                {
+                                                                                    <button type="button" class="btn btn-xs btn-outline-success py-0 px-1 btn-add-operation-rate"
+                                                                                            data-service-id="@srv.Id"
+                                                                                            data-service-name="@srv.Nombre (Operación N1-N3)"
+                                                                                            data-bs-toggle="modal"
+                                                                                            data-bs-target="#modal-add-operation-rate">+ Tarifa Operación</button>
+                                                                                    <button type="button" class="btn btn-xs btn-outline-info py-0 px-1"
+                                                                                            data-bs-toggle="modal"
+                                                                                            data-bs-target="#modal-view-activities">Actividades</button>
+                                                                                }
+                                                                                <form method="post" asp-action="DeleteService" asp-route-procesoId="@p.Id" asp-route-servicioId="@srv.Id" class="d-inline" onsubmit="return confirm('¿Eliminar servicio @srv.Nombre y sus tarifarios?');">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
+                                                                                </form>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+
+                                                                    @if (!string.IsNullOrWhiteSpace(srv.Descripcion))
+                                                                    {
+                                                                        <p class="small text-muted mb-1">@srv.Descripcion</p>
+                                                                    }
+
+                                                                    <!-- Tarifarios de Proyecto (Implementación / Migración) -->
+                                                                    @if (srv.TipoServicioCodigo is "IMPLEMENTACION" or "MIGRACION")
+                                                                    {
+                                                                        if (srv.TarifariosProyecto.Count > 0)
+                                                                        {
+                                                                            <div class="table-responsive mt-1">
+                                                                                <table class="table table-sm table-bordered mb-0 small bg-white">
+                                                                                    <thead class="table-light">
+                                                                                        <tr>
+                                                                                            <th>Complejidad / Rango</th>
+                                                                                            <th>Horas</th>
+                                                                                            <th>Tarifa/Hora</th>
+                                                                                            <th>Horas Est.</th>
+                                                                                            <th>Subtotal</th>
+                                                                                            <th>Observaciones</th>
+                                                                                            <th>Acción</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        @foreach (var rate in srv.TarifariosProyecto)
+                                                                                        {
+                                                                                            <tr>
+                                                                                                <td><span class="badge bg-light text-dark border">@rate.Complejidad</span></td>
+                                                                                                <td>@(rate.RangoHorasHasta.HasValue ? $"{rate.RangoHorasDesde} a {rate.RangoHorasHasta} hrs" : $"> {rate.RangoHorasDesde} hrs")</td>
+                                                                                                <td>@rate.Moneda @rate.TarifaHora.ToString("N2")</td>
+                                                                                                <td>@rate.HorasEstimadas.ToString("N1") hrs</td>
+                                                                                                <td><strong>@rate.Moneda @rate.Subtotal.ToString("N2")</strong></td>
+                                                                                                <td>@(rate.Observaciones ?? "—")</td>
+                                                                                                <td>
+                                                                                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                                                    {
+                                                                                                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 btn-edit-project-rate me-1"
+                                                                                                                data-rate-id="@rate.Id"
+                                                                                                                data-service-id="@srv.Id"
+                                                                                                                data-service-name="@srv.Nombre"
+                                                                                                                data-complejidad="@rate.Complejidad"
+                                                                                                                data-desde="@rate.RangoHorasDesde"
+                                                                                                                data-hasta="@(rate.RangoHorasHasta?.ToString() ?? "")"
+                                                                                                                data-tarifa="@rate.TarifaHora.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                                                                data-horas="@rate.HorasEstimadas.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                                                                data-obs="@(rate.Observaciones ?? "")"
+                                                                                                                data-bs-toggle="modal"
+                                                                                                                data-bs-target="#modal-add-project-rate" title="Editar rango">✎</button>
+                                                                                                        <form method="post" asp-action="DeleteProjectRateCard" asp-route-procesoId="@p.Id" asp-route-rateCardId="@rate.Id" class="d-inline" onsubmit="return confirm('¿Eliminar esta línea de tarifario?');">
+                                                                                                            @Html.AntiForgeryToken()
+                                                                                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">✕</button>
+                                                                                                        </form>
+                                                                                                    }
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        }
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <span class="text-muted small fst-italic">Sin rangos de horas configurados. Haz clic en "+ Rango Horas".</span>
+                                                                        }
+                                                                    }
+                                                                    else if (srv.TipoServicioCodigo == "OPERACION")
+                                                                    {
+                                                                        if (srv.TarifariosOperacion.Count > 0)
+                                                                        {
+                                                                            <div class="table-responsive mt-1">
+                                                                                <table class="table table-sm table-bordered mb-0 small bg-white">
+                                                                                    <thead class="table-light">
+                                                                                        <tr>
+                                                                                            <th>Nivel</th>
+                                                                                            <th>Modalidad</th>
+                                                                                            <th>Expertise</th>
+                                                                                            <th>Locación</th>
+                                                                                            <th>Tarifa Mes</th>
+                                                                                            <th>Tarifa Hora</th>
+                                                                                            <th>Subtotal</th>
+                                                                                            <th>Acción</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        @foreach (var op in srv.TarifariosOperacion)
+                                                                                        {
+                                                                                            <tr>
+                                                                                                <td><span class="badge bg-dark">@op.NivelSoporte</span></td>
+                                                                                                <td>@op.Modalidad @(op.HorasBaseMensual > 0 ? $"({op.HorasBaseMensual}h)" : "")</td>
+                                                                                                <td><span class="badge bg-secondary">@op.Expertise</span></td>
+                                                                                                <td>@op.Locacion</td>
+                                                                                                <td>@(op.TarifaMensual.HasValue ? $"{op.Moneda} {op.TarifaMensual.Value:N2}" : "—")</td>
+                                                                                                <td>@(op.TarifaHora.HasValue ? $"{op.Moneda} {op.TarifaHora.Value:N2}" : "—")</td>
+                                                                                                <td><strong>@op.Moneda @op.Subtotal.ToString("N2")</strong></td>
+                                                                                                <td>
+                                                                                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                                                    {
+                                                                                                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 btn-edit-operation-rate me-1"
+                                                                                                                data-rate-id="@op.Id"
+                                                                                                                data-service-id="@srv.Id"
+                                                                                                                data-service-name="@srv.Nombre"
+                                                                                                                data-nivel="@op.NivelSoporte"
+                                                                                                                data-modalidad="@op.Modalidad"
+                                                                                                                data-horas-base="@op.HorasBaseMensual"
+                                                                                                                data-detalle="@(op.DetalleModalidad ?? "")"
+                                                                                                                data-expertise="@op.Expertise"
+                                                                                                                data-locacion="@op.Locacion"
+                                                                                                                data-tarifa-mes="@(op.TarifaMensual?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                                                data-tarifa-hora="@(op.TarifaHora?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                                                data-meses="@op.CantidadMeses"
+                                                                                                                data-horas="@(op.HorasEstimadas?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                                                                data-bs-toggle="modal"
+                                                                                                                data-bs-target="#modal-add-operation-rate" title="Editar tarifa de operación">✎</button>
+                                                                                                        <form method="post" asp-action="DeleteOperationRateCard" asp-route-procesoId="@p.Id" asp-route-rateCardId="@op.Id" class="d-inline" onsubmit="return confirm('¿Eliminar esta tarifa de operación?');">
+                                                                                                            @Html.AntiForgeryToken()
+                                                                                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">✕</button>
+                                                                                                        </form>
+                                                                                                    }
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        }
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <span class="text-muted small fst-italic">Sin tarifas operativas configuradas. Haz clic en "+ Tarifa Operación".</span>
+                                                                        }
+                                                                    }
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
                                             </div>
                                         }
                                     }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- SECCIÓN 3: SERVICIOS Y TARIFARIOS DE TI (DRIVER DE MANO DE OBRA) -->
+    <div class="card mb-4 shadow-sm" id="seccion-servicios">
+        <div class="card-header bg-light d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+            <div>
+                <h2 class="h5 mb-0">3. Servicios y Tarifarios de Mano de Obra (Implementación, Migración, Operación)</h2>
+                <span class="small text-muted">Gestión de tarifarios de servicios corporativos y por subsidiaria basados en rangos de horas y matrices operativas N1-N3</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modal-view-activities">
+                    📋 Catálogo Actividades N1-N3
+                </button>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-open-general-service" data-bs-toggle="modal" data-bs-target="#modal-create-service">
+                        + Registrar Servicio
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Resumen de Costos y Servicios -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6 col-md-3">
+                    <div class="p-3 bg-light rounded border text-center">
+                        <span class="text-muted small d-block">Total Servicios</span>
+                        <strong class="fs-4 text-primary">@Model.Services.Count</strong>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <div class="p-3 bg-light rounded border text-center">
+                        <span class="text-muted small d-block">Implementación</span>
+                        <strong class="fs-4 text-primary">@Model.Services.Count(s => s.TipoServicioCodigo == "IMPLEMENTACION")</strong>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <div class="p-3 bg-light rounded border text-center">
+                        <span class="text-muted small d-block">Migración</span>
+                        <strong class="fs-4 text-warning">@Model.Services.Count(s => s.TipoServicioCodigo == "MIGRACION")</strong>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <div class="p-3 bg-light rounded border text-center">
+                        <span class="text-muted small d-block">Operación</span>
+                        <strong class="fs-4 text-success">@Model.Services.Count(s => s.TipoServicioCodigo == "OPERACION")</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-secondary py-2 px-3 mb-4 d-flex justify-content-between align-items-center">
+                <span>Costo Total Estimado de Servicios de Mano de Obra (TSI):</span>
+                <strong class="fs-5 text-dark">USD @Model.Services.Sum(s => s.CostoTotalEstimado).ToString("N2")</strong>
+            </div>
+
+            @if (Model.Services.Count == 0)
+            {
+                <div class="alert alert-info py-3 mb-0">
+                    <p class="mb-0">No se han registrado servicios de mano de obra para este proceso de adopción ni para sus subsidiarias participantes. Haga clic en <strong>+ Registrar Servicio</strong> para añadir servicios de Implementación, Migración u Operación.</p>
+                </div>
+            }
+            else
+            {
+                <div class="accordion" id="accordionServicios">
+                    @foreach (var srv in Model.Services)
+                    {
+                        var tipoBadge = srv.TipoServicioCodigo switch
+                        {
+                            "IMPLEMENTACION" => "bg-primary",
+                            "MIGRACION" => "bg-warning text-dark",
+                            "OPERACION" => "bg-success",
+                            _ => "bg-secondary"
+                        };
+
+                        var estadoBadge = srv.Estado switch
+                        {
+                            "ADJUDICADO" => "bg-success",
+                            "ACTIVO" => "bg-primary",
+                            "COTIZADO" => "bg-info text-dark",
+                            "EVALUACION" => "bg-warning text-dark",
+                            _ => "bg-secondary"
+                        };
+
+                        <div class="accordion-item mb-3 border rounded shadow-sm">
+                            <h3 class="accordion-header" id="heading-srv-@srv.Id">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-srv-@srv.Id" aria-expanded="false" aria-controls="collapse-srv-@srv.Id">
+                                    <div class="d-flex w-100 flex-wrap justify-content-between align-items-center pe-3 gap-2">
+                                        <div>
+                                            <span class="badge @tipoBadge me-2">@srv.TipoServicioNombre</span>
+                                            <strong>@srv.Nombre</strong>
+                                            <span class="text-muted ms-2 small">(@srv.Codigo)</span>
+                                            @if (srv.TecnologiaTsiNombre is not null)
+                                            {
+                                                <span class="badge bg-light text-dark border ms-2">Corp: @srv.TecnologiaTsiNombre</span>
+                                            }
+                                            @if (srv.EmpresaNombre is not null)
+                                            {
+                                                <span class="badge bg-light text-dark border ms-2">Subsidiaria: @srv.EmpresaNombre</span>
+                                            }
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @estadoBadge">@srv.Estado</span>
+                                            <strong class="text-dark">@srv.Moneda @srv.CostoTotalEstimado.ToString("N2")</strong>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h3>
+                            <div id="collapse-srv-@srv.Id" class="accordion-collapse collapse" aria-labelledby="heading-srv-@srv.Id" data-bs-parent="#accordionServicios">
+                                <div class="accordion-body">
+                                    <div class="row g-2 mb-3 bg-light p-2 rounded">
+                                        <div class="col-md-4">
+                                            <span class="small text-muted d-block">Proveedor / Vendor:</span>
+                                            <strong>@(srv.NombreProveedorServicio ?? srv.VendorNombre ?? "No asignado / Por licitar")</strong>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <span class="small text-muted d-block">Descripción / Alcance:</span>
+                                            <span>@(srv.Descripcion ?? "Sin descripción adicional.")</span>
+                                        </div>
+                                    </div>
+
+                                    @if (srv.TipoServicioCodigo is "IMPLEMENTACION" or "MIGRACION")
+                                    {
+                                        <!-- Tarifario de Proyecto por Horas (Imágenes 1 y 2) -->
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h4 class="h6 mb-0 fw-bold">Tarifario en función a la cantidad de horas estimadas (@srv.TipoServicioNombre):</h4>
+                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                            {
+                                                <button type="button" class="btn btn-xs btn-outline-primary btn-add-project-rate" data-service-id="@srv.Id" data-service-name="@srv.Nombre" data-tipo="@srv.TipoServicioCodigo" data-bs-toggle="modal" data-bs-target="#modal-add-project-rate">
+                                                    + Agregar Rango / Complejidad
+                                                </button>
+                                            }
+                                        </div>
+
+                                        @if (srv.TarifariosProyecto.Count == 0)
+                                        {
+                                            <p class="text-muted small mb-0">No se han registrado rangos de horas para este servicio.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Complejidad</th>
+                                                            <th>Rango de Horas</th>
+                                                            <th>Tarifa por Hora</th>
+                                                            <th>Horas Estimadas</th>
+                                                            <th>Subtotal</th>
+                                                            <th>Observaciones</th>
+                                                            <th style="width: 80px;">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach (var rate in srv.TarifariosProyecto)
+                                                    {
+                                                        var detalleRango = rate.Complejidad switch
+                                                        {
+                                                            "Baja (Por Hora)" => "Tarifario por Hora bajo demanda",
+                                                            "Proyecto menor" => "Entre 1 a 100 horas",
+                                                            "Proyecto intermedio" => "Entre 101 a 200 horas",
+                                                            "Proyecto mayor" => "Mayor a 201 horas",
+                                                            _ => $"De {rate.RangoHorasDesde} a {(rate.RangoHorasHasta.HasValue ? rate.RangoHorasHasta.Value.ToString() : "más")} hrs"
+                                                        };
+
+                                                        <tr>
+                                                            <td><strong>@rate.Complejidad</strong></td>
+                                                            <td><span class="badge bg-light text-dark border">@detalleRango</span></td>
+                                                            <td>@rate.Moneda @rate.TarifaHora.ToString("N2")/h</td>
+                                                            <td>@rate.HorasEstimadas.ToString("N2") hrs</td>
+                                                            <td><strong class="text-success">@rate.Moneda @rate.Subtotal.ToString("N2")</strong></td>
+                                                            <td class="small text-muted">@(rate.Observaciones ?? "—")</td>
+                                                            <td>
+                                                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                {
+                                                                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 btn-edit-project-rate me-1"
+                                                                            data-rate-id="@rate.Id"
+                                                                            data-service-id="@srv.Id"
+                                                                            data-service-name="@srv.Nombre"
+                                                                            data-complejidad="@rate.Complejidad"
+                                                                            data-desde="@rate.RangoHorasDesde"
+                                                                            data-hasta="@(rate.RangoHorasHasta?.ToString() ?? "")"
+                                                                            data-tarifa="@rate.TarifaHora.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                            data-horas="@rate.HorasEstimadas.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                            data-obs="@(rate.Observaciones ?? "")"
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#modal-add-project-rate" title="Editar rango">✎</button>
+                                                                    <form method="post" asp-action="DeleteProjectRateCard" class="d-inline" onsubmit="return confirm('¿Eliminar este rango de horas?');">
+                                                                        @Html.AntiForgeryToken()
+                                                                        <input type="hidden" name="procesoId" value="@p.Id" />
+                                                                        <input type="hidden" name="rateCardId" value="@rate.Id" />
+                                                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2" title="Eliminar rango">✕</button>
+                                                                    </form>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                    else if (srv.TipoServicioCodigo == "OPERACION")
+                                    {
+                                        <!-- Tarifario de Operación (Imágenes 3 y 4) -->
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h4 class="h6 mb-0 fw-bold">Matriz de Tarifario de Operación (N1, N2, N3 - Modalidad, Seniority, Locación):</h4>
+                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                            {
+                                                <button type="button" class="btn btn-xs btn-outline-success btn-add-operation-rate" data-service-id="@srv.Id" data-service-name="@srv.Nombre" data-bs-toggle="modal" data-bs-target="#modal-add-operation-rate">
+                                                    + Agregar Nivel Operativo
+                                                </button>
+                                            }
+                                        </div>
+
+                                        @if (srv.TarifariosOperacion.Count == 0)
+                                        {
+                                            <p class="text-muted small mb-0">No se han registrado ítems de soporte operativo para este servicio.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Nivel de Soporte</th>
+                                                            <th>Modalidad / Complejidad</th>
+                                                            <th>Detalle de Horas</th>
+                                                            <th>Expertise</th>
+                                                            <th>Locación</th>
+                                                            <th>Tarifa Base</th>
+                                                            <th>Duración / Cantidad</th>
+                                                            <th>Subtotal</th>
+                                                            <th style="width: 80px;">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach (var op in srv.TarifariosOperacion)
+                                                    {
+                                                        var nivelBadge = op.NivelSoporte switch
+                                                        {
+                                                            "N1" => "bg-primary",
+                                                            "N2" => "bg-info text-dark",
+                                                            "N3" => "bg-dark text-white",
+                                                            _ => "bg-secondary"
+                                                        };
+
+                                                        <tr>
+                                                            <td><span class="badge @nivelBadge">@op.NivelSoporte</span></td>
+                                                            <td><strong>@op.Modalidad</strong></td>
+                                                            <td class="small text-muted">@(op.DetalleModalidad ?? (op.HorasBaseMensual > 0 ? $"Promedio {op.HorasBaseMensual}h/mes" : "Bajo demanda"))</td>
+                                                            <td><span class="badge bg-light text-dark border">@op.Expertise</span></td>
+                                                            <td><span class="badge bg-light text-dark border">@op.Locacion</span></td>
+                                                            <td>
+                                                                @if (op.TarifaHora.HasValue && op.TarifaHora.Value > 0)
+                                                                {
+                                                                    <span>@op.Moneda @op.TarifaHora.Value.ToString("N2")/h</span>
+                                                                }
+                                                                else if (op.TarifaMensual.HasValue)
+                                                                {
+                                                                    <span>@op.Moneda @op.TarifaMensual.Value.ToString("N2")/mes</span>
+                                                                }
+                                                            </td>
+                                                            <td>
+                                                                @if (op.Modalidad.StartsWith("Pay-Per-Use", StringComparison.OrdinalIgnoreCase))
+                                                                {
+                                                                    <span>@(op.HorasEstimadas?.ToString("N2") ?? "0") hrs</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span>@op.CantidadMeses mes(es)</span>
+                                                                }
+                                                            </td>
+                                                            <td><strong class="text-success">@op.Moneda @op.Subtotal.ToString("N2")</strong></td>
+                                                            <td>
+                                                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                                {
+                                                                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 btn-edit-operation-rate me-1"
+                                                                            data-rate-id="@op.Id"
+                                                                            data-service-id="@srv.Id"
+                                                                            data-service-name="@srv.Nombre"
+                                                                            data-nivel="@op.NivelSoporte"
+                                                                            data-modalidad="@op.Modalidad"
+                                                                            data-horas-base="@op.HorasBaseMensual"
+                                                                            data-detalle="@(op.DetalleModalidad ?? "")"
+                                                                            data-expertise="@op.Expertise"
+                                                                            data-locacion="@op.Locacion"
+                                                                            data-tarifa-mes="@(op.TarifaMensual?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                            data-tarifa-hora="@(op.TarifaHora?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                            data-meses="@op.CantidadMeses"
+                                                                            data-horas="@(op.HorasEstimadas?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#modal-add-operation-rate" title="Editar tarifa de operación">✎</button>
+                                                                    <form method="post" asp-action="DeleteOperationRateCard" class="d-inline" onsubmit="return confirm('¿Eliminar este ítem de soporte?');">
+                                                                        @Html.AntiForgeryToken()
+                                                                        <input type="hidden" name="procesoId" value="@p.Id" />
+                                                                        <input type="hidden" name="rateCardId" value="@op.Id" />
+                                                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2" title="Eliminar ítem">✕</button>
+                                                                    </form>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+
+                                    <div class="mt-3 pt-2 border-top d-flex justify-content-end gap-2">
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-edit-tech-service"
+                                                    data-service-id="@srv.Id"
+                                                    data-codigo="@srv.Codigo"
+                                                    data-nombre="@srv.Nombre"
+                                                    data-descripcion="@(srv.Descripcion ?? "")"
+                                                    data-tipo-id="@srv.TipoServicioId"
+                                                    data-estado="@srv.Estado"
+                                                    data-moneda="@srv.Moneda"
+                                                    data-proveedor="@(srv.NombreProveedorServicio ?? "")"
+                                                    data-tech-id="@(srv.TecnologiaTsiId?.ToString() ?? "")"
+                                                    data-impl-id="@(srv.TecnologiaImplementadaId?.ToString() ?? "")"
+                                                    data-empresa-id="@(srv.EmpresaId?.ToString() ?? "")"
+                                                    data-empresa-nombre="@(srv.EmpresaNombre ?? "")"
+                                                    data-tech-nombre="@(srv.TecnologiaTsiNombre ?? "")"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modal-create-service">✏️ Editar Servicio</button>
+                                            <form method="post" asp-action="DeleteService" onsubmit="return confirm('¿Está seguro de eliminar este servicio y todas sus líneas de tarifario?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="procesoId" value="@p.Id" />
+                                                <input type="hidden" name="servicioId" value="@srv.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Eliminar Servicio</button>
+                                            </form>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -498,38 +1216,265 @@
     </div>
 </div>
 
-<!-- MODAL: CONVOCAR SUBSIDIARIA -->
-<div class="modal fade" id="modal-convene-company" tabindex="-1" aria-labelledby="modalConveneTitle" aria-hidden="true">
-    <div class="modal-dialog">
-        <form method="post" asp-action="ConveneCompany" asp-route-id="@p.Id" class="modal-content">
+<!-- MODAL: ADJUDICAR ESTÁNDAR CORPORATIVO Y FINALIZAR EVALUACIÓN -->
+<div class="modal fade" id="modal-finalize-evaluation" tabindex="-1" aria-labelledby="modalFinalizeTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <form method="post" asp-action="FinalizeEvaluation" asp-route-id="@p.Id" class="modal-content border-0 shadow">
             @Html.AntiForgeryToken()
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalConveneTitle">Convocar Empresa Subsidiaria</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <input type="hidden" name="buildingBlockId" value="@p.BuildingBlockId" />
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+            
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title h6 mb-0" id="modalFinalizeTitle">
+                    🏆 Adjudicar Estándar Tecnológico Corporativo y Finalizar Evaluación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="alert alert-success d-flex align-items-center gap-2 py-2 small mb-3">
+                    <span class="fs-5">📋</span>
+                    <div>
+                        <strong>Cierre Oficial del Proceso de Evaluación:</strong>
+                        Al adjudicar el estándar, este se registrará como <strong>PRINCIPAL VIGENTE</strong> en el histórico corporativo (<code>TEstandarTecnologiaHistorico</code>) y el estado del proceso pasará a finalizado. Toda la evidencia y volumetría <em>As-Is</em> levantada en este proceso permanecerá intacta para auditoría histórica.
+                    </div>
+                </div>
+
+                <!-- 1. DATOS DEL ESTÁNDAR GANADOR -->
+                <div class="card mb-3 border-success-subtle">
+                    <div class="card-header bg-success-subtle text-success-emphasis fw-bold py-2">
+                        1. Tecnología Adjudicada como Estándar Corporativo
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label for="finTechId" class="form-label small fw-semibold">Tecnología TSI Ganadora *</label>
+                                <select id="finTechId" name="tecnologiaId" class="form-select form-select-sm" required>
+                                    <option value="">-- Seleccionar Tecnología Evaluada --</option>
+                                    @foreach (var t in Model.Technologies)
+                                    {
+                                        <option value="@t.Id">@t.Label</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="finRol" class="form-label small fw-semibold">Rol del Estándar *</label>
+                                <select id="finRol" name="rolEstandar" class="form-select form-select-sm" required>
+                                    <option value="PRINCIPAL" selected>PRINCIPAL (Corporativo)</option>
+                                    <option value="ALTERNATIVA">ALTERNATIVA (Homologada)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="finFechaInicio" class="form-label small fw-semibold">Fecha Inicio Vigencia *</label>
+                                <input id="finFechaInicio" name="fechaInicioVigencia" type="date" class="form-control form-control-sm" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                            </div>
+                            <div class="col-12">
+                                <label for="finMotivo" class="form-label small fw-semibold">Motivo / Título de la Adjudicación</label>
+                                <input id="finMotivo" name="motivoAdjudicacion" class="form-control form-control-sm" value="Adjudicación de estándar resultante del proceso @p.Codigo - @p.Nombre" />
+                            </div>
+                            <div class="col-12">
+                                <label for="finSustento" class="form-label small fw-semibold">Sustento Arquitectónico y de Negocio</label>
+                                <textarea id="finSustento" name="sustentoArquitectura" class="form-control form-control-sm" rows="2" placeholder="Resuma las razones técnicas, operativas y de costo que sustentaron la adjudicación de esta tecnología como estándar corporativo..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. CONTRATO CORPORATIVO MAESTRO (OPCIONAL) -->
+                <div class="card mb-3 border">
+                    <div class="card-header bg-light fw-bold py-2 d-flex justify-content-between align-items-center">
+                        <span>2. Contrato Corporativo Maestro Adjudicado (Opcional)</span>
+                        <span class="badge bg-secondary-subtle text-secondary small">Pool / Contrato Central</span>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label for="finContractNum" class="form-label small fw-semibold">N° Contrato Corporativo</label>
+                                <input id="finContractNum" name="numeroContratoCorporativo" class="form-control form-control-sm" placeholder="Ej: CORP-WAAP-2026-001" />
+                            </div>
+                            <div class="col-md-3">
+                                <label for="finContractMonto" class="form-label small fw-semibold">Monto Total Adjudicado</label>
+                                <input id="finContractMonto" name="montoContratoCorporativo" type="number" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                            </div>
+                            <div class="col-md-2">
+                                <label for="finContractMoneda" class="form-label small fw-semibold">Moneda</label>
+                                <select id="finContractMoneda" name="monedaContratoCorporativo" class="form-select form-select-sm">
+                                    <option value="USD">USD</option>
+                                    <option value="PEN">PEN</option>
+                                    <option value="EUR">EUR</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="form-check form-switch mb-1">
+                                    <input class="form-check-input" type="checkbox" id="finEsPayg" name="esPaygContratoCorporativo" value="true">
+                                    <label class="form-check-label small fw-semibold text-primary" for="finEsPayg">⚡ Es modalidad PAYG</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="finContractInicio" class="form-label small fw-semibold">Fecha Inicio Contrato</label>
+                                <input id="finContractInicio" name="fechaInicioContratoCorporativo" type="date" class="form-control form-control-sm" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="finContractFin" class="form-label small fw-semibold">Fecha Fin Contrato</label>
+                                <input id="finContractFin" name="fechaFinContratoCorporativo" type="date" class="form-control form-control-sm" value="@DateTime.Today.AddYears(1).ToString("yyyy-MM-dd")" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="finContractAdj" class="form-label small fw-semibold">Fecha Adjudicación</label>
+                                <input id="finContractAdj" name="fechaAdjudicacionContratoCorporativo" type="date" class="form-control form-control-sm" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. DRIVERS Y TARIFAS CORPORATIVAS NEGOCIADAS -->
+                <div class="card mb-3 border">
+                    <div class="card-header bg-light fw-bold py-2 d-flex justify-content-between align-items-center">
+                        <span>3. Tarifario / Drivers Negociados para el Estándar</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary py-0" id="btnAddCorporateDriverRow">+ Agregar Driver</button>
+                    </div>
+                    <div class="card-body py-2">
+                        <p class="small text-muted mb-2">
+                            Defina las tarifas unitarias y volumetrías pactadas a nivel corporativo (ej. Tarifa por millón de requests, Apps/FQDN protegidos):
+                        </p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-1" id="tblCorporateDrivers">
+                                <thead class="table-light small">
+                                    <tr>
+                                        <th>Descripción del Driver *</th>
+                                        <th style="width: 130px;">Unidad de Medida</th>
+                                        <th style="width: 100px;">Cantidad</th>
+                                        <th style="width: 110px;">Precio Unit.</th>
+                                        <th style="width: 80px;">Moneda</th>
+                                        <th style="width: 40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="driverDescripcion" class="form-control form-control-sm" placeholder="Ej: Millones Request WAF/Bot" value="Volumetría Global Consolidada" />
+                                        </td>
+                                        <td>
+                                            <input type="text" name="driverUnidadMedida" class="form-control form-control-sm" placeholder="Ej: Millones/Mes" value="Millones/Mes" />
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="driverCantidad" class="form-control form-control-sm" placeholder="0" />
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="driverPrecioUnitario" class="form-control form-control-sm" placeholder="0.00" />
+                                        </td>
+                                        <td>
+                                            <select name="driverMoneda" class="form-select form-select-sm">
+                                                <option value="USD">USD</option>
+                                                <option value="PEN">PEN</option>
+                                            </select>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger p-0 px-1 btn-remove-driver-row">✕</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. SUBSIDIARIAS QUE SE ALINEAN DE INMEDIATO -->
+                <div class="card mb-2 border">
+                    <div class="card-header bg-light fw-bold py-2 d-flex justify-content-between align-items-center">
+                        <span>4. Empresas Subsidiarias Alineadas de Inmediato</span>
+                        <span class="badge bg-primary small">Instancia Corporativa</span>
+                    </div>
+                    <div class="card-body py-2">
+                        <p class="small text-muted mb-2">
+                            Marque las empresas que entrarán de inmediato al nuevo contrato/estándar corporativo (quedarán como <code>Instancia Corporativa</code> y <code>ALINEADO</code>). Las no marcadas conservarán su estado actual hasta que expire su contrato local:
+                        </p>
+                        <div class="row g-2" style="max-height: 180px; overflow-y: auto;">
+                            @foreach (var emp in p.EmpresasParticipantes.Where(ep => ep.Aplica))
+                            {
+                                <div class="col-md-6">
+                                    <div class="form-check p-2 border rounded bg-white">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="subsidiariasAlineadasIds" value="@emp.EmpresaId" id="align-emp-@emp.EmpresaId" checked />
+                                        <label class="form-check-label small fw-semibold" for="align-emp-@emp.EmpresaId">
+                                            @emp.EmpresaNombre
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-bold text-white">
+                    🏆 Adjudicar Estándar y Finalizar Evaluación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: CONVOCAR SUBSIDIARIAS (SELECCIÓN MÚLTIPLE CON CHECKBOXES) -->
+<div class="modal fade" id="modal-convene-company" tabindex="-1" aria-labelledby="modalConveneTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <form method="post" asp-action="ConveneCompany" asp-route-id="@p.Id" class="modal-content border-0 shadow">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="isBatchSync" value="true" />
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title h6 mb-0" id="modalConveneTitle">🏢 Convocar Empresas Subsidiarias</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="convEmpresaId" class="form-label">Empresa Subsidiaria *</label>
-                    <select id="convEmpresaId" name="empresaId" class="form-select" required>
-                        <option value="">-- Seleccionar Empresa --</option>
-                        @foreach (var c in Model.Companies)
-                        {
-                            <option value="@c.Id">@c.Label</option>
-                        }
-                    </select>
+                <p class="small text-muted mb-2">
+                    Selecciona una o varias subsidiarias con los checkboxes para convocarlas en lote a esta evaluación:
+                </p>
+
+                <!-- Barra de búsqueda y selector masivo -->
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <input type="text" id="conveneSearchBox" class="form-control form-control-sm" placeholder="🔍 Buscar empresa..." />
+                    <button type="button" id="btnToggleAllConvene" class="btn btn-sm btn-outline-secondary text-nowrap">
+                        Seleccionar Todas
+                    </button>
                 </div>
+
+                <!-- Lista con Checkboxes scrolleable -->
+                <div class="border rounded p-2 mb-3 bg-light" style="max-height: 240px; overflow-y: auto;" id="conveneCompanyListContainer">
+                    @{
+                        var yaConvocadasIds = p.EmpresasParticipantes.Select(ep => ep.EmpresaId).ToHashSet();
+                    }
+                    @foreach (var c in Model.Companies)
+                    {
+                        var isAlreadyConvocada = yaConvocadasIds.Contains(c.Id);
+                        <div class="form-check py-1 border-bottom border-light-subtle convene-company-item" data-company-name="@c.Label.ToLowerInvariant()">
+                            <input class="form-check-input convene-company-chk" type="checkbox" name="empresaIds" value="@c.Id" id="chk-emp-@c.Id" @(isAlreadyConvocada ? "checked" : "") />
+                            <label class="form-check-label small d-flex justify-content-between align-items-center cursor-pointer w-100" for="chk-emp-@c.Id">
+                                <span class="fw-semibold @(isAlreadyConvocada ? "text-primary" : "text-dark")">@c.Label</span>
+                                @if (isAlreadyConvocada)
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.65rem;">Convocada</span>
+                                }
+                            </label>
+                        </div>
+                    }
+                </div>
+
                 <div class="form-check form-switch mb-3">
                     <input class="form-check-input" type="checkbox" id="convAplica" name="aplica" value="true" checked />
-                    <label class="form-check-label" for="convAplica">¿Aplica adopción de este Building Block?</label>
+                    <label class="form-check-label small fw-semibold" for="convAplica">¿Aplica adopción de este Building Block para las seleccionadas?</label>
                 </div>
-                <div class="mb-3" id="wrap-justificacion" style="display: none;">
-                    <label for="convJustificacion" class="form-label">Justificación No Aplica</label>
-                    <textarea id="convJustificacion" name="justificacionNoAplica" class="form-control" rows="2" placeholder="Explique por qué no aplica..."></textarea>
+
+                <div class="mb-2" id="wrap-justificacion" style="display: none;">
+                    <label for="convJustificacion" class="form-label small fw-semibold">Justificación No Aplica</label>
+                    <textarea id="convJustificacion" name="justificacionNoAplica" class="form-control form-control-sm" rows="2" placeholder="Explique por qué no aplica..."></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar Convocatoria</button>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-sm btn-primary fw-bold" id="btnSubmitConvene">
+                    💾 Guardar Convocatoria
+                </button>
             </div>
         </form>
     </div>
@@ -538,7 +1483,7 @@
 <!-- MODAL: REGISTRAR TECNOLOGÍA IMPLEMENTADA -->
 <div class="modal fade" id="modal-register-tech" tabindex="-1" aria-labelledby="modalRegTechTitle" aria-hidden="true">
     <div class="modal-dialog">
-        <form method="post" asp-action="RegisterTechnology" asp-route-id="@p.Id" class="modal-content">
+        <form method="post" asp-action="RegisterTechnology" asp-route-id="@p.Id" class="modal-content" id="formRegisterTech">
             @Html.AntiForgeryToken()
             <input type="hidden" id="regEmpresaId" name="empresaId" value="" />
             <input type="hidden" id="regProcesoEmpId" name="procesoEmpresaId" value="" />
@@ -548,23 +1493,94 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <!-- Alerta de éxito o confirmación temporal -->
+                <div id="techSelectionSuccessAlert" class="alert alert-success py-2 px-3 small d-none mb-3" role="alert"></div>
+
+                <!-- Selector y Búsqueda de Tecnología TSI -->
                 <div class="mb-3">
-                    <label for="regTechId" class="form-label">Tecnología TSI *</label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label for="regTechId" class="form-label mb-0 fw-semibold">Tecnología TSI *</label>
+                        <button type="button" class="btn btn-sm btn-link text-primary text-decoration-none p-0 fw-semibold" id="btnToggleQuickTech">
+                            <i class="bi bi-plus-circle"></i> + Nueva Tecnología TSI
+                        </button>
+                    </div>
+
+                    <!-- Buscador en tiempo real de tecnologías -->
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text bg-white border-end-0">🔍</span>
+                        <input type="text" id="techSearchFilter" class="form-control border-start-0" 
+                               placeholder="Buscar tecnología en la lista..." autocomplete="off" />
+                        <button type="button" id="btnClearTechSearch" class="btn btn-outline-secondary btn-sm" title="Limpiar búsqueda" style="display: none;">✕</button>
+                    </div>
+
+                    <!-- Select de Tecnologías -->
                     <select id="regTechId" name="tecnologiaId" class="form-select" required>
                         <option value="">-- Seleccionar Tecnología --</option>
                         @foreach (var t in Model.Technologies)
                         {
-                            <option value="@t.Id">@t.Label</option>
+                            <option value="@t.Id" data-name="@t.Label.ToLowerInvariant()">@t.Label</option>
                         }
                     </select>
+                    <div id="techSearchCountNotice" class="form-text small text-muted mt-1" style="display: none;"></div>
+
+                    <!-- Aviso contextual si no hay resultados en la búsqueda -->
+                    <div id="techNoMatchBox" class="alert alert-warning py-2 px-3 small mt-2 mb-0" style="display: none;">
+                        <span>No se encontró la tecnología en la lista.</span>
+                        <button type="button" class="btn btn-sm btn-primary ms-2 py-0 px-2" id="btnCreateFromSearch">
+                            + Registrarla ahora
+                        </button>
+                    </div>
                 </div>
+
+                <!-- PANEL COLAPSABLE: REGISTRO RÁPIDO DE NUEVA TECNOLOGÍA TSI -->
+                <div id="panelQuickCreateTech" class="border rounded-3 p-3 mb-3 bg-light shadow-sm" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold text-primary small">
+                            <i class="bi bi-cpu"></i> Nueva Tecnología TSI en el Catálogo
+                        </span>
+                        <button type="button" class="btn-close btn-sm" id="btnCloseQuickTech" aria-label="Cerrar panel"></button>
+                    </div>
+                    <p class="small text-muted mb-2">
+                        Si la tecnología no existe en el catálogo corporativo, regístrela aquí para seleccionarla inmediatamente:
+                    </p>
+                    
+                    <div id="quickTechAlert" class="alert alert-danger py-1 px-2 small mb-2 d-none"></div>
+
+                    <div class="mb-2">
+                        <label for="quickTechNombreCorp" class="form-label small fw-semibold mb-1">Nombre Corporativo *</label>
+                        <input type="text" id="quickTechNombreCorp" class="form-control form-control-sm" placeholder="Ej: AWS WAF, Akamai Kona, F5 BIG-IP" />
+                    </div>
+                    <div class="mb-2">
+                        <label for="quickTechNombreLocal" class="form-label small fw-semibold mb-1">Nombre Local / Alternativo (Opcional)</label>
+                        <input type="text" id="quickTechNombreLocal" class="form-control form-control-sm" placeholder="Ej: WAF AWS Corporativo" />
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancelQuickTech">Cancelar</button>
+                        <button type="button" class="btn btn-sm btn-success fw-semibold" id="btnSubmitQuickTech">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" id="spinnerQuickTech" role="status"></span>
+                            💾 Guardar y Seleccionar
+                        </button>
+                    </div>
+                </div>
+
                 <div class="mb-3">
-                    <label for="regVersion" class="form-label">Versión Desplegada</label>
+                    <label for="regVersion" class="form-label fw-semibold">Versión Desplegada</label>
                     <input id="regVersion" name="versionDesplegada" class="form-control" placeholder="Ej: v2.4.1" />
                 </div>
-                <div class="form-check mb-3">
+                <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" id="regEsPrimaria" name="esPrimaria" value="true" checked />
-                    <label class="form-check-label" for="regEsPrimaria">Tecnología Primaria para esta empresa</label>
+                    <label class="form-check-label fw-semibold" for="regEsPrimaria">Tecnología Primaria para esta empresa</label>
+                </div>
+                <div class="card bg-light border p-2 mb-3">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="regEsInstanciaCorporativa" name="esInstanciaCorporativa" value="true">
+                        <label class="form-check-label fw-bold text-primary" for="regEsInstanciaCorporativa">
+                            🏛️ Instancia / Tenant Corporativo Credicorp
+                        </label>
+                        <div class="text-muted small">
+                            Marque esta opción si la subsidiaria utiliza la suscripción/cuenta centralizada corporativa. Déjela desmarcada si es una instancia propia o infraestructura local de la empresa.
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -580,6 +1596,7 @@
     <div class="modal-dialog modal-lg">
         <form method="post" asp-action="SaveContract" asp-route-id="@p.Id" class="modal-content">
             @Html.AntiForgeryToken()
+            <input type="hidden" id="contractId" name="contratoId" value="" />
             <input type="hidden" id="contractImplId" name="tecnologiaImplementadaId" value="" />
             <input type="hidden" id="contractIsAdenda" name="esAdenda" value="false" />
             <input type="hidden" id="contractParentId" name="contratoPadreId" value="" />
@@ -609,19 +1626,35 @@
                         </select>
                     </div>
                 </div>
-                <div class="row g-2 mb-3">
+                <!-- MODALIDAD PAYG / PAGO POR USO -->
+                <div class="card bg-light border p-2 mb-3">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="contractEsPayg" name="esPayg" value="true">
+                        <label class="form-check-label fw-bold text-primary" for="contractEsPayg">
+                            ⚡ Modalidad Pago por Uso / Pay as you Go (PAYG)
+                        </label>
+                        <div class="text-muted small">
+                            Al activar PAYG, el contrato se factura por consumo continuo y las fechas de vigencia y adjudicación no aplican (se bloquean automáticamente).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3" id="wrapContractDates">
                     <div class="col-md-4">
-                        <label for="contractInicio" class="form-label">Fecha Inicio *</label>
+                        <label for="contractInicio" class="form-label">Fecha Inicio * <span class="badge bg-secondary-subtle text-secondary small d-none" id="badgePaygInicio">No aplica</span></label>
                         <input id="contractInicio" name="fechaInicio" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
                     </div>
                     <div class="col-md-4">
-                        <label for="contractFin" class="form-label">Fecha Fin *</label>
+                        <label for="contractFin" class="form-label">Fecha Fin * <span class="badge bg-secondary-subtle text-secondary small d-none" id="badgePaygFin">No aplica</span></label>
                         <input id="contractFin" name="fechaFin" type="date" class="form-control" value="@DateTime.Today.AddYears(1).ToString("yyyy-MM-dd")" required />
                     </div>
                     <div class="col-md-4">
-                        <label for="contractAdj" class="form-label">Fecha Adjudicación</label>
+                        <label for="contractAdj" class="form-label">Fecha Adjudicación <span class="badge bg-secondary-subtle text-secondary small d-none" id="badgePaygAdj">No aplica</span></label>
                         <input id="contractAdj" name="fechaAdjudicacion" type="date" class="form-control" />
                     </div>
+                </div>
+                <div id="noticePaygBlocked" class="alert alert-info py-1 px-2 small mb-3" style="display: none;">
+                    ℹ️ Modalidad PAYG seleccionada: las fechas de inicio, fin y adjudicación están bloqueadas porque no aplican. En los reportes se reflejará como "PAYG".
                 </div>
                 <div class="mb-3">
                     <label for="contractDoc" class="form-label">Ruta o Enlace del Documento</label>
@@ -645,6 +1678,7 @@
     <div class="modal-dialog">
         <form method="post" asp-action="SaveDriver" asp-route-id="@p.Id" class="modal-content">
             @Html.AntiForgeryToken()
+            <input type="hidden" id="driverId" name="driverId" value="" />
             <input type="hidden" id="driverImplId" name="tecnologiaImplementadaId" value="" />
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDriverTitle">Agregar Driver de Costo</h5>
@@ -780,6 +1814,324 @@
     </div>
 </div>
 
+<!-- MODAL: REGISTRAR SERVICIO TECNOLÓGICO -->
+<div class="modal fade" id="modal-create-service" tabindex="-1" aria-labelledby="modalCreateServiceTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="post" asp-action="SaveService" class="modal-content" onsubmit="document.getElementById('srvEmpresa').disabled = false;">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="procesoId" value="@p.Id" />
+            <input type="hidden" id="srvId" name="servicioId" value="" />
+            <input type="hidden" id="srvTechImplId" name="tecnologiaImplementadaId" value="" />
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="modalCreateServiceTitle">Registrar Servicio de TI (Mano de Obra)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="srvSubsidiaryNotice" class="alert alert-primary py-2 small mb-3 d-none">
+                    <i class="bi bi-building me-1"></i> Registrando servicio para la empresa subsidiaria <strong id="srvSubsidiaryNoticeEmpresa"></strong> vinculado a la tecnología implementada <strong id="srvSubsidiaryNoticeTech"></strong>.
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="srvCodigo" class="form-label fw-semibold">Código de Servicio <span class="text-danger">*</span></label>
+                        <input id="srvCodigo" name="codigoServicio" class="form-control" value="SRV-@DateTime.UtcNow.ToString("yyyyMMdd")-@Random.Shared.Next(100, 999)" required />
+                    </div>
+                    <div class="col-md-8">
+                        <label for="srvNombre" class="form-label fw-semibold">Nombre del Servicio <span class="text-danger">*</span></label>
+                        <input id="srvNombre" name="nombreServicio" class="form-control" placeholder="Ej: Servicio de Migración de Reglas WAF / Operación SOC 24x7" required />
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="srvTipo" class="form-label fw-semibold">Tipo de Servicio <span class="text-danger">*</span></label>
+                        <select id="srvTipo" name="tipoServicioId" class="form-select" required>
+                            <option value="">-- Seleccionar Tipo --</option>
+                            @foreach (var t in Model.ServiceTypes)
+                            {
+                                <option value="@t.Id">@t.Nombre (@t.Codigo)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="srvEstado" class="form-label fw-semibold">Estado del Servicio</label>
+                        <select id="srvEstado" name="estadoServicio" class="form-select">
+                            <option value="EVALUACION">EVALUACION (En dimensionamiento)</option>
+                            <option value="COTIZADO">COTIZADO (Propuesta recibida)</option>
+                            <option value="ADJUDICADO">ADJUDICADO (Seleccionado)</option>
+                            <option value="ACTIVO">ACTIVO (En ejecución)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card p-3 mb-3 bg-light border">
+                    <h6 class="fw-bold mb-2">Ámbito y Vinculación del Servicio:</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="srvTechCorp" class="form-label small fw-semibold">Tecnología Corporativa (Opcional - Estándar/Evaluada)</label>
+                            <select id="srvTechCorp" name="tecnologiaTsiId" class="form-select form-select-sm">
+                                <option value="">-- No vincular a estándar corporativo --</option>
+                                @foreach (var tech in Model.Technologies)
+                                {
+                                    <option value="@tech.Id" selected="@(p.EstandarPrincipalVigente?.TecnologiaId == tech.Id ? "selected" : null)">@tech.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="srvEmpresa" class="form-label small fw-semibold">Empresa Subsidiaria Titular (Opcional)</label>
+                            <select id="srvEmpresa" name="empresaId" class="form-select form-select-sm">
+                                <option value="">-- Alcance Corporativo General --</option>
+                                @foreach (var emp in p.EmpresasParticipantes)
+                                {
+                                    <option value="@emp.EmpresaId">@emp.EmpresaNombre</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-text small text-muted mt-1">
+                        El servicio puede ser corporativo (evaluado/adjudicado para todas las subsidiarias) o específico para una subsidiaria participante.
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label for="srvProveedor" class="form-label fw-semibold">Proveedor / Partner Adjudicado</label>
+                        <input id="srvProveedor" name="nombreProveedorServicio" class="form-control" placeholder="Ej: Cloudflare Partner S.A., Logicalis, CyberTech" />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="srvMoneda" class="form-label fw-semibold">Moneda</label>
+                        <select id="srvMoneda" name="moneda" class="form-select">
+                            <option value="USD">USD (Dólares)</option>
+                            <option value="PEN">PEN (Soles)</option>
+                            <option value="BOB">BOB (Bolivianos)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="srvDesc" class="form-label fw-semibold">Descripción / Alcance del Servicio</label>
+                    <textarea id="srvDesc" name="descripcion" class="form-control" rows="2" placeholder="Detalle de los entregables, SLAs y alcance de mano de obra..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold">💾 Guardar Servicio</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: AGREGAR RANGO DE PROYECTO (IMPLEMENTACIÓN / MIGRACIÓN) -->
+<div class="modal fade" id="modal-add-project-rate" tabindex="-1" aria-labelledby="modalProjectRateTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="SaveProjectRateCard" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="procesoId" value="@p.Id" />
+            <input type="hidden" id="projRateId" name="rateCardId" value="" />
+            <input type="hidden" id="projRateSrvId" name="servicioId" value="" />
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="modalProjectRateTitle">Tarifario de Proyecto por Horas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 small mb-3">
+                    Servicio: <strong id="projRateServiceName"></strong>
+                </div>
+
+                <div class="mb-3">
+                    <label for="projComplejidad" class="form-label fw-semibold">Complejidad / Tipo de Proyecto <span class="text-danger">*</span></label>
+                    <select id="projComplejidad" name="complejidad" class="form-select" required>
+                        <option value="">-- Seleccionar Complejidad --</option>
+                        <option value="Baja (Por Hora)" data-desde="0" data-hasta="">Baja (Por Hora) — Tarifario por Hora</option>
+                        <option value="Proyecto menor" data-desde="1" data-hasta="100">Proyecto menor — Entre 1 a 100 horas</option>
+                        <option value="Proyecto intermedio" data-desde="101" data-hasta="200">Proyecto intermedio — Entre 101 a 200 horas</option>
+                        <option value="Proyecto mayor" data-desde="201" data-hasta="">Proyecto mayor — Mayor a 201 horas</option>
+                    </select>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label for="projHorasDesde" class="form-label small fw-semibold">Rango Horas Desde</label>
+                        <input id="projHorasDesde" name="rangoHorasDesde" type="number" class="form-control" value="1" required />
+                    </div>
+                    <div class="col-6">
+                        <label for="projHorasHasta" class="form-label small fw-semibold">Rango Horas Hasta</label>
+                        <input id="projHorasHasta" name="rangoHorasHasta" type="number" class="form-control" placeholder="Sin límite" />
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label for="projTarifaHora" class="form-label fw-semibold">Tarifa por Hora (USD) <span class="text-danger">*</span></label>
+                        <input id="projTarifaHora" name="tarifaHora" type="number" step="0.01" class="form-control proj-calc" placeholder="Ej: 75.00" required />
+                    </div>
+                    <div class="col-6">
+                        <label for="projHorasEstimadas" class="form-label fw-semibold">Horas Estimadas <span class="text-danger">*</span></label>
+                        <input id="projHorasEstimadas" name="horasEstimadas" type="number" step="0.5" class="form-control proj-calc" placeholder="Ej: 40.00" required />
+                    </div>
+                </div>
+
+                <div class="p-3 bg-light rounded border mb-3 text-center">
+                    <span class="small text-muted d-block">Subtotal Estimado:</span>
+                    <strong class="fs-4 text-success" id="projSubtotalPreview">$0.00</strong>
+                </div>
+
+                <div class="mb-3">
+                    <label for="projObs" class="form-label small fw-semibold">Observaciones / Entregables del Rango</label>
+                    <input id="projObs" name="observaciones" class="form-control" placeholder="Ej: Despliegue de políticas base y hardening" />
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary fw-bold">💾 Guardar Rango</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: AGREGAR TARIFA DE OPERACIÓN (N1, N2, N3) -->
+<div class="modal fade" id="modal-add-operation-rate" tabindex="-1" aria-labelledby="modalOpRateTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="post" asp-action="SaveOperationRateCard" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="procesoId" value="@p.Id" />
+            <input type="hidden" id="opRateId" name="rateCardId" value="" />
+            <input type="hidden" id="opRateSrvId" name="servicioId" value="" />
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="modalOpRateTitle">Tarifario de Operación (Soporte N1, N2, N3)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 small mb-3">
+                    Servicio: <strong id="opRateServiceName"></strong>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="opNivel" class="form-label fw-semibold">Tipo / Nivel de Soporte <span class="text-danger">*</span></label>
+                        <select id="opNivel" name="nivelSoporte" class="form-select" required>
+                            <option value="N1">N1 — Soporte Nivel 1</option>
+                            <option value="N2">N2 — Soporte Nivel 2</option>
+                            <option value="N3">N3 — Soporte Nivel 3</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label for="opModalidad" class="form-label fw-semibold">Modalidad / Complejidad <span class="text-danger">*</span></label>
+                        <select id="opModalidad" name="modalidad" class="form-select" required>
+                            <option value="Pay-Per-Use" data-base="0" data-desc="Tarifario por Hora bajo demanda">Pay-Per-Use (Horas bajo demanda — Tarifario por Hora)</option>
+                            <option value="Mensual 8x5" data-base="176" data-desc="Promedio de 176 horas mensuales, no incluye fines de semana">Mensual 8x5 (Promedio 176 hrs mensuales s/fines de semana)</option>
+                            <option value="Mensual 24x7" data-base="720" data-desc="Promedio de 720 horas mensuales, incluye fines de semana">Mensual 24x7 (Promedio 720 hrs mensuales continuo)</option>
+                        </select>
+                        <input type="hidden" id="opHorasBase" name="horasBaseMensual" value="0" />
+                        <input type="hidden" id="opDetalleModalidad" name="detalleModalidad" value="Tarifario por Hora" />
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="opExpertise" class="form-label fw-semibold">Expertise <span class="text-danger">*</span></label>
+                        <select id="opExpertise" name="expertise" class="form-select" required>
+                            <option value="Junior">Junior</option>
+                            <option value="Senior">Senior</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="opLocacion" class="form-label fw-semibold">Locación <span class="text-danger">*</span></label>
+                        <select id="opLocacion" name="locacion" class="form-select" required>
+                            <option value="Remoto">Remoto</option>
+                            <option value="Presencial">Presencial</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tarifas y Duración -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6" id="wrap-tarifa-mensual">
+                        <label for="opTarifaMensual" class="form-label fw-semibold">Tarifa Mensual (USD)</label>
+                        <input id="opTarifaMensual" name="tarifaMensual" type="number" step="0.01" class="form-control op-calc" placeholder="Ej: 4500.00" />
+                    </div>
+                    <div class="col-md-6" id="wrap-cantidad-meses">
+                        <label for="opCantidadMeses" class="form-label fw-semibold">Duración (Meses)</label>
+                        <input id="opCantidadMeses" name="cantidadMeses" type="number" class="form-control op-calc" value="12" min="1" />
+                    </div>
+                    <div class="col-md-6" id="wrap-tarifa-hora" style="display: none;">
+                        <label for="opTarifaHora" class="form-label fw-semibold">Tarifa por Hora (USD)</label>
+                        <input id="opTarifaHora" name="tarifaHora" type="number" step="0.01" class="form-control op-calc" placeholder="Ej: 120.00" />
+                    </div>
+                    <div class="col-md-6" id="wrap-horas-estimadas" style="display: none;">
+                        <label for="opHorasEstimadas" class="form-label fw-semibold">Horas Estimadas Bajo Demanda</label>
+                        <input id="opHorasEstimadas" name="horasEstimadas" type="number" step="0.5" class="form-control op-calc" placeholder="Ej: 40" />
+                    </div>
+                </div>
+
+                <div class="p-3 bg-light rounded border mb-0 text-center">
+                    <span class="small text-muted d-block">Subtotal Estimado de Operación:</span>
+                    <strong class="fs-4 text-success" id="opSubtotalPreview">$0.00</strong>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-bold">💾 Guardar Ítem de Operación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: CATÁLOGO DE ACTIVIDADES POR NIVEL DE SOPORTE (IMAGEN 3) -->
+<div class="modal fade" id="modal-view-activities" tabindex="-1" aria-labelledby="modalActivitiesTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="modalActivitiesTitle">📋 Definición de Niveles de Soporte de Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills mb-3" id="pills-tab-activities" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-n1" data-bs-toggle="pill" data-bs-target="#content-n1" type="button" role="tab">Soporte Nivel 1 (8 actividades)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-n2" data-bs-toggle="pill" data-bs-target="#content-n2" type="button" role="tab">Soporte Nivel 2 (12 actividades)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-n3" data-bs-toggle="pill" data-bs-target="#content-n3" type="button" role="tab">Soporte Nivel 3 (5 actividades)</button>
+                    </li>
+                </ul>
+                <div class="tab-content border rounded p-3 bg-light" id="pills-tabContentActivities">
+                    <div class="tab-pane fade show active" id="content-n1" role="tabpanel">
+                        <h6 class="fw-bold text-primary mb-2">Alcance Soporte Nivel 1:</h6>
+                        <ul class="list-group list-group-flush small">
+                            @foreach (var act in Model.SupportActivities.Where(a => a.NivelSoporte == "N1"))
+                            {
+                                <li class="list-group-item bg-transparent py-1">✓ @act.Descripcion</li>
+                            }
+                        </ul>
+                    </div>
+                    <div class="tab-pane fade" id="content-n2" role="tabpanel">
+                        <h6 class="fw-bold text-info mb-2">Alcance Soporte Nivel 2:</h6>
+                        <ul class="list-group list-group-flush small">
+                            @foreach (var act in Model.SupportActivities.Where(a => a.NivelSoporte == "N2"))
+                            {
+                                <li class="list-group-item bg-transparent py-1">✓ @act.Descripcion</li>
+                            }
+                        </ul>
+                    </div>
+                    <div class="tab-pane fade" id="content-n3" role="tabpanel">
+                        <h6 class="fw-bold text-dark mb-2">Alcance Soporte Nivel 3:</h6>
+                        <ul class="list-group list-group-flush small">
+                            @foreach (var act in Model.SupportActivities.Where(a => a.NivelSoporte == "N3"))
+                            {
+                                <li class="list-group-item bg-transparent py-1">✓ @act.Descripcion</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -792,40 +2144,369 @@
             });
         }
 
-        // Modal Registrar Tecnología
+        // Modal Registrar Tecnología: Live Search & Creación Rápida
+        const regTechSelect = document.getElementById('regTechId');
+        const techSearchFilter = document.getElementById('techSearchFilter');
+        const btnClearTechSearch = document.getElementById('btnClearTechSearch');
+        const techSearchCountNotice = document.getElementById('techSearchCountNotice');
+        const techNoMatchBox = document.getElementById('techNoMatchBox');
+        const btnCreateFromSearch = document.getElementById('btnCreateFromSearch');
+        const btnToggleQuickTech = document.getElementById('btnToggleQuickTech');
+        const panelQuickCreateTech = document.getElementById('panelQuickCreateTech');
+        const btnCloseQuickTech = document.getElementById('btnCloseQuickTech');
+        const btnCancelQuickTech = document.getElementById('btnCancelQuickTech');
+        const btnSubmitQuickTech = document.getElementById('btnSubmitQuickTech');
+        const quickTechNombreCorp = document.getElementById('quickTechNombreCorp');
+        const quickTechNombreLocal = document.getElementById('quickTechNombreLocal');
+        const quickTechAlert = document.getElementById('quickTechAlert');
+        const spinnerQuickTech = document.getElementById('spinnerQuickTech');
+        const techSelectionSuccessAlert = document.getElementById('techSelectionSuccessAlert');
+
+        let allTechOptions = [];
+        if (regTechSelect) {
+            for (let i = 0; i < regTechSelect.options.length; i++) {
+                const opt = regTechSelect.options[i];
+                allTechOptions.push({
+                    value: opt.value,
+                    text: opt.text,
+                    searchKey: (opt.getAttribute('data-name') || opt.text || '').toLowerCase().trim()
+                });
+            }
+        }
+
+        function filterTechOptions() {
+            if (!regTechSelect || !techSearchFilter) return;
+            const query = techSearchFilter.value.trim().toLowerCase();
+            const currentSelected = regTechSelect.value;
+            
+            if (btnClearTechSearch) {
+                btnClearTechSearch.style.display = query.length > 0 ? 'inline-block' : 'none';
+            }
+
+            regTechSelect.innerHTML = '';
+            let matchCount = 0;
+
+            allTechOptions.forEach(function(opt) {
+                if (opt.value === '') {
+                    const el = document.createElement('option');
+                    el.value = '';
+                    el.textContent = opt.text;
+                    regTechSelect.appendChild(el);
+                } else if (!query || opt.searchKey.includes(query)) {
+                    matchCount++;
+                    const el = document.createElement('option');
+                    el.value = opt.value;
+                    el.textContent = opt.text;
+                    el.setAttribute('data-name', opt.searchKey);
+                    if (opt.value === currentSelected) {
+                        el.selected = true;
+                    }
+                    regTechSelect.appendChild(el);
+                }
+            });
+
+            if (query.length > 0) {
+                if (techSearchCountNotice) {
+                    techSearchCountNotice.style.display = 'block';
+                    techSearchCountNotice.textContent = `${matchCount} tecnología(s) encontrada(s)`;
+                }
+                if (techNoMatchBox) {
+                    techNoMatchBox.style.display = matchCount === 0 ? 'block' : 'none';
+                }
+            } else {
+                if (techSearchCountNotice) techSearchCountNotice.style.display = 'none';
+                if (techNoMatchBox) techNoMatchBox.style.display = 'none';
+            }
+        }
+
+        if (techSearchFilter) {
+            techSearchFilter.addEventListener('input', filterTechOptions);
+        }
+
+        if (btnClearTechSearch) {
+            btnClearTechSearch.addEventListener('click', function() {
+                techSearchFilter.value = '';
+                filterTechOptions();
+                techSearchFilter.focus();
+            });
+        }
+
+        if (btnToggleQuickTech && panelQuickCreateTech) {
+            btnToggleQuickTech.addEventListener('click', function() {
+                const isHidden = panelQuickCreateTech.style.display === 'none';
+                panelQuickCreateTech.style.display = isHidden ? 'block' : 'none';
+                if (isHidden && quickTechNombreCorp) {
+                    if (techSearchFilter && techSearchFilter.value.trim().length > 0) {
+                        quickTechNombreCorp.value = techSearchFilter.value.trim();
+                    }
+                    quickTechNombreCorp.focus();
+                }
+            });
+        }
+
+        if (btnCreateFromSearch && panelQuickCreateTech) {
+            btnCreateFromSearch.addEventListener('click', function() {
+                panelQuickCreateTech.style.display = 'block';
+                if (quickTechNombreCorp && techSearchFilter) {
+                    quickTechNombreCorp.value = techSearchFilter.value.trim();
+                }
+                if (quickTechNombreCorp) quickTechNombreCorp.focus();
+            });
+        }
+
+        function closeQuickTechPanel() {
+            if (panelQuickCreateTech) panelQuickCreateTech.style.display = 'none';
+            if (quickTechAlert) {
+                quickTechAlert.classList.add('d-none');
+                quickTechAlert.textContent = '';
+            }
+            if (quickTechNombreCorp) quickTechNombreCorp.value = '';
+            if (quickTechNombreLocal) quickTechNombreLocal.value = '';
+        }
+
+        if (btnCloseQuickTech) btnCloseQuickTech.addEventListener('click', closeQuickTechPanel);
+        if (btnCancelQuickTech) btnCancelQuickTech.addEventListener('click', closeQuickTechPanel);
+
+        if (btnSubmitQuickTech) {
+            btnSubmitQuickTech.addEventListener('click', async function() {
+                const nombreCorp = (quickTechNombreCorp?.value || '').trim();
+                const nombreLoc = (quickTechNombreLocal?.value || '').trim();
+
+                if (!nombreCorp) {
+                    if (quickTechAlert) {
+                        quickTechAlert.textContent = 'El Nombre Corporativo es obligatorio.';
+                        quickTechAlert.classList.remove('d-none');
+                    }
+                    quickTechNombreCorp?.focus();
+                    return;
+                }
+
+                if (quickTechAlert) quickTechAlert.classList.add('d-none');
+                if (spinnerQuickTech) spinnerQuickTech.classList.remove('d-none');
+                btnSubmitQuickTech.disabled = true;
+
+                try {
+                    const token = document.querySelector('#formRegisterTech input[name="__RequestVerificationToken"]')?.value || '';
+                    const formData = new URLSearchParams();
+                    formData.append('__RequestVerificationToken', token);
+                    formData.append('nombreCorporativo', nombreCorp);
+                    if (nombreLoc) formData.append('nombreLocal', nombreLoc);
+
+                    const response = await fetch('@Url.Action("QuickCreateTechnology", "AdoptionProcess")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                        },
+                        body: formData.toString()
+                    });
+
+                    const data = await response.json();
+                    if (data.succeeded) {
+                        const newId = String(data.id);
+                        const newName = data.nombre || nombreCorp;
+                        
+                        const alreadyExists = allTechOptions.some(o => o.value === newId);
+                        if (!alreadyExists) {
+                            allTechOptions.push({
+                                value: newId,
+                                text: newName,
+                                searchKey: newName.toLowerCase().trim()
+                            });
+                        }
+
+                        if (techSearchFilter) techSearchFilter.value = '';
+                        filterTechOptions();
+
+                        if (regTechSelect) {
+                            regTechSelect.value = newId;
+                        }
+
+                        if (techSelectionSuccessAlert) {
+                            techSelectionSuccessAlert.textContent = `✓ Tecnología "${newName}" registrada y seleccionada exitosamente.`;
+                            techSelectionSuccessAlert.classList.remove('d-none');
+                            setTimeout(() => {
+                                techSelectionSuccessAlert.classList.add('d-none');
+                            }, 5000);
+                        }
+
+                        closeQuickTechPanel();
+                    } else {
+                        if (quickTechAlert) {
+                            quickTechAlert.textContent = data.message || 'No se pudo registrar la tecnología.';
+                            quickTechAlert.classList.remove('d-none');
+                        }
+                    }
+                } catch (err) {
+                    if (quickTechAlert) {
+                        quickTechAlert.textContent = 'Error de comunicación con el servidor al registrar la tecnología.';
+                        quickTechAlert.classList.remove('d-none');
+                    }
+                } finally {
+                    if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
+                    btnSubmitQuickTech.disabled = false;
+                }
+            });
+        }
+
         document.querySelectorAll('.btn-add-tech').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.getElementById('regEmpresaId').value = this.dataset.empresaId || '';
                 document.getElementById('regProcesoEmpId').value = this.dataset.procesoEmpId || '';
+                if (techSearchFilter) techSearchFilter.value = '';
+                filterTechOptions();
+                closeQuickTechPanel();
+                if (techSelectionSuccessAlert) techSelectionSuccessAlert.classList.add('d-none');
             });
         });
 
-        // Modal Guardar Contrato (Principal o Adenda)
+        // Modal Guardar Contrato (Principal o Adenda) & Modalidad PAYG
+        const contractEsPayg = document.getElementById('contractEsPayg');
+        const contractInicio = document.getElementById('contractInicio');
+        const contractFin = document.getElementById('contractFin');
+        const contractAdj = document.getElementById('contractAdj');
+        const badgePaygInicio = document.getElementById('badgePaygInicio');
+        const badgePaygFin = document.getElementById('badgePaygFin');
+        const badgePaygAdj = document.getElementById('badgePaygAdj');
+        const noticePaygBlocked = document.getElementById('noticePaygBlocked');
+
+        function toggleContractPayg() {
+            if (!contractEsPayg) return;
+            const isPayg = contractEsPayg.checked;
+            if (contractInicio) {
+                contractInicio.disabled = isPayg;
+                contractInicio.required = !isPayg;
+                if (isPayg) contractInicio.value = '';
+            }
+            if (contractFin) {
+                contractFin.disabled = isPayg;
+                contractFin.required = !isPayg;
+                if (isPayg) contractFin.value = '';
+            }
+            if (contractAdj) {
+                contractAdj.disabled = isPayg;
+                if (isPayg) contractAdj.value = '';
+            }
+            if (badgePaygInicio) badgePaygInicio.classList.toggle('d-none', !isPayg);
+            if (badgePaygFin) badgePaygFin.classList.toggle('d-none', !isPayg);
+            if (badgePaygAdj) badgePaygAdj.classList.toggle('d-none', !isPayg);
+            if (noticePaygBlocked) noticePaygBlocked.style.display = isPayg ? 'block' : 'none';
+        }
+
+        if (contractEsPayg) {
+            contractEsPayg.addEventListener('change', toggleContractPayg);
+        }
+
+        function resetContractModalState() {
+            if (contractEsPayg) contractEsPayg.checked = false;
+            toggleContractPayg();
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            const nextYear = new Date(today);
+            nextYear.setFullYear(today.getFullYear() + 1);
+            const nextYearStr = nextYear.toISOString().split('T')[0];
+            if (contractInicio) contractInicio.value = todayStr;
+            if (contractFin) contractFin.value = nextYearStr;
+            if (contractAdj) contractAdj.value = '';
+        }
+
         document.querySelectorAll('.btn-add-contract').forEach(function(btn) {
             btn.addEventListener('click', function() {
+                document.getElementById('contractId').value = '';
                 document.getElementById('contractImplId').value = this.dataset.implId || '';
                 document.getElementById('contractIsAdenda').value = 'false';
                 document.getElementById('contractParentId').value = '';
                 document.getElementById('modalContractTitle').innerText = 'Registrar Contrato Principal';
                 document.getElementById('contractParentNotice').style.display = 'none';
+                document.getElementById('contractNum').value = '';
+                document.getElementById('contractMonto').value = '';
+                document.getElementById('contractMoneda').value = 'USD';
+                document.getElementById('contractDoc').value = '';
+                document.getElementById('contractObs').value = '';
+                resetContractModalState();
             });
         });
 
         document.querySelectorAll('.btn-add-adenda').forEach(function(btn) {
             btn.addEventListener('click', function() {
+                document.getElementById('contractId').value = '';
                 document.getElementById('contractImplId').value = this.dataset.implId || '';
                 document.getElementById('contractIsAdenda').value = 'true';
                 document.getElementById('contractParentId').value = this.dataset.parentId || '';
                 document.getElementById('modalContractTitle').innerText = 'Registrar Adenda de Contrato';
                 document.getElementById('contractParentNumText').innerText = this.dataset.parentNum || '';
                 document.getElementById('contractParentNotice').style.display = 'block';
+                document.getElementById('contractNum').value = '';
+                document.getElementById('contractMonto').value = '';
+                document.getElementById('contractMoneda').value = 'USD';
+                document.getElementById('contractDoc').value = '';
+                document.getElementById('contractObs').value = '';
+                resetContractModalState();
+            });
+        });
+
+        document.querySelectorAll('.btn-edit-contract').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const isAdenda = this.dataset.isAdenda === 'true';
+                const isPayg = this.dataset.payg === 'true';
+
+                document.getElementById('contractId').value = this.dataset.contractId || '';
+                document.getElementById('contractImplId').value = this.dataset.implId || '';
+                document.getElementById('contractIsAdenda').value = isAdenda ? 'true' : 'false';
+                document.getElementById('contractParentId').value = this.dataset.parentId || '';
+
+                if (isAdenda) {
+                    document.getElementById('modalContractTitle').innerText = 'Editar Adenda: ' + (this.dataset.num || '');
+                    document.getElementById('contractParentNumText').innerText = this.dataset.parentNum || '';
+                    document.getElementById('contractParentNotice').style.display = 'block';
+                } else {
+                    document.getElementById('modalContractTitle').innerText = 'Editar Contrato: ' + (this.dataset.num || '');
+                    document.getElementById('contractParentNotice').style.display = 'none';
+                }
+
+                document.getElementById('contractNum').value = this.dataset.num || '';
+                document.getElementById('contractMonto').value = this.dataset.monto || '';
+                document.getElementById('contractMoneda').value = this.dataset.moneda || 'USD';
+                document.getElementById('contractDoc').value = this.dataset.doc || '';
+                document.getElementById('contractObs').value = this.dataset.obs || '';
+
+                if (contractEsPayg) {
+                    contractEsPayg.checked = isPayg;
+                    toggleContractPayg();
+                }
+                if (!isPayg) {
+                    if (contractInicio) contractInicio.value = this.dataset.inicio || '';
+                    if (contractFin) contractFin.value = this.dataset.fin || '';
+                    if (contractAdj) contractAdj.value = this.dataset.adj || '';
+                }
             });
         });
 
         // Modal Guardar Driver
         document.querySelectorAll('.btn-add-driver').forEach(function(btn) {
             btn.addEventListener('click', function() {
+                document.getElementById('driverId').value = '';
                 document.getElementById('driverImplId').value = this.dataset.implId || '';
+                document.getElementById('modalDriverTitle').innerText = 'Agregar Driver de Costo';
+                document.getElementById('drvDesc').value = '';
+                document.getElementById('drvUnidad').value = '';
+                document.getElementById('drvMoneda').value = 'USD';
+                document.getElementById('drvCant').value = '';
+                document.getElementById('drvPrecio').value = '';
+                updateDriverTotal();
+            });
+        });
+
+        document.querySelectorAll('.btn-edit-driver').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('driverId').value = this.dataset.driverId || '';
+                document.getElementById('driverImplId').value = this.dataset.implId || '';
+                document.getElementById('modalDriverTitle').innerText = 'Editar Driver de Costo';
+                document.getElementById('drvDesc').value = this.dataset.desc || '';
+                document.getElementById('drvUnidad').value = this.dataset.unidad || '';
+                document.getElementById('drvMoneda').value = this.dataset.moneda || 'USD';
+                document.getElementById('drvCant').value = this.dataset.cant || '';
+                document.getElementById('drvPrecio').value = this.dataset.precio || '';
+                updateDriverTotal();
             });
         });
 
@@ -848,6 +2529,364 @@
                 document.getElementById('opModalidad').value = this.dataset.modId || '';
             });
         });
+
+        // --- MANEJO DE SERVICIOS Y TARIFARIOS ---
+        // Modal Rango de Proyecto (Agregar y Editar)
+        document.querySelectorAll('.btn-add-project-rate').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('projRateId').value = '';
+                document.getElementById('projRateSrvId').value = this.dataset.serviceId || '';
+                document.getElementById('projRateServiceName').innerText = this.dataset.serviceName || '';
+                document.getElementById('modalProjectRateTitle').innerText = 'Tarifario de Proyecto por Horas';
+                document.getElementById('projComplejidad').value = '';
+                document.getElementById('projHorasDesde').value = '1';
+                document.getElementById('projHorasHasta').value = '';
+                document.getElementById('projTarifaHora').value = '';
+                document.getElementById('projHorasEstimadas').value = '';
+                document.getElementById('projObs').value = '';
+                document.getElementById('projSubtotalPreview').innerText = '$0.00';
+            });
+        });
+
+        document.querySelectorAll('.btn-edit-project-rate').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('projRateId').value = this.dataset.rateId || '';
+                document.getElementById('projRateSrvId').value = this.dataset.serviceId || '';
+                document.getElementById('projRateServiceName').innerText = this.dataset.serviceName || '';
+                document.getElementById('modalProjectRateTitle').innerText = 'Editar Tarifario de Proyecto por Horas';
+                document.getElementById('projComplejidad').value = this.dataset.complejidad || '';
+                document.getElementById('projHorasDesde').value = this.dataset.desde || '1';
+                document.getElementById('projHorasHasta').value = this.dataset.hasta || '';
+                document.getElementById('projTarifaHora').value = this.dataset.tarifa || '';
+                document.getElementById('projHorasEstimadas').value = this.dataset.horas || '';
+                document.getElementById('projObs').value = this.dataset.obs || '';
+                updateProjectRateSubtotal();
+            });
+        });
+
+        const projComplejidad = document.getElementById('projComplejidad');
+        if (projComplejidad) {
+            projComplejidad.addEventListener('change', function() {
+                const opt = this.options[this.selectedIndex];
+                const desde = opt.dataset.desde || '0';
+                const hasta = opt.dataset.hasta || '';
+                document.getElementById('projHorasDesde').value = desde;
+                document.getElementById('projHorasHasta').value = hasta;
+            });
+        }
+
+        function updateProjectRateSubtotal() {
+            const tarifa = parseFloat(document.getElementById('projTarifaHora').value) || 0;
+            const horas = parseFloat(document.getElementById('projHorasEstimadas').value) || 0;
+            const sub = tarifa * horas;
+            document.getElementById('projSubtotalPreview').innerText = '$' + sub.toFixed(2);
+        }
+        document.querySelectorAll('.proj-calc').forEach(function(el) {
+            el.addEventListener('input', updateProjectRateSubtotal);
+        });
+
+        // Modal Ítem de Operación (Agregar y Editar)
+        document.querySelectorAll('.btn-add-operation-rate').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('opRateId').value = '';
+                document.getElementById('opRateSrvId').value = this.dataset.serviceId || '';
+                document.getElementById('opRateServiceName').innerText = this.dataset.serviceName || '';
+                document.getElementById('modalOpRateTitle').innerText = 'Tarifario de Operación (Soporte N1, N2, N3)';
+                document.getElementById('opNivel').value = 'N1';
+                document.getElementById('opModalidad').value = 'Pay-Per-Use';
+                document.getElementById('opExpertise').value = 'Junior';
+                document.getElementById('opLocacion').value = 'Remoto';
+                document.getElementById('opTarifaMensual').value = '';
+                document.getElementById('opTarifaHora').value = '';
+                document.getElementById('opCantidadMeses').value = '12';
+                document.getElementById('opHorasEstimadas').value = '';
+                document.getElementById('opSubtotalPreview').innerText = '$0.00';
+                if (opModalidad) {
+                    opModalidad.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-edit-operation-rate').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.getElementById('opRateId').value = this.dataset.rateId || '';
+                document.getElementById('opRateSrvId').value = this.dataset.serviceId || '';
+                document.getElementById('opRateServiceName').innerText = this.dataset.serviceName || '';
+                document.getElementById('modalOpRateTitle').innerText = 'Editar Tarifario de Operación';
+                document.getElementById('opNivel').value = this.dataset.nivel || 'N1';
+                document.getElementById('opModalidad').value = this.dataset.modalidad || 'Pay-Per-Use';
+                document.getElementById('opExpertise').value = this.dataset.expertise || 'Junior';
+                document.getElementById('opLocacion').value = this.dataset.locacion || 'Remoto';
+                document.getElementById('opTarifaMensual').value = this.dataset.tarifaMes || '';
+                document.getElementById('opTarifaHora').value = this.dataset.tarifaHora || '';
+                document.getElementById('opCantidadMeses').value = this.dataset.meses || '1';
+                document.getElementById('opHorasEstimadas').value = this.dataset.horas || '';
+                if (opModalidad) {
+                    opModalidad.dispatchEvent(new Event('change'));
+                }
+                updateOpRateSubtotal();
+            });
+        });
+
+        // Lógica de Convocatoria Masiva con Checkboxes
+        const conveneSearchBox = document.getElementById('conveneSearchBox');
+        if (conveneSearchBox) {
+            conveneSearchBox.addEventListener('input', function() {
+                const term = this.value.toLowerCase().trim();
+                document.querySelectorAll('.convene-company-item').forEach(item => {
+                    const name = item.getAttribute('data-company-name') || '';
+                    item.style.display = name.includes(term) ? '' : 'none';
+                });
+            });
+        }
+
+        const btnToggleAll = document.getElementById('btnToggleAllConvene');
+        if (btnToggleAll) {
+            let allSelected = false;
+            btnToggleAll.addEventListener('click', function() {
+                const checkboxes = document.querySelectorAll('.convene-company-chk');
+                allSelected = !allSelected;
+                checkboxes.forEach(chk => {
+                    const item = chk.closest('.convene-company-item');
+                    if (!item || item.style.display !== 'none') {
+                        chk.checked = allSelected;
+                    }
+                });
+                btnToggleAll.innerText = allSelected ? 'Deseleccionar Todas' : 'Seleccionar Todas';
+            });
+        }
+
+        // ==========================================
+        // DRAG & DROP REORDERING FOR COMPANIES
+        // ==========================================
+        const accordionEmpresas = document.getElementById('accordionEmpresas');
+        const btnResetOrder = document.getElementById('btnResetCompanyOrder');
+        const orderSavedFeedback = document.getElementById('orderSavedFeedback');
+
+        if (accordionEmpresas) {
+            const procesoId = accordionEmpresas.dataset.procesoId || '';
+            const storageKey = `landscape_tsi_eval_${procesoId}_company_order`;
+
+            // 1. Restaurar orden guardado en localStorage si existe
+            function restoreSavedOrder() {
+                try {
+                    const savedOrderJson = localStorage.getItem(storageKey);
+                    if (!savedOrderJson) return;
+                    const savedIds = JSON.parse(savedOrderJson);
+                    if (!Array.isArray(savedIds) || savedIds.length === 0) return;
+
+                    const currentItems = Array.from(accordionEmpresas.querySelectorAll('.company-draggable-item'));
+                    const itemsMap = new Map();
+                    currentItems.forEach(item => {
+                        const id = item.dataset.procesoEmpId;
+                        if (id) itemsMap.set(id, item);
+                    });
+
+                    let reordered = false;
+                    savedIds.forEach(id => {
+                        const item = itemsMap.get(id.toString());
+                        if (item) {
+                            accordionEmpresas.appendChild(item);
+                            itemsMap.delete(id.toString());
+                            reordered = true;
+                        }
+                    });
+
+                    // Cualquier elemento nuevo no presente en la lista guardada se añade al final
+                    itemsMap.forEach(item => accordionEmpresas.appendChild(item));
+
+                    if (reordered && btnResetOrder) {
+                        btnResetOrder.classList.remove('d-none');
+                    }
+                } catch (e) {
+                    console.warn('Error al restaurar orden de empresas:', e);
+                }
+            }
+
+            restoreSavedOrder();
+
+            // 2. Eventos de Drag and Drop
+            let draggedItem = null;
+
+            function initDragAndDrop() {
+                const items = accordionEmpresas.querySelectorAll('.company-draggable-item');
+
+                items.forEach(item => {
+                    const handle = item.querySelector('.company-drag-handle');
+                    if (handle) {
+                        handle.addEventListener('mouseenter', () => {
+                            item.setAttribute('draggable', 'true');
+                        });
+                        handle.addEventListener('mouseleave', () => {
+                            if (!item.classList.contains('dragging')) {
+                                item.setAttribute('draggable', 'false');
+                            }
+                        });
+                    }
+
+                    item.addEventListener('dragstart', (e) => {
+                        draggedItem = item;
+                        item.classList.add('dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', item.dataset.procesoEmpId || '');
+                    });
+
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('dragging');
+                        item.setAttribute('draggable', 'false');
+                        draggedItem = null;
+
+                        items.forEach(it => it.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+                        saveCurrentOrder();
+                    });
+
+                    item.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (!draggedItem || draggedItem === item) return;
+
+                        const bounding = item.getBoundingClientRect();
+                        const offset = bounding.y + (bounding.height / 2);
+                        if (e.clientY - offset > 0) {
+                            item.classList.remove('drag-over-top');
+                            item.classList.add('drag-over-bottom');
+                        } else {
+                            item.classList.remove('drag-over-bottom');
+                            item.classList.add('drag-over-top');
+                        }
+                    });
+
+                    item.addEventListener('dragleave', () => {
+                        item.classList.remove('drag-over-top', 'drag-over-bottom');
+                    });
+
+                    item.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        item.classList.remove('drag-over-top', 'drag-over-bottom');
+                        if (!draggedItem || draggedItem === item) return;
+
+                        const bounding = item.getBoundingClientRect();
+                        const offset = bounding.y + (bounding.height / 2);
+                        if (e.clientY - offset > 0) {
+                            item.after(draggedItem);
+                        } else {
+                            item.before(draggedItem);
+                        }
+                    });
+                });
+            }
+
+            initDragAndDrop();
+
+            function saveCurrentOrder() {
+                const currentItems = Array.from(accordionEmpresas.querySelectorAll('.company-draggable-item'));
+                const ids = currentItems.map(it => it.dataset.procesoEmpId).filter(Boolean);
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(ids));
+                    if (btnResetOrder) btnResetOrder.classList.remove('d-none');
+                    if (orderSavedFeedback) {
+                        orderSavedFeedback.classList.remove('d-none');
+                        setTimeout(() => orderSavedFeedback.classList.add('d-none'), 2500);
+                    }
+                } catch (e) {
+                    console.warn('Error guardando orden de empresas:', e);
+                }
+            }
+
+            if (btnResetOrder) {
+                btnResetOrder.addEventListener('click', () => {
+                    try {
+                        localStorage.removeItem(storageKey);
+                        location.reload();
+                    } catch (e) {
+                        location.reload();
+                    }
+                });
+            }
+            // --- Dynamic Corporate Drivers in Finalize Modal ---
+            const btnAddDriver = document.getElementById('btnAddCorporateDriverRow');
+            const tblCorporateDrivers = document.getElementById('tblCorporateDrivers');
+            if (btnAddDriver && tblCorporateDrivers) {
+                btnAddDriver.addEventListener('click', function () {
+                    const tbody = tblCorporateDrivers.querySelector('tbody');
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>
+                            <input type="text" name="driverDescripcion" class="form-control form-control-sm" placeholder="Ej: Licencias / Dispositivos protegidos" />
+                        </td>
+                        <td>
+                            <input type="text" name="driverUnidadMedida" class="form-control form-control-sm" placeholder="Ej: Unidades" />
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="driverCantidad" class="form-control form-control-sm" placeholder="0" />
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="driverPrecioUnitario" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <select name="driverMoneda" class="form-select form-select-sm">
+                                <option value="USD">USD</option>
+                                <option value="PEN">PEN</option>
+                            </select>
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger p-0 px-1 btn-remove-driver-row">✕</button>
+                        </td>
+                    `;
+                    tbody.appendChild(newRow);
+                });
+
+                tblCorporateDrivers.addEventListener('click', function (e) {
+                    if (e.target && e.target.classList.contains('btn-remove-driver-row')) {
+                        const tr = e.target.closest('tr');
+                        if (tr && tblCorporateDrivers.querySelectorAll('tbody tr').length > 1) {
+                            tr.remove();
+                        } else if (tr) {
+                            tr.querySelectorAll('input').forEach(i => i.value = '');
+                        }
+                    }
+                });
+            }
+
+            // PAYG toggle in Finalize Modal
+            const finEsPayg = document.getElementById('finEsPayg');
+            const finContractInicio = document.getElementById('finContractInicio');
+            const finContractFin = document.getElementById('finContractFin');
+            const finContractAdj = document.getElementById('finContractAdj');
+            if (finEsPayg) {
+                finEsPayg.addEventListener('change', function () {
+                    const isPayg = this.checked;
+                    if (finContractInicio) finContractInicio.disabled = isPayg;
+                    if (finContractFin) finContractFin.disabled = isPayg;
+                    if (finContractAdj) finContractAdj.disabled = isPayg;
+                });
+            }
+        }
     });
 </script>
+<style>
+    .company-drag-handle {
+        cursor: grab;
+        transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .company-drag-handle:hover {
+        color: var(--bs-primary) !important;
+        transform: scale(1.2);
+    }
+    .company-drag-handle:active {
+        cursor: grabbing !important;
+    }
+    .company-draggable-item.dragging {
+        opacity: 0.45;
+        border: 2px dashed #0d6efd !important;
+        background-color: #f0f7ff !important;
+    }
+    .company-draggable-item.drag-over-top {
+        border-top: 3px solid #0d6efd !important;
+    }
+    .company-draggable-item.drag-over-bottom {
+        border-bottom: 3px solid #0d6efd !important;
+    }
+</style>
 }

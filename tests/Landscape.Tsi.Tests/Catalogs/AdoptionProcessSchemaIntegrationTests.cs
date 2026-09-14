@@ -60,11 +60,13 @@ public sealed class AdoptionProcessSchemaIntegrationTests
             ("TTecnologiaTSIimplementadaSubsidiaria", "idBuildingBlock"),
             ("TTecnologiaTSIimplementadaSubsidiaria", "idProcesoAdopcionEmpresa"),
             ("TTecnologiaTSIimplementadaSubsidiaria", "esTecnologiaPrimaria"),
+            ("TTecnologiaTSIimplementadaSubsidiaria", "esInstanciaCorporativa"),
             ("TDriver", "unidadMedida"),
             ("TDriver", "cantidad"),
             ("TDriver", "precioUnitario"),
             ("TDriver", "moneda"),
-            ("TCasosDeUso", "idEstandarTecnologia")
+            ("TCasosDeUso", "idEstandarTecnologia"),
+            ("TContratoTecnologia", "esPayg")
         };
 
         foreach (var (table, column) in expectedColumns)

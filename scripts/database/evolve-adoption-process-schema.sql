@@ -119,9 +119,10 @@ BEGIN
         idTecnologiaTSIimplementadaSubsidiaria INT NOT NULL,
         numeroContrato NVARCHAR(100) NOT NULL,
         esAdenda BIT NOT NULL CONSTRAINT DF_TContrato_EsAdenda DEFAULT 0,
+        esPayg BIT NOT NULL CONSTRAINT DF_TContrato_EsPayg DEFAULT 0,
         idContratoPadre INT NULL,
-        fechaInicio DATE NOT NULL,
-        fechaFin DATE NOT NULL,
+        fechaInicio DATE NULL,
+        fechaFin DATE NULL,
         fechaAdjudicacion DATE NULL,
         rutaDocumentoContrato NVARCHAR(500) NULL,
         montoContratado DECIMAL(18,2) NULL,
@@ -138,6 +139,16 @@ BEGIN
     ALTER TABLE dbo.TContratoTecnologia
         ADD CONSTRAINT FK_TContratoTecnologia_Padre
         FOREIGN KEY (idContratoPadre) REFERENCES dbo.TContratoTecnologia(idContratoTecnologia);
+END;
+ELSE
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TContratoTecnologia') AND name = N'esPayg')
+    BEGIN
+        ALTER TABLE dbo.TContratoTecnologia ADD esPayg BIT NOT NULL CONSTRAINT DF_TContrato_EsPayg DEFAULT 0;
+    END;
+
+    ALTER TABLE dbo.TContratoTecnologia ALTER COLUMN fechaInicio DATE NULL;
+    ALTER TABLE dbo.TContratoTecnologia ALTER COLUMN fechaFin DATE NULL;
 END;
 
 -- 5. Extensiones No Destructivas en Tablas Existentes
@@ -170,6 +181,11 @@ END;
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TTecnologiaTSIimplementadaSubsidiaria') AND name = N'versionDesplegada')
 BEGIN
     ALTER TABLE dbo.TTecnologiaTSIimplementadaSubsidiaria ADD versionDesplegada NVARCHAR(50) NULL;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TTecnologiaTSIimplementadaSubsidiaria') AND name = N'esInstanciaCorporativa')
+BEGIN
+    ALTER TABLE dbo.TTecnologiaTSIimplementadaSubsidiaria ADD esInstanciaCorporativa BIT NOT NULL CONSTRAINT DF_TTecnologiaImpl_EsCorp DEFAULT 0;
 END;
 
 -- 5.3 TDriver: unidadMedida, cantidad, precioUnitario, moneda

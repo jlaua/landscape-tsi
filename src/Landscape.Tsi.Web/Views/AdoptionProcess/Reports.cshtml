@@ -1,0 +1,392 @@
+@model Landscape.Tsi.Application.Adoption.EvaluationReportsDto
+@{
+    ViewData["Title"] = $"Seguimiento y Reportería - {Model.NombreProceso}";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Evaluations">Evaluaciones TSI</a></li>
+        <li><a asp-action="Details" asp-route-id="@Model.ProcesoId">@Model.CodigoProceso</a></li>
+        <li aria-current="page">Reportería & Seguimiento</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="reports-page-title">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">@Model.DominioNombre</span>
+                <span class="badge bg-secondary-subtle text-secondary border">BB: @Model.BuildingBlockNombre</span>
+                <span class="badge bg-info text-dark">@Model.EstadoAdopcionNombre</span>
+            </div>
+            <h1 id="reports-page-title" class="h2 mb-1">📊 Seguimiento y Reportería Operacional</h1>
+            <p class="supporting-text mb-0">
+                Evaluación: <strong>@Model.NombreProceso</strong> (<code class="fw-bold">@Model.CodigoProceso</code>) · Líder: @(Model.LiderCorporativo ?? "No asignado") · Vigencia: @Model.FechaInicio.ToString("dd/MM/yyyy") @(Model.FechaEstimadaCierre.HasValue ? $"al {Model.FechaEstimadaCierre.Value:dd/MM/yyyy}" : "")
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" onclick="window.print()">
+                <span>🖨️ Imprimir / Guardar PDF</span>
+            </button>
+            <a asp-action="Details" asp-route-id="@Model.ProcesoId" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+                <span>← Volver al Proceso</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-grid mb-4" aria-label="Resumen Ejecutivo de la Evaluación">
+        <div class="kpi-card">
+            <span>Subsidiarias Participantes</span>
+            <strong>@Model.AlcanceReport.Count</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Throughput Global Proyectado</span>
+            <strong>@Model.VencimientoContratosReport.TotalThroughputGbMes.ToString("N1") GB/m</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Total Apps FQDN Protegidas</span>
+            <strong>@Model.VencimientoContratosReport.TotalAppsFqdn</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Tráfico WAF Corporativo</span>
+            <strong>@Model.VencimientoContratosReport.TotalRequestWafMillonesMes.ToString("N1") M req/m</strong>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="tab-alcance" data-bs-toggle="tab" data-bs-target="#pane-alcance" type="button" role="tab" aria-controls="pane-alcance" aria-selected="true">
+                📋 a) Alcance del Proceso
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-vencimientos" data-bs-toggle="tab" data-bs-target="#pane-vencimientos" type="button" role="tab" aria-controls="pane-vencimientos" aria-selected="false">
+                ⏱️ b) Vencimiento de Contratos & Proyección
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-volumetria" data-bs-toggle="tab" data-bs-target="#pane-volumetria" type="button" role="tab" aria-controls="pane-volumetria" aria-selected="false">
+                📈 3) Volumetría por Empresa
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-capacidades" data-bs-toggle="tab" data-bs-target="#pane-capacidades" type="button" role="tab" aria-controls="pane-capacidades" aria-selected="false">
+                🛡️ 4) Capacidades por Empresa
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="reportTabsContent">
+        
+        <!-- PESTAÑA A: ALCANCE DEL PROCESO -->
+        <div class="tab-pane fade show active" id="pane-alcance" role="tabpanel" aria-labelledby="tab-alcance">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Alcance del Proceso de Evaluación</h2>
+                        <small class="text-muted">Resumen consolidado de empresas participantes, tecnología AS-IS, contratos, partners y modo de operación</small>
+                    </div>
+                    <span class="badge bg-primary fs-6">@Model.AlcanceReport.Count Empresas</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; letter-spacing:0.5px;">
+                            <tr>
+                                <th scope="col">Empresa</th>
+                                <th scope="col">País</th>
+                                <th scope="col">Fecha Vencimiento</th>
+                                <th scope="col">WAF AS-IS</th>
+                                <th scope="col">Tipo Contrato</th>
+                                <th scope="col">Partner</th>
+                                <th scope="col">Operación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.AlcanceReport)
+                        {
+                            <tr>
+                                <td class="fw-bold text-dark">@row.EmpresaNombre</td>
+                                <td>
+                                    <span class="badge bg-secondary-subtle text-secondary border">@(row.Pais ?? "Global")</span>
+                                </td>
+                                <td>
+                                    @if (row.TipoContrato == "PAYG" || !row.FechaVencimientoContrato.HasValue)
+                                    {
+                                        <span class="badge bg-info-subtle text-dark border border-info">PAYG</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning-subtle text-dark border border-warning">@row.FechaVencimientoContrato.Value.ToString("dd/MM/yyyy")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-primary">@row.TecnologiaAsIs</span>
+                                </td>
+                                <td>
+                                    <span class="badge @(row.TipoContrato == "PAYG" ? "bg-info-subtle text-dark border border-info" : "bg-light text-secondary border")">
+                                        @(row.TipoContrato ?? "Contrato")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="small">@(row.Partner ?? "Directo")</span>
+                                </td>
+                                <td>
+                                    <span class="badge @(row.TipoOperacion == "Autogestionado" ? "bg-success-subtle text-success border border-success" : "bg-primary-subtle text-primary border border-primary")">
+                                        @(row.TipoOperacion ?? "Autogestionado")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA B: VENCIMIENTO DE CONTRATOS & PROYECCIÓN ACUMULADA -->
+        <div class="tab-pane fade" id="pane-vencimientos" role="tabpanel" aria-labelledby="tab-vencimientos">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Fechas de Vencimiento de Contratos y Proyección Acumulada</h2>
+                        <small class="text-muted">Línea de tiempo cronológica según el vencimiento más cercano de cada subsidiaria y absorción paulatina de volumetría</small>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0 text-center">
+                        <thead class="table-light text-muted" style="font-size:0.75rem;">
+                            <tr>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; width:40px;">#</th>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:180px;">Subsidiaria</th>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:160px;">Producto Actual</th>
+                                <th scope="col" colspan="3" class="bg-light">Métricas Base</th>
+                                <th scope="col" colspan="@Model.VencimientoContratosReport.PeriodosHito.Count" class="bg-primary text-white">Línea Cronológica de Expiración Contractual</th>
+                            </tr>
+                            <tr>
+                                <th scope="col" class="small bg-light">Throughput<br/>(GB/mes)</th>
+                                <th scope="col" class="small bg-light">Cant. Apps<br/>FQDN urls</th>
+                                <th scope="col" class="small bg-light">Req WAF<br/>(M/mes)</th>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <th scope="col" class="fw-bold text-nowrap" style="min-width:75px;">@h.PeriodoLabel</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.VencimientoContratosReport.Filas)
+                        {
+                            <tr>
+                                <td class="text-muted small">@row.Secuencia</td>
+                                <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
+                                <td class="text-start small text-primary">@(row.ProductoActual ?? "WAF Local")</td>
+                                <td class="text-end fw-semibold">@row.ThroughputGbMes.ToString("N1")</td>
+                                <td class="text-end fw-semibold">@row.CantidadAppFqdn</td>
+                                <td class="text-end fw-semibold">@row.RequestWafMillonesMes.ToString("N1")</td>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    var isMarked = row.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active;
+                                    <td class="@(isMarked ? "bg-primary-subtle" : "")">
+                                        @if (isMarked)
+                                        {
+                                            <span class="badge bg-primary text-white fw-bold px-2 py-1" title="Expiración: @row.VencimientoLabel">X</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted opacity-25">·</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot class="table-dark" style="font-size:0.85rem;">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold text-uppercase">Throughput GB Acum:</td>
+                                <td class="text-end fw-bold">@Model.VencimientoContratosReport.TotalThroughputGbMes.ToString("N1")</td>
+                                <td>-</td>
+                                <td>-</td>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <td class="text-center fw-bold bg-dark border-start">
+                                        @(Model.VencimientoContratosReport.ThroughputGbAcumuladoPorPeriodo.TryGetValue(h.PeriodoLabel, out var v) ? v.ToString("N1") : "0")
+                                    </td>
+                                }
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold text-uppercase">Cant. Apps Acum:</td>
+                                <td>-</td>
+                                <td class="text-end fw-bold">@Model.VencimientoContratosReport.TotalAppsFqdn</td>
+                                <td>-</td>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <td class="text-center fw-bold bg-dark border-start">
+                                        @(Model.VencimientoContratosReport.CantidadAppsAcumuladoPorPeriodo.TryGetValue(h.PeriodoLabel, out var v) ? v : 0)
+                                    </td>
+                                }
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold text-uppercase">Req. WAF M Acum:</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td class="text-end fw-bold">@Model.VencimientoContratosReport.TotalRequestWafMillonesMes.ToString("N1")</td>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <td class="text-center fw-bold bg-dark border-start">
+                                        @(Model.VencimientoContratosReport.RequestWafMillonesAcumuladoPorPeriodo.TryGetValue(h.PeriodoLabel, out var v) ? v.ToString("N1") : "0")
+                                    </td>
+                                }
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 3: VOLUMETRÍA POR EMPRESA -->
+        <div class="tab-pane fade" id="pane-volumetria" role="tabpanel" aria-labelledby="tab-volumetria">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Volumetría Detallada y Dimensionamiento por Empresa</h2>
+                        <small class="text-muted">Drivers de consumo mensual por subsidiaria, capacidad de throughput, transacciones y transferencia de datos</small>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0 text-center" style="font-size:0.8rem;">
+                        <thead class="table-light text-muted text-uppercase" style="font-size:0.7rem;">
+                            <tr>
+                                <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
+                                <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
+                                <th scope="col">Throughput<br/>(Gbps/mes)</th>
+                                <th scope="col">Ancho Banda<br/>(Gbps/mes)</th>
+                                <th scope="col">Dominios /<br/>Subdominios</th>
+                                <th scope="col">Cant. Apps<br/>FQDN</th>
+                                <th scope="col">Apps FQDN<br/>API Security</th>
+                                <th scope="col">API Protection<br/>Req (M/mes)</th>
+                                <th scope="col">Req Antibot<br/>(M/mes)</th>
+                                <th scope="col">Req WAF<br/>(M/mes)</th>
+                                <th scope="col">Req Total<br/>Antibot+WAF</th>
+                                <th scope="col">Data Transfer<br/>(TB/mes)</th>
+                                <th scope="col">Req/Resp<br/>Size Avg</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.VolumetriaReport.Filas)
+                        {
+                            <tr>
+                                <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
+                                <td class="text-start text-primary">@(row.TecnologiaAsIs ?? "WAF Local")</td>
+                                <td class="text-end fw-semibold">@row.ThroughputMensualGbps.ToString("N1")</td>
+                                <td class="text-end">@row.AnchoBandaMensualGbps.ToString("N2")</td>
+                                <td class="text-end">@row.DominioSubdominios</td>
+                                <td class="text-end fw-bold">@row.CantidadAppsFqdn</td>
+                                <td class="text-end">@row.CantidadAppsFqdnApiSecurity</td>
+                                <td class="text-end">@row.ApiProtectionRequestMillonesMes.ToString("N1")</td>
+                                <td class="text-end">@row.MillonesRequestAntibot.ToString("N1")</td>
+                                <td class="text-end fw-semibold">@row.MillonesRequestWaf.ToString("N1")</td>
+                                <td class="text-end fw-bold text-primary">@row.MillonesRequestAntibotWaf.ToString("N1")</td>
+                                <td class="text-end fw-bold">@row.DataTransferTbMensual.ToString("N1")</td>
+                                <td class="text-muted small text-nowrap">@(row.RequestSizeResponseSize ?? "15KB / 45KB")</td>
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot class="table-dark fw-bold" style="font-size:0.8rem;">
+                            <tr>
+                                <td colspan="2" class="text-start text-uppercase">TOTALES CONSOLIDADOS:</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalThroughputMensualGbps.ToString("N1")</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalAnchoBandaMensualGbps.ToString("N2")</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalDominioSubdominios</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalAppsFqdn</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalAppsFqdnApiSecurity</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalApiProtectionRequestMillonesMes.ToString("N1")</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalMillonesRequestAntibot.ToString("N1")</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalMillonesRequestWaf.ToString("N1")</td>
+                                <td class="text-end text-info">@Model.VolumetriaReport.TotalMillonesRequestAntibotWaf.ToString("N1")</td>
+                                <td class="text-end">@Model.VolumetriaReport.TotalDataTransferTbMensual.ToString("N1")</td>
+                                <td>-</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 4: CAPACIDADES POR EMPRESA -->
+        <div class="tab-pane fade" id="pane-capacidades" role="tabpanel" aria-labelledby="tab-capacidades">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Matriz de Cobertura de Capacidades por Subsidiaria</h2>
+                        <small class="text-muted">Mapeo de estado técnico: Activo (A), Funcionalidad futura (F) y No aplica (NA)</small>
+                    </div>
+                    <div class="d-flex gap-3 align-items-center">
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-success">A</span> <strong>Activo</strong>
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-primary">F</span> <strong>Futuro</strong>
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-secondary">NA</span> <strong>No aplica</strong>
+                        </span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0 text-center" style="font-size:0.8rem;">
+                        <thead class="table-light text-muted" style="font-size:0.75rem;">
+                            <tr>
+                                <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
+                                <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
+                                @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
+                                {
+                                    <th scope="col" style="min-width:90px;" title="@col">
+                                        <div class="small fw-semibold text-wrap" style="max-width:120px; margin:0 auto;">@col</div>
+                                    </th>
+                                }
+                                <th scope="col" class="text-start" style="min-width:200px;">Comentario Subsidiaria</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.CapacidadesMatrixReport.Filas)
+                        {
+                            <tr>
+                                <td class="text-start fw-bold text-dark text-nowrap">@row.EmpresaNombre</td>
+                                <td class="text-start text-primary small">@(row.TecnologiaAsIs ?? "WAF Local")</td>
+                                @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
+                                {
+                                    var cell = row.Capacidades.TryGetValue(col, out var c) ? c : null;
+                                    var code = cell?.EstadoCodigo ?? "NA";
+                                    <td>
+                                        @if (code == "A")
+                                        {
+                                            <span class="badge bg-success text-white px-2 py-1" title="Activo en producción">A</span>
+                                        }
+                                        else if (code == "F")
+                                        {
+                                            <span class="badge bg-primary text-white px-2 py-1" title="Funcionalidad futura planificada">F</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" title="No aplica">NA</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="text-start small text-muted fst-italic">
+                                    @(row.ComentarioSubsidiaria ?? "Sin observaciones particulares")
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+

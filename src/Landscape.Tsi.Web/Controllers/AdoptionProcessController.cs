@@ -18,6 +18,7 @@ namespace Landscape.Tsi.Web.Controllers;
 [Route("Administration/AdoptionProcess")]
 public sealed class AdoptionProcessController(
     IAdoptionProcessService adoptionService,
+    IServiceManagementService serviceManagement,
     CatalogDbContext dbContext) : Controller
 {
     [HttpGet("")]
@@ -64,6 +65,10 @@ public sealed class AdoptionProcessController(
             .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
             .ToListAsync(cancellationToken);
 
+        var services = await serviceManagement.GetServicesByProcessAsync(id, cancellationToken);
+        var serviceTypes = await serviceManagement.GetServiceTypesAsync(cancellationToken);
+        var supportActivities = await serviceManagement.GetSupportActivitiesAsync(null, cancellationToken);
+
         return View(new AdoptionProcessDetailViewModel
         {
             Process = detail,
@@ -72,6 +77,9 @@ public sealed class AdoptionProcessController(
             OperationTypes = opTypes,
             WorkModes = workModes,
             AdoptionStates = adoptionStates,
+            Services = services,
+            ServiceTypes = serviceTypes,
+            SupportActivities = supportActivities,
             ReturnUrl = returnUrl
         });
     }
@@ -184,19 +192,60 @@ public sealed class AdoptionProcessController(
     [HttpPost("{id:int}/Convene")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ConveneCompany(int id, int empresaId, int? contactoFocalId, bool aplica, string? justificacionNoAplica, CancellationToken cancellationToken)
+    public async Task<IActionResult> ConveneCompany(
+        int id,
+        int? empresaId,
+        List<int>? empresaIds,
+        int? contactoFocalId,
+        bool aplica,
+        string? justificacionNoAplica,
+        bool isBatchSync = false,
+        CancellationToken cancellationToken = default)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
 
-        var result = await adoptionService.ConveneCompanyAsync(new ConveneCompanyCommand(
-            ProcesoId: id,
-            EmpresaId: empresaId,
+        var selectedIds = new List<int>();
+        if (empresaIds != null && empresaIds.Count > 0)
+        {
+            selectedIds.AddRange(empresaIds);
+        }
+        else if (empresaId.HasValue && empresaId.Value > 0)
+        {
+            selectedIds.Add(empresaId.Value);
+        }
+
+        if (selectedIds.Count == 0 && !isBatchSync)
+        {
+            TempData["ErrorMessage"] = "Debe seleccionar al menos una empresa subsidiaria para convocar.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var inputs = selectedIds.Select(eid => new ConveneCompanyInput(
+            EmpresaId: eid,
             ContactoFocalId: contactoFocalId,
             Aplica: aplica,
-            JustificacionNoAplica: justificacionNoAplica?.Trim(),
-            ActorUserId: actor.Value,
-            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+            JustificacionNoAplica: justificacionNoAplica?.Trim()));
+
+        var result = await adoptionService.BatchConveneCompaniesAsync(id, inputs, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost("{id:int}/RemoveCompany")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveCompany(int id, int procesoEmpresaId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.RemoveCompanyFromProcessAsync(id, procesoEmpresaId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
 
         if (result.Succeeded)
             TempData["SuccessMessage"] = result.Message;
@@ -209,7 +258,7 @@ public sealed class AdoptionProcessController(
     [HttpPost("{id:int}/Technology")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RegisterTechnology(int id, int empresaId, int tecnologiaId, int buildingBlockId, int? procesoEmpresaId, bool esPrimaria, string? versionDesplegada, CancellationToken cancellationToken)
+    public async Task<IActionResult> RegisterTechnology(int id, int empresaId, int tecnologiaId, int buildingBlockId, int? procesoEmpresaId, bool esPrimaria, string? versionDesplegada, bool esInstanciaCorporativa, CancellationToken cancellationToken)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
@@ -222,7 +271,26 @@ public sealed class AdoptionProcessController(
             EsPrimaria: esPrimaria,
             VersionDesplegada: versionDesplegada?.Trim(),
             ActorUserId: actor.Value,
-            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+            CorrelationId: HttpContext.TraceIdentifier,
+            EsInstanciaCorporativa: esInstanciaCorporativa), cancellationToken);
+
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost("{id:int}/DeleteImplementedTechnology")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteImplementedTechnology(int id, int tecnologiaImplementadaId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.DeleteImplementedTechnologyAsync(id, tecnologiaImplementadaId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
 
         if (result.Succeeded)
             TempData["SuccessMessage"] = result.Message;
@@ -235,7 +303,22 @@ public sealed class AdoptionProcessController(
     [HttpPost("{id:int}/Contract")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveContract(int id, int tecnologiaImplementadaId, string numeroContrato, bool esAdenda, int? contratoPadreId, DateTime fechaInicio, DateTime fechaFin, DateTime? fechaAdjudicacion, string? rutaDocumento, decimal? monto, string? moneda, string? observaciones, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveContract(
+        int id,
+        int tecnologiaImplementadaId,
+        string numeroContrato,
+        bool esAdenda,
+        bool esPayg,
+        int? contratoPadreId,
+        DateTime? fechaInicio,
+        DateTime? fechaFin,
+        DateTime? fechaAdjudicacion,
+        string? rutaDocumento,
+        decimal? monto,
+        string? moneda,
+        string? observaciones,
+        int? contratoId,
+        CancellationToken cancellationToken)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
@@ -245,15 +328,17 @@ public sealed class AdoptionProcessController(
             NumeroContrato: numeroContrato,
             EsAdenda: esAdenda,
             ContratoPadreId: contratoPadreId,
-            FechaInicio: fechaInicio == default ? DateTime.Today : fechaInicio,
-            FechaFin: fechaFin == default ? DateTime.Today.AddYears(1) : fechaFin,
-            FechaAdjudicacion: fechaAdjudicacion,
+            FechaInicio: esPayg ? null : (fechaInicio == default ? DateTime.Today : fechaInicio),
+            FechaFin: esPayg ? null : (fechaFin == default ? DateTime.Today.AddYears(1) : fechaFin),
+            FechaAdjudicacion: esPayg ? null : fechaAdjudicacion,
             RutaDocumento: rutaDocumento?.Trim(),
             Monto: monto,
             Moneda: string.IsNullOrWhiteSpace(moneda) ? "USD" : moneda.Trim(),
             Observaciones: observaciones?.Trim(),
             ActorUserId: actor.Value,
-            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+            CorrelationId: HttpContext.TraceIdentifier,
+            EsPayg: esPayg,
+            ContratoId: contratoId), cancellationToken);
 
         if (result.Succeeded)
             TempData["SuccessMessage"] = result.Message;
@@ -283,7 +368,16 @@ public sealed class AdoptionProcessController(
     [HttpPost("{id:int}/Driver")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveDriver(int id, int tecnologiaImplementadaId, string descripcion, string? unidadMedida, decimal? cantidad, decimal? precioUnitario, string? moneda, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveDriver(
+        int id,
+        int tecnologiaImplementadaId,
+        string descripcion,
+        string? unidadMedida,
+        decimal? cantidad,
+        decimal? precioUnitario,
+        string? moneda,
+        int? driverId,
+        CancellationToken cancellationToken)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
@@ -296,7 +390,8 @@ public sealed class AdoptionProcessController(
             PrecioUnitario: precioUnitario,
             Moneda: string.IsNullOrWhiteSpace(moneda) ? "USD" : moneda.Trim(),
             ActorUserId: actor.Value,
-            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+            CorrelationId: HttpContext.TraceIdentifier,
+            DriverId: driverId), cancellationToken);
 
         if (result.Succeeded)
             TempData["SuccessMessage"] = result.Message;
@@ -380,6 +475,87 @@ public sealed class AdoptionProcessController(
         return RedirectToAction(nameof(Details), new { id });
     }
 
+    [HttpPost("{id:int}/FinalizeEvaluation")]
+    [HttpPost("Evaluations/{id:int}/FinalizeEvaluation")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> FinalizeEvaluation(
+        int id,
+        int buildingBlockId,
+        int tecnologiaId,
+        string rolEstandar,
+        DateTime fechaInicioVigencia,
+        string? motivoAdjudicacion,
+        string? sustentoArquitectura,
+        string? numeroContratoCorporativo,
+        decimal? montoContratoCorporativo,
+        string? monedaContratoCorporativo,
+        DateTime? fechaInicioContratoCorporativo,
+        DateTime? fechaFinContratoCorporativo,
+        DateTime? fechaAdjudicacionContratoCorporativo,
+        bool esPaygContratoCorporativo,
+        List<string>? driverDescripcion,
+        List<string>? driverUnidadMedida,
+        List<decimal?>? driverCantidad,
+        List<decimal?>? driverPrecioUnitario,
+        List<string>? driverMoneda,
+        List<int>? subsidiariasAlineadasIds,
+        string? returnUrl,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var drivers = new List<CorporateDriverItemDto>();
+        if (driverDescripcion != null)
+        {
+            for (int i = 0; i < driverDescripcion.Count; i++)
+            {
+                var desc = driverDescripcion[i];
+                if (!string.IsNullOrWhiteSpace(desc))
+                {
+                    drivers.Add(new CorporateDriverItemDto(
+                        Descripcion: desc.Trim(),
+                        UnidadMedida: driverUnidadMedida != null && i < driverUnidadMedida.Count ? driverUnidadMedida[i]?.Trim() : null,
+                        Cantidad: driverCantidad != null && i < driverCantidad.Count ? driverCantidad[i] : null,
+                        PrecioUnitario: driverPrecioUnitario != null && i < driverPrecioUnitario.Count ? driverPrecioUnitario[i] : null,
+                        Moneda: driverMoneda != null && i < driverMoneda.Count ? driverMoneda[i]?.Trim() : "USD"));
+                }
+            }
+        }
+
+        var command = new FinalizeEvaluationWithStandardCommand(
+            ProcesoId: id,
+            BuildingBlockId: buildingBlockId,
+            TecnologiaId: tecnologiaId,
+            RolEstandar: string.IsNullOrWhiteSpace(rolEstandar) ? "PRINCIPAL" : rolEstandar.Trim().ToUpperInvariant(),
+            FechaInicioVigencia: fechaInicioVigencia == default ? DateTime.Today : fechaInicioVigencia,
+            MotivoAdjudicacion: motivoAdjudicacion?.Trim(),
+            SustentoArquitectura: sustentoArquitectura?.Trim(),
+            NumeroContratoCorporativo: numeroContratoCorporativo?.Trim(),
+            MontoContratoCorporativo: montoContratoCorporativo,
+            MonedaContratoCorporativo: monedaContratoCorporativo?.Trim(),
+            FechaInicioContratoCorporativo: fechaInicioContratoCorporativo,
+            FechaFinContratoCorporativo: fechaFinContratoCorporativo,
+            FechaAdjudicacionContratoCorporativo: fechaAdjudicacionContratoCorporativo,
+            EsPaygContratoCorporativo: esPaygContratoCorporativo,
+            DriversCorporativos: drivers,
+            SubsidiariasAlineadasIds: subsidiariasAlineadasIds ?? [],
+            ActorUserId: actor.Value,
+            CorrelationId: HttpContext.TraceIdentifier);
+
+        var result = await adoptionService.FinalizeEvaluationWithStandardAsync(command, cancellationToken);
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
     [HttpGet("Evaluations")]
     [HttpGet("/AdoptionProcess/Evaluations")]
     public async Task<IActionResult> Evaluations(string? search, int? dominioId, int? estadoId, CancellationToken cancellationToken)
@@ -407,7 +583,26 @@ public sealed class AdoptionProcessController(
             bbMap.TryGetValue(p.BuildingBlockId, out var bb);
             var domNombre = (bb is not null && bb.IdDominio.HasValue && domMap.TryGetValue(bb.IdDominio.Value, out var dName)) ? dName : "Dominio TSI";
             var isBaja = p.Nombre.StartsWith("[DADO DE BAJA:", StringComparison.OrdinalIgnoreCase)
-                         || p.Codigo.StartsWith("BAJA-", StringComparison.OrdinalIgnoreCase);
+                         || p.Nombre.Contains("DADO DE BAJA", StringComparison.OrdinalIgnoreCase)
+                         || p.Nombre.Contains("CANCELAD", StringComparison.OrdinalIgnoreCase)
+                         || p.Codigo.StartsWith("BAJA-", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(p.EstadoAdopcionNombre, "CANCELADO", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(p.EstadoAdopcionNombre, "CANCELADA", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(p.EstadoAdopcionNombre, "DADO DE BAJA", StringComparison.OrdinalIgnoreCase);
+
+            var isTerminada = !isBaja && (
+                string.Equals(p.EstadoAdopcionNombre, "ESTANDARIZADA", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "IMPLEMENTADO", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "TERMINADA", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "TERMINADO", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "FINALIZADA", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "FINALIZADO", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "CERRADA", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "CERRADO", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.EstadoAdopcionNombre, "COMPLETADA", StringComparison.OrdinalIgnoreCase)
+            );
+
+            var isActivo = !isBaja && !isTerminada;
 
             return new EvaluationProcessSummaryViewModel
             {
@@ -426,7 +621,9 @@ public sealed class AdoptionProcessController(
                 TotalEmpresas = p.TotalEmpresasConvocadas,
                 EmpresasConAdopcion = p.TotalEmpresasImplementadas,
                 EmpresasNoAplica = p.TotalEmpresasNoAplica,
-                IsActivo = !isBaja
+                IsActivo = isActivo,
+                IsCancelada = isBaja,
+                IsTerminada = isTerminada
             };
         }).ToList();
 
@@ -544,12 +741,12 @@ public sealed class AdoptionProcessController(
         var procesoId = procResult.EntityId.Value;
 
         var selectedCompanies = model.Subsidiaries
-            .Where(s => s.Selected)
+            .Where(s => s.Selected || !string.IsNullOrWhiteSpace(s.JustificacionNoAplica))
             .Select(s => new ConveneCompanyInput(
                 s.EmpresaId,
                 s.ContactoFocalId,
-                s.Aplica,
-                s.Aplica ? null : s.JustificacionNoAplica))
+                s.Selected,
+                s.Selected ? null : s.JustificacionNoAplica?.Trim()))
             .ToList();
 
         if (selectedCompanies.Count > 0)
@@ -574,7 +771,12 @@ public sealed class AdoptionProcessController(
 
         if (model.SubsidiaryAsIsList is not null)
         {
-            foreach (var asIs in model.SubsidiaryAsIsList.Where(a => a.TieneTecnologia && a.TecnologiaId.HasValue && a.TecnologiaId.Value > 0))
+            var participatingEmpresaIds = model.Subsidiaries
+                .Where(s => s.Selected)
+                .Select(s => s.EmpresaId)
+                .ToHashSet();
+
+            foreach (var asIs in model.SubsidiaryAsIsList.Where(a => participatingEmpresaIds.Contains(a.EmpresaId) && a.TieneTecnologia && a.TecnologiaId.HasValue && a.TecnologiaId.Value > 0))
             {
                 var regCmd = new RegisterImplementedTechnologyCommand(
                     EmpresaId: asIs.EmpresaId,
@@ -584,7 +786,8 @@ public sealed class AdoptionProcessController(
                     EsPrimaria: true,
                     VersionDesplegada: asIs.VersionDesplegada,
                     ActorUserId: actor.Value,
-                    CorrelationId: HttpContext.TraceIdentifier);
+                    CorrelationId: HttpContext.TraceIdentifier,
+                    EsInstanciaCorporativa: asIs.EsInstanciaCorporativa);
 
                 var regResult = await adoptionService.RegisterImplementedTechnologyAsync(regCmd, cancellationToken);
                 if (regResult.Succeeded && regResult.EntityId.HasValue)
@@ -598,15 +801,16 @@ public sealed class AdoptionProcessController(
                             NumeroContrato: asIs.NumeroContrato,
                             EsAdenda: false,
                             ContratoPadreId: null,
-                            FechaInicio: asIs.FechaInicioContrato ?? DateTime.Today,
-                            FechaFin: asIs.FechaFinContrato ?? DateTime.Today.AddYears(1),
+                            FechaInicio: asIs.EsPayg ? null : (asIs.FechaInicioContrato ?? (model.FechaInicio != default ? model.FechaInicio : DateTime.Today)),
+                            FechaFin: asIs.EsPayg ? null : (asIs.FechaFinContrato ?? (model.FechaInicio != default ? model.FechaInicio : DateTime.Today)),
                             FechaAdjudicacion: null,
                             RutaDocumento: null,
                             Monto: asIs.MontoContratado,
                             Moneda: string.IsNullOrWhiteSpace(asIs.MonedaContrato) ? "USD" : asIs.MonedaContrato,
                             Observaciones: $"Vendor: {asIs.VendorNombre} / Partner: {asIs.PartnerNombre}",
                             ActorUserId: actor.Value,
-                            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+                            CorrelationId: HttpContext.TraceIdentifier,
+                            EsPayg: asIs.EsPayg), cancellationToken);
                     }
 
                     if (asIs.Drivers != null)
@@ -858,12 +1062,15 @@ public sealed class AdoptionProcessController(
                 ContactosDisponibles = contactsMap.GetValueOrDefault(c.Id, [])
             }).ToList();
 
+            var defaultDate = model.FechaInicio != default ? model.FechaInicio : DateTime.Today;
             model.SubsidiaryAsIsList = companies.Select(c => new SubsidiaryAsIsInputModel
             {
                 EmpresaId = c.Id,
                 EmpresaNombre = c.Nombre ?? $"Empresa #{c.Id}",
                 TieneTecnologia = true,
-                MonedaContrato = "USD"
+                MonedaContrato = "USD",
+                FechaInicioContrato = defaultDate,
+                FechaFinContrato = defaultDate
             }).ToList();
         }
         else
@@ -919,6 +1126,7 @@ public sealed class AdoptionProcessController(
     }
 
     [HttpPost("QuickCreateTechnology")]
+    [HttpPost("/AdoptionProcess/QuickCreateTechnology")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> QuickCreateTechnology([FromForm] string nombreCorporativo, [FromForm] string? nombreLocal, [FromForm] int? familiaId, CancellationToken cancellationToken)
@@ -1005,6 +1213,241 @@ public sealed class AdoptionProcessController(
         ).Take(100).ToListAsync(cancellationToken);
 
         return Json(results);
+    }
+
+    [HttpPost("SaveService")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveService(
+        int procesoId,
+        int? servicioId,
+        string codigoServicio,
+        string nombreServicio,
+        string? descripcion,
+        int tipoServicioId,
+        int? tecnologiaTsiId,
+        int? tecnologiaImplementadaId,
+        int? empresaId,
+        int? vendorId,
+        string? nombreProveedorServicio,
+        string? estadoServicio,
+        string? moneda,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var command = new SaveServiceHeaderCommand(
+            servicioId,
+            codigoServicio,
+            nombreServicio,
+            descripcion,
+            tipoServicioId,
+            tecnologiaTsiId,
+            tecnologiaImplementadaId,
+            empresaId,
+            procesoId,
+            vendorId,
+            nombreProveedorServicio,
+            estadoServicio ?? "EVALUACION",
+            moneda ?? "USD",
+            actor.Value,
+            HttpContext.TraceIdentifier);
+
+        var result = await serviceManagement.SaveServiceHeaderAsync(command, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpPost("DeleteService")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteService(int procesoId, int servicioId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await serviceManagement.DeleteServiceAsync(servicioId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpPost("SaveProjectRateCard")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveProjectRateCard(
+        int procesoId,
+        int? rateCardId,
+        int servicioId,
+        string complejidad,
+        int rangoHorasDesde,
+        int? rangoHorasHasta,
+        decimal tarifaHora,
+        decimal horasEstimadas,
+        string? moneda,
+        string? observaciones,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var command = new SaveProjectRateCardCommand(
+            rateCardId,
+            servicioId,
+            complejidad,
+            rangoHorasDesde,
+            rangoHorasHasta,
+            tarifaHora,
+            horasEstimadas,
+            moneda ?? "USD",
+            observaciones,
+            actor.Value,
+            HttpContext.TraceIdentifier);
+
+        var result = await serviceManagement.SaveProjectRateCardAsync(command, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpPost("DeleteProjectRateCard")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteProjectRateCard(int procesoId, int rateCardId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await serviceManagement.DeleteProjectRateCardAsync(rateCardId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpPost("SaveOperationRateCard")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveOperationRateCard(
+        int procesoId,
+        int? rateCardId,
+        int servicioId,
+        string nivelSoporte,
+        string modalidad,
+        string? detalleModalidad,
+        int horasBaseMensual,
+        string expertise,
+        string locacion,
+        decimal? tarifaHora,
+        decimal? tarifaMensual,
+        int? cantidadMeses,
+        decimal? horasEstimadas,
+        string? moneda,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var command = new SaveOperationRateCardCommand(
+            rateCardId,
+            servicioId,
+            nivelSoporte,
+            modalidad,
+            detalleModalidad,
+            horasBaseMensual,
+            expertise,
+            locacion,
+            tarifaHora,
+            tarifaMensual,
+            cantidadMeses ?? 1,
+            horasEstimadas,
+            moneda ?? "USD",
+            actor.Value,
+            HttpContext.TraceIdentifier);
+
+        var result = await serviceManagement.SaveOperationRateCardAsync(command, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpPost("DeleteOperationRateCard")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteOperationRateCard(int procesoId, int rateCardId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await serviceManagement.DeleteOperationRateCardAsync(rateCardId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id = procesoId });
+    }
+
+    [HttpGet("SupportActivities")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> GetSupportActivities([FromQuery] string? nivel, CancellationToken cancellationToken)
+    {
+        var activities = await serviceManagement.GetSupportActivitiesAsync(nivel, cancellationToken);
+        return Json(activities);
+    }
+
+    [HttpGet("{id:int}/Reports")]
+    [HttpGet("Evaluations/{id:int}/Reports")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> Reports(int id, CancellationToken cancellationToken)
+    {
+        var reportData = await adoptionService.GetEvaluationReportsAsync(id, cancellationToken);
+        if (reportData is null)
+        {
+            return NotFound();
+        }
+
+        return View(reportData);
     }
 
     private Guid? ActorId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;

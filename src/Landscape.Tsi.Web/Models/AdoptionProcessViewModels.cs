@@ -20,6 +20,9 @@ public sealed class AdoptionProcessDetailViewModel
     public required IReadOnlyList<CatalogOption> OperationTypes { get; init; }
     public required IReadOnlyList<CatalogOption> WorkModes { get; init; }
     public required IReadOnlyList<CatalogOption> AdoptionStates { get; init; }
+    public IReadOnlyList<ServiceDetailDto> Services { get; init; } = [];
+    public IReadOnlyList<ServiceTypeDto> ServiceTypes { get; init; } = [];
+    public IReadOnlyList<SupportActivityDto> SupportActivities { get; init; } = [];
     public string? ReturnUrl { get; init; }
 }
 

@@ -196,32 +196,26 @@
                         <table class="table align-middle table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 50px;">Sel.</th>
-                                    <th>Empresa Subsidiaria</th>
-                                    <th style="width: 140px;">¿Aplica?</th>
-                                    <th>Justificación si No Aplica</th>
+                                    <th style="width: 90px;" class="text-center">Participa</th>
+                                    <th style="width: 320px;">Empresa Subsidiaria</th>
+                                    <th>Justificación por No Participar del proceso</th>
                                 </tr>
                             </thead>
                             <tbody>
                             @for (var i = 0; i < Model.Subsidiaries.Count; i++)
                             {
                                 <tr>
-                                    <td>
+                                    <td class="text-center">
                                         <input type="hidden" asp-for="Subsidiaries[i].EmpresaId" />
                                         <input type="hidden" asp-for="Subsidiaries[i].EmpresaNombre" />
-                                        <input type="checkbox" class="form-check-input sub-checkbox" asp-for="Subsidiaries[i].Selected" data-empresa-id="@Model.Subsidiaries[i].EmpresaId" />
+                                        <input type="hidden" asp-for="Subsidiaries[i].Aplica" id="hidden-aplica-@i" class="hidden-aplica" data-empresa-id="@Model.Subsidiaries[i].EmpresaId" />
+                                        <input type="checkbox" class="form-check-input sub-checkbox" asp-for="Subsidiaries[i].Selected" data-empresa-id="@Model.Subsidiaries[i].EmpresaId" data-index="@i" data-target-just="just-@i" />
                                     </td>
                                     <td>
                                         <strong>@Model.Subsidiaries[i].EmpresaNombre</strong>
                                     </td>
                                     <td>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input switch-aplica" type="checkbox" asp-for="Subsidiaries[i].Aplica" data-target="just-@i" />
-                                            <label class="form-check-label small" asp-for="Subsidiaries[i].Aplica">Aplica</label>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <input type="text" asp-for="Subsidiaries[i].JustificacionNoAplica" id="just-@i" class="form-control form-control-sm" placeholder="Obligatorio si desmarca Aplica" disabled />
+                                        <input type="text" asp-for="Subsidiaries[i].JustificacionNoAplica" id="just-@i" class="form-control form-control-sm input-justificacion" placeholder="Indique motivo por el que no participa en el proceso..." disabled />
                                     </td>
                                 </tr>
                             }
@@ -246,6 +240,12 @@
                         <p class="text-muted small mb-0">
                             Para cada empresa participante, registre si ya cuenta con tecnología desplegada, su proveedor local, fecha de fin de contrato (para la convergencia) y drivers de costo.
                         </p>
+                    <div id="alert-no-participating" class="alert alert-warning d-none mb-3 d-flex align-items-center gap-2" role="alert">
+                        <span class="fs-5">⚠️</span>
+                        <div>
+                            <strong>No hay subsidiarias participantes seleccionadas.</strong>
+                            <div class="small">En el Paso 2 no se ha marcado ninguna empresa como participante. Vuelva al <strong>Paso 2 (Subsidiarias Participantes)</strong> para marcar las empresas que participarán en esta evaluación.</div>
+                        </div>
                     </div>
 
                     <div class="accordion" id="accordionAsIs">
@@ -280,7 +280,7 @@
                                             <div class="col-md-6">
                                                 <label asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-label fw-semibold">Tecnología AS-IS (Catálogo TTecnologiaTSI)</label>
                                                 <div class="input-group">
-                                                    <select asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-select select-tech-asis" data-index="@i" id="select-tech-asis-@i" data-context-label="@Model.Subsidiaries[i].EmpresaNombre">
+                                                    <select asp-for="SubsidiaryAsIsList[i].TecnologiaId" class="form-select select-tech-asis" data-index="@i" id="select-tech-asis-@i" data-context-label="@empNom">
                                                         <option value="">-- Seleccionar o dejar no registrada --</option>
                                                         <option value="__open_modal__" class="fw-bold text-primary">🔍 Buscar o registrar nueva tecnología...</option>
                                                         @foreach (var t in Model.TecnologiasDisponibles)
@@ -288,8 +288,11 @@
                                                             <option value="@t.Id">@t.Label</option>
                                                         }
                                                     </select>
-                                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@Model.Subsidiaries[i].EmpresaNombre" title="Buscar con filtros o registrar nueva tecnología">
-                                                        🔍 Buscar / + Nueva
+                                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="search" title="Buscar con filtros en catálogo">
+                                                        🔍 Buscar
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="create" title="Registrar nueva tecnología en catálogo">
+                                                        ➕ Nueva
                                                     </button>
                                                 </div>
                                             </div>
@@ -335,12 +338,13 @@
                                             </div>
                                             <div class="col-md-3">
                                                 <label asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" class="form-label fw-semibold">Fecha Inicio Contrato</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" type="date" class="form-control" />
+                                                <input asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" type="date" class="form-control input-contract-start" data-index="@i" />
+                                                <div class="form-text text-muted small">Opcional.</div>
                                             </div>
                                             <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].FechaFinContrato" class="form-label fw-semibold text-danger">Fecha Fin Contrato (Vencimiento)</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].FechaFinContrato" type="date" class="form-control border-danger input-contract-end" data-index="@i" />
-                                                <div class="form-text text-danger">Determina el cronograma de convergencia TSI.</div>
+                                                <label asp-for="SubsidiaryAsIsList[i].FechaFinContrato" class="form-label fw-semibold">Fecha Fin Contrato</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].FechaFinContrato" type="date" class="form-control input-contract-end" data-index="@i" />
+                                                <div class="form-text text-muted small">Por defecto toma la fecha de la solicitud si no se indica.</div>
                                             </div>
                                             <div class="col-md-2">
                                                 <label asp-for="SubsidiaryAsIsList[i].MontoContratado" class="form-label fw-semibold">Monto Contratado</label>
@@ -352,6 +356,14 @@
                                                     <option value="USD">USD</option>
                                                     <option value="PEN">PEN</option>
                                                 </select>
+                                            </div>
+                                            <div class="col-12 mt-1">
+                                                <div class="form-check form-switch">
+                                                    <input asp-for="SubsidiaryAsIsList[i].EsPayg" class="form-check-input switch-payg" data-index="@i" type="checkbox" id="switchPayg_@i" />
+                                                    <label class="form-check-label fw-semibold text-primary small" for="switchPayg_@i">
+                                                        ⚡ Modalidad Pago por Uso / Pay as you Go (PAYG) - Fechas de contrato no aplican
+                                                    </label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -444,8 +456,11 @@
                                             <option value="@t.Id">@t.Label</option>
                                         }
                                     </select>
-                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" id="btn-open-tech-lookup-std" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" disabled title="Buscar con filtros o registrar nueva tecnología">
-                                        🔍 Buscar / + Nueva
+                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" id="btn-open-tech-lookup-std" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="search" disabled title="Buscar con filtros en catálogo">
+                                        🔍 Buscar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" id="btn-open-tech-lookup-std-new" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="create" disabled title="Registrar nueva tecnología en catálogo">
+                                        ➕ Nueva
                                     </button>
                                 </div>
                             </div>
@@ -491,6 +506,14 @@
                         <p class="text-secondary small mb-3" id="text-convergence-mode">
                             Al iniciar la evaluación con estándar pendiente de definición, las subsidiarias permanecen en estado <strong>En Evaluación</strong> hasta que se adjudique el estándar tecnológico oficial:
                         </p>
+                        <div id="alert-no-participating-conv" class="alert alert-warning d-none mb-3 d-flex align-items-center gap-2" role="alert">
+                            <span class="fs-5">⚠️</span>
+                            <div>
+                                <strong>No hay subsidiarias participantes para convergencia.</strong>
+                                <div class="small">Ninguna empresa se encuentra marcada como participante en el Paso 2.</div>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered bg-white mb-0" id="table-convergence">
                                 <thead>
@@ -603,7 +626,8 @@
 
                     <!-- PESTAÑA 2: REGISTRO RÁPIDO (ALTA EN TTecnologiaTSI) -->
                     <div class="tab-pane fade" id="tab-tech-create" role="tabpanel" aria-labelledby="tab-tech-create-btn">
-                        <form id="formQuickCreateTech" class="p-2">
+                        <form id="formQuickCreateTech" action="javascript:void(0);" onsubmit="return false;" class="p-2">
+                            @Html.AntiForgeryToken()
                             <div class="alert alert-info small mb-3">
                                 💡 Al registrar la tecnología, se guardará de inmediato en el catálogo maestro (<code>TTecnologiaTSI</code>) y quedará seleccionada para esta subsidiaria sin recargar ni perder los datos de la evaluación.
                             </div>
@@ -612,13 +636,13 @@
 
                             <div class="mb-3">
                                 <label for="quickTechNombre" class="form-label fw-semibold">Nombre Corporativo de la Tecnología <span class="text-danger">*</span></label>
-                                <input type="text" id="quickTechNombre" class="form-control" placeholder="Ej. CyberArk Privilege Cloud, FortiGate NGFW..." required />
+                                <input type="text" id="quickTechNombre" class="form-control" placeholder="Ej. CyberArk Privilege Cloud, FortiGate NGFW..." autocomplete="off" />
                                 <div class="form-text small">Nombre oficial o corporativo del producto de software/hardware.</div>
                             </div>
 
                             <div class="mb-3">
                                 <label for="quickTechNombreLocal" class="form-label fw-semibold">Nombre Local / Alternativo (Opcional)</label>
-                                <input type="text" id="quickTechNombreLocal" class="form-control" placeholder="Ej. Alias comercial o nombre interno en subsidiaria..." />
+                                <input type="text" id="quickTechNombreLocal" class="form-control" placeholder="Ej. Alias comercial o nombre interno en subsidiaria..." autocomplete="off" />
                             </div>
 
                             <div class="mb-3">
@@ -634,7 +658,7 @@
 
                             <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-3">
                                 <button type="button" class="btn btn-outline-secondary" id="btnCancelQuickTech">← Volver a Búsqueda</button>
-                                <button type="submit" class="btn btn-success fw-bold px-3" id="btnSubmitQuickTech">
+                                <button type="button" class="btn btn-success fw-bold px-3" id="btnSubmitQuickTech">
                                     <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerQuickTech" role="status" aria-hidden="true"></span>
                                     💾 Guardar y Seleccionar
                                 </button>
@@ -758,53 +782,119 @@
             }
         }
 
-        // --- 3. Check All Subsidiaries Checkbox ---
+        // --- 3. Synchronize Subsidiary Participation & Visibility (Steps 2, 3, 4) ---
         const checkAll = document.getElementById('checkAllSubsidiaries');
         const subCheckboxes = document.querySelectorAll('.sub-checkbox');
+
+        function isSubsidiaryParticipating(empId) {
+            const cb = document.querySelector(`.sub-checkbox[data-empresa-id="${empId}"]`);
+            return cb ? cb.checked : false;
+        }
+
+        function syncSubsidiaryState(empId) {
+            const cb = document.querySelector(`.sub-checkbox[data-empresa-id="${empId}"]`);
+            const isParticipating = cb ? cb.checked : false;
+            const targetJust = cb && cb.dataset.targetJust ? document.getElementById(cb.dataset.targetJust) : null;
+            const hiddenAplica = cb ? document.getElementById(`hidden-aplica-${cb.dataset.index}`) : null;
+
+            if (hiddenAplica) {
+                hiddenAplica.value = isParticipating ? 'true' : 'false';
+            }
+
+            if (targetJust) {
+                targetJust.disabled = isParticipating;
+                if (isParticipating) {
+                    targetJust.value = '';
+                }
+            }
+
+            // Sincronizar Card AS-IS en Paso 3
+            const card = document.getElementById(`card-asis-${empId}`);
+            if (card) {
+                card.style.display = isParticipating ? '' : 'none';
+
+                // Habilitar o deshabilitar inputs del card para no enviar datos de empresas que no participan
+                const formInputs = card.querySelectorAll('input:not([type="hidden"]), select, textarea');
+                formInputs.forEach(input => {
+                    input.disabled = !isParticipating;
+                });
+
+                // Si participa, restablecer estado del switch de tecnología
+                if (isParticipating) {
+                    const hasTechSw = card.querySelector('.switch-has-tech');
+                    if (hasTechSw) {
+                        hasTechSw.disabled = false;
+                        const container = document.getElementById(hasTechSw.dataset.container);
+                        if (container) {
+                            container.style.display = hasTechSw.checked ? '' : 'none';
+                        }
+                    }
+                }
+            }
+
+            // Sincronizar Fila en Tabla de Convergencia en Paso 4
+            const convRow = document.getElementById(`conv-row-${empId}`);
+            if (convRow) {
+                convRow.style.display = isParticipating ? '' : 'none';
+            }
+        }
+
+        function refreshAllSubsidiaryParticipation() {
+            let totalParticipating = 0;
+            subCheckboxes.forEach(cb => {
+                const empId = cb.dataset.empresaId;
+                syncSubsidiaryState(empId);
+                if (isSubsidiaryParticipating(empId)) {
+                    totalParticipating++;
+                }
+            });
+
+            // Alertas en Paso 3 y Paso 4
+            const alertNoPart3 = document.getElementById('alert-no-participating');
+            const alertNoPart4 = document.getElementById('alert-no-participating-conv');
+            if (alertNoPart3) {
+                alertNoPart3.classList.toggle('d-none', totalParticipating > 0);
+            }
+            if (alertNoPart4) {
+                alertNoPart4.classList.toggle('d-none', totalParticipating > 0);
+            }
+
+            // Asegurar que la primera card visible en el Paso 3 quede expandida si ninguna está abierta
+            const visibleCards = Array.from(document.querySelectorAll('.as-is-card')).filter(c => c.style.display !== 'none');
+            const openVisibleCard = visibleCards.find(c => c.querySelector('.accordion-collapse.show'));
+            if (!openVisibleCard && visibleCards.length > 0) {
+                const firstCard = visibleCards[0];
+                const btn = firstCard.querySelector('.accordion-button');
+                const collapse = firstCard.querySelector('.accordion-collapse');
+                if (btn && collapse) {
+                    btn.classList.remove('collapsed');
+                    btn.setAttribute('aria-expanded', 'true');
+                    collapse.classList.add('show');
+                }
+            }
+
+            if (typeof updateConvergenceTable === 'function') {
+                updateConvergenceTable();
+            }
+        }
+
         if (checkAll) {
             checkAll.addEventListener('change', function () {
                 const checked = this.checked;
                 subCheckboxes.forEach(cb => {
                     cb.checked = checked;
-                    syncAsIsCardVisibility(cb);
                 });
+                refreshAllSubsidiaryParticipation();
             });
-        }
-
-        function syncAsIsCardVisibility(checkbox) {
-            const empId = checkbox.dataset.empresaId;
-            const card = document.getElementById(`card-asis-${empId}`);
-            const convRow = document.getElementById(`conv-row-${empId}`);
-            if (card) {
-                card.style.display = checkbox.checked ? '' : 'none';
-            }
-            if (convRow) {
-                convRow.style.display = checkbox.checked ? '' : 'none';
-            }
         }
 
         subCheckboxes.forEach(cb => {
             cb.addEventListener('change', function () {
-                syncAsIsCardVisibility(this);
+                refreshAllSubsidiaryParticipation();
             });
-            syncAsIsCardVisibility(cb);
         });
 
-        // --- 4. Switch Aplica vs Justificación No Aplica ---
-        document.querySelectorAll('.switch-aplica').forEach(sw => {
-            const targetInput = document.getElementById(sw.dataset.target);
-            sw.addEventListener('change', function () {
-                if (targetInput) {
-                    targetInput.disabled = this.checked;
-                    if (this.checked) targetInput.value = '';
-                }
-            });
-            if (targetInput) {
-                targetInput.disabled = sw.checked;
-            }
-        });
-
-        // --- 5. Switch Tiene Tecnología AS-IS ---
+        // --- 4. Switch Tiene Tecnología AS-IS ---
         document.querySelectorAll('.switch-has-tech').forEach(sw => {
             const container = document.getElementById(sw.dataset.container);
             sw.addEventListener('change', function () {
@@ -816,6 +906,16 @@
                 container.style.display = sw.checked ? '' : 'none';
             }
         });
+
+        // Navegación de pestañas: refrescar estado al mostrar cualquier pestaña
+        document.querySelectorAll('#evalSteps button[data-bs-toggle="pill"]').forEach(tabTrigger => {
+            tabTrigger.addEventListener('shown.bs.tab', function () {
+                refreshAllSubsidiaryParticipation();
+            });
+        });
+
+        // Inicializar estado al cargar el DOM
+        refreshAllSubsidiaryParticipation();
 
         // --- 6. Modo de Definición de Estándar Corporativo & Convergencia ---
         const modePending = document.getElementById('modePending');
@@ -829,10 +929,12 @@
         const textConvMode = document.getElementById('text-convergence-mode');
 
         const btnOpenTechLookupStd = document.getElementById('btn-open-tech-lookup-std');
+        const btnOpenTechLookupStdNew = document.getElementById('btn-open-tech-lookup-std-new');
 
         const standardInputs = [
             selectStandardTech,
             btnOpenTechLookupStd,
+            btnOpenTechLookupStdNew,
             document.getElementById('inputContratoCorp'),
             document.getElementById('inputFechaAdjCorp'),
             document.getElementById('inputVendorCorp'),
@@ -926,6 +1028,8 @@
             const standardId = selectStandardTech ? selectStandardTech.value : '';
 
             subCheckboxes.forEach(cb => {
+                const empId = cb.dataset.empresaId;
+                if (!isSubsidiaryParticipating(empId)) return;
                 const idx = cb.dataset.index;
                 const badge = document.getElementById(`conv-badge-${idx}`);
                 if (!badge) return;
@@ -1019,36 +1123,9 @@
         const quickTechFamiliaId = document.getElementById('quickTechFamiliaId');
 
         // Preload catalog technologies from model
-        let availableTechnologies = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+        let availableTechnologies = (@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo ?? (IReadOnlyList<Landscape.Tsi.Web.Models.TechnologyCatalogItem>)Array.Empty<Landscape.Tsi.Web.Models.TechnologyCatalogItem>(), new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))) || [];
 
         let currentTargetSelect = null;
-
-        function openTechModal(selectEl, contextLabel) {
-            currentTargetSelect = selectEl;
-            if (modalTechContextName) {
-                modalTechContextName.innerText = contextLabel || 'Tecnología TSI';
-            }
-            if (quickCreateAlert) {
-                quickCreateAlert.classList.add('d-none');
-                quickCreateAlert.innerText = '';
-            }
-            if (formQuickCreateTech) {
-                formQuickCreateTech.reset();
-            }
-            if (tabSearchBtn) {
-                bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
-            }
-            if (inputTechSearch) {
-                inputTechSearch.value = '';
-            }
-            renderTechResults('');
-            if (modalTechInstance) {
-                modalTechInstance.show();
-                setTimeout(() => {
-                    inputTechSearch?.focus();
-                }, 300);
-            }
-        }
 
         function escapeHtml(text) {
             if (!text) return '';
@@ -1057,18 +1134,29 @@
             return div.innerHTML;
         }
 
+        function escapeAttr(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
         function renderTechResults(query) {
             if (!tbodyTechResults) return;
             const q = (query || '').trim().toLowerCase();
+            const list = Array.isArray(availableTechnologies) ? availableTechnologies : [];
             const filtered = q
-                ? availableTechnologies.filter(t => 
+                ? list.filter(t => 
                     (t.nombre && t.nombre.toLowerCase().includes(q)) || 
                     (t.familia && t.familia.toLowerCase().includes(q))
                   )
-                : availableTechnologies;
+                : list;
 
             if (techSearchCount) {
-                techSearchCount.innerText = `Mostrando ${filtered.length} de ${availableTechnologies.length} tecnologías registradas`;
+                techSearchCount.innerText = `Mostrando ${filtered.length} de ${list.length} tecnologías registradas`;
             }
 
             if (filtered.length === 0) {
@@ -1087,7 +1175,7 @@
                     btnGo.addEventListener('click', function () {
                         if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
                         if (quickTechNombre) quickTechNombre.value = q;
-                        quickTechNombre?.focus();
+                        setTimeout(() => quickTechNombre?.focus(), 150);
                     });
                 }
                 return;
@@ -1102,7 +1190,7 @@
                         <span class="badge ${item.familia ? 'bg-light text-primary border' : 'bg-secondary-subtle text-muted'}">${escapeHtml(item.familia || 'Sin familia asignada')}</span>
                     </td>
                     <td class="text-end pe-3">
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-select-tech" data-id="${item.id}" data-name="${escapeHtml(item.nombre)}">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-select-tech" data-id="${item.id}" data-name="${escapeAttr(item.nombre)}">
                             Seleccionar
                         </button>
                     </td>
@@ -1120,21 +1208,123 @@
             });
         }
 
+        function prepareTechModal(selectEl, contextLabel, initialTab) {
+            currentTargetSelect = selectEl;
+            if (modalTechContextName) {
+                modalTechContextName.innerText = contextLabel || selectEl?.dataset.contextLabel || 'Tecnología TSI';
+            }
+            if (quickCreateAlert) {
+                quickCreateAlert.classList.add('d-none');
+                quickCreateAlert.innerText = '';
+            }
+            if (formQuickCreateTech) {
+                formQuickCreateTech.reset();
+            }
+
+            if (initialTab === 'create') {
+                if (tabSearchBtn) {
+                    tabSearchBtn.classList.remove('active');
+                    tabSearchBtn.setAttribute('aria-selected', 'false');
+                }
+                if (tabCreateBtn) {
+                    tabCreateBtn.classList.add('active');
+                    tabCreateBtn.setAttribute('aria-selected', 'true');
+                }
+                const paneSearch = document.getElementById('tab-tech-search');
+                const paneCreate = document.getElementById('tab-tech-create');
+                if (paneSearch) paneSearch.classList.remove('show', 'active');
+                if (paneCreate) paneCreate.classList.add('show', 'active');
+                try {
+                    if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
+                } catch (_) {}
+                setTimeout(() => quickTechNombre?.focus(), 300);
+            } else {
+                if (tabCreateBtn) {
+                    tabCreateBtn.classList.remove('active');
+                    tabCreateBtn.setAttribute('aria-selected', 'false');
+                }
+                if (tabSearchBtn) {
+                    tabSearchBtn.classList.add('active');
+                    tabSearchBtn.setAttribute('aria-selected', 'true');
+                }
+                const paneSearch = document.getElementById('tab-tech-search');
+                const paneCreate = document.getElementById('tab-tech-create');
+                if (paneCreate) paneCreate.classList.remove('show', 'active');
+                if (paneSearch) paneSearch.classList.add('show', 'active');
+                try {
+                    if (tabSearchBtn) bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+                } catch (_) {}
+                if (inputTechSearch) inputTechSearch.value = '';
+                renderTechResults('');
+                setTimeout(() => inputTechSearch?.focus(), 300);
+            }
+        }
+
+        function openTechModal(selectEl, contextLabel, initialTab) {
+            currentTargetSelect = selectEl;
+            prepareTechModal(selectEl, contextLabel, initialTab);
+            if (modalTechEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalTechEl);
+                modal.show();
+            }
+        }
+
+        if (modalTechEl) {
+            modalTechEl.addEventListener('show.bs.modal', function (event) {
+                const trigger = event.relatedTarget;
+                if (trigger) {
+                    let selectEl = currentTargetSelect;
+                    let contextLabel = 'Tecnología TSI';
+                    let initialTab = 'search';
+
+                    if (trigger.dataset.targetSelect) {
+                        selectEl = document.getElementById(trigger.dataset.targetSelect);
+                    }
+                    if (trigger.dataset.contextLabel) {
+                        contextLabel = trigger.dataset.contextLabel;
+                    } else if (selectEl?.dataset.contextLabel) {
+                        contextLabel = selectEl.dataset.contextLabel;
+                    }
+                    if (trigger.dataset.initialTab) {
+                        initialTab = trigger.dataset.initialTab;
+                    }
+                    prepareTechModal(selectEl, contextLabel, initialTab);
+                }
+            });
+
+            modalTechEl.addEventListener('hidden.bs.modal', function () {
+                if (currentTargetSelect && currentTargetSelect.value === '__open_modal__') {
+                    currentTargetSelect.value = currentTargetSelect.dataset.previousValue || '';
+                    currentTargetSelect.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
         function selectTechnology(techId, techName) {
             if (currentTargetSelect) {
                 let opt = currentTargetSelect.querySelector(`option[value="${techId}"]`);
                 if (!opt) {
                     opt = document.createElement('option');
-                    opt.value = techId;
+                    opt.value = String(techId);
                     opt.innerText = techName;
                     currentTargetSelect.appendChild(opt);
                 }
-                currentTargetSelect.value = techId;
-                currentTargetSelect.dataset.previousValue = techId;
+                currentTargetSelect.value = String(techId);
+                currentTargetSelect.dataset.previousValue = String(techId);
                 currentTargetSelect.dispatchEvent(new Event('change'));
+
+                // Expandir card de subsidiaria correspondiente para visibilidad inmediata
+                const card = currentTargetSelect.closest('.as-is-card');
+                if (card) {
+                    const collapse = card.querySelector('.accordion-collapse');
+                    if (collapse && !collapse.classList.contains('show')) {
+                        bootstrap.Collapse.getOrCreateInstance(collapse).show();
+                    }
+                }
             }
-            if (modalTechInstance) {
-                modalTechInstance.hide();
+            if (modalTechEl) {
+                const modal = bootstrap.Modal.getInstance(modalTechEl) || bootstrap.Modal.getOrCreateInstance(modalTechEl);
+                modal.hide();
             }
         }
 
@@ -1143,7 +1333,7 @@
             allSelects.forEach(sel => {
                 if (!sel.querySelector(`option[value="${techId}"]`)) {
                     const opt = document.createElement('option');
-                    opt.value = techId;
+                    opt.value = String(techId);
                     opt.innerText = techName;
                     sel.appendChild(opt);
                 }
@@ -1174,105 +1364,159 @@
                 if (inputTechSearch && inputTechSearch.value.trim() && quickTechNombre) {
                     quickTechNombre.value = inputTechSearch.value.trim();
                 }
-                quickTechNombre?.focus();
+                setTimeout(() => quickTechNombre?.focus(), 200);
             });
         }
 
         if (btnCancelQuickTech) {
             btnCancelQuickTech.addEventListener('click', function () {
-                if (tabSearchBtn) bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+                if (tabSearchBtn) {
+                    bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
+                    renderTechResults(inputTechSearch ? inputTechSearch.value : '');
+                }
             });
         }
 
-        // Quick create AJAX form submit
-        if (formQuickCreateTech) {
-            formQuickCreateTech.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const nombre = (quickTechNombre?.value || '').trim();
-                const local = (quickTechNombreLocal?.value || '').trim();
-                const famId = quickTechFamiliaId?.value || '';
+        if (tabSearchBtn) {
+            tabSearchBtn.addEventListener('shown.bs.tab', function () {
+                renderTechResults(inputTechSearch ? inputTechSearch.value : '');
+                setTimeout(() => inputTechSearch?.focus(), 150);
+            });
+        }
 
-                if (!nombre) {
+        if (tabCreateBtn) {
+            tabCreateBtn.addEventListener('shown.bs.tab', function () {
+                setTimeout(() => quickTechNombre?.focus(), 150);
+            });
+        }
+
+        // Quick create AJAX handler
+        async function handleQuickCreateTech(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const nombre = (quickTechNombre?.value || '').trim();
+            const local = (quickTechNombreLocal?.value || '').trim();
+            const famId = quickTechFamiliaId?.value || '';
+
+            if (!nombre) {
+                if (quickCreateAlert) {
+                    quickCreateAlert.className = 'alert alert-danger small';
+                    quickCreateAlert.innerText = 'El nombre corporativo de la tecnología es obligatorio.';
+                    quickCreateAlert.classList.remove('d-none');
+                }
+                quickTechNombre?.focus();
+                return;
+            }
+
+            if (quickCreateAlert) quickCreateAlert.classList.add('d-none');
+            if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = true;
+            if (spinnerQuickTech) spinnerQuickTech.classList.remove('d-none');
+
+            try {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                const formData = new URLSearchParams();
+                formData.append('__RequestVerificationToken', token);
+                formData.append('nombreCorporativo', nombre);
+                if (local) formData.append('nombreLocal', local);
+                if (famId) formData.append('familiaId', famId);
+
+                const endpoint = '@Url.Action("QuickCreateTechnology", "AdoptionProcess")';
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    body: formData.toString()
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Error en el servidor al registrar la tecnología (${res.status} ${res.statusText}).`);
+                }
+
+                const result = await res.json();
+                if (!result.succeeded) {
                     if (quickCreateAlert) {
                         quickCreateAlert.className = 'alert alert-danger small';
-                        quickCreateAlert.innerText = 'El nombre corporativo de la tecnología es obligatorio.';
+                        quickCreateAlert.innerText = result.message || 'No se pudo registrar la tecnología.';
                         quickCreateAlert.classList.remove('d-none');
                     }
                     return;
                 }
 
-                if (quickCreateAlert) quickCreateAlert.classList.add('d-none');
-                if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = true;
-                if (spinnerQuickTech) spinnerQuickTech.classList.remove('d-none');
+                // Agregar al catálogo en memoria si no existe
+                const list = Array.isArray(availableTechnologies) ? availableTechnologies : [];
+                const exists = list.some(t => String(t.id) === String(result.id));
+                if (!exists) {
+                    list.push({
+                        id: result.id,
+                        nombre: result.nombre,
+                        familia: result.familia || null
+                    });
+                    list.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+                    availableTechnologies = list;
+                }
 
-                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
-                const formData = new URLSearchParams();
-                formData.append('nombreCorporativo', nombre);
-                if (local) formData.append('nombreLocal', local);
-                if (famId) formData.append('familiaId', famId);
-                formData.append('__RequestVerificationToken', token);
+                // Propagar la nueva opción a todos los desplegables de tecnologías
+                addOptionToAllSelects(result.id, result.nombre);
 
-                fetch('/Administration/AdoptionProcess/QuickCreateTechnology', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: formData.toString()
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error('Error al registrar la tecnología en el servidor.');
-                    return res.json();
-                })
-                .then(result => {
-                    if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = false;
-                    if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
+                // Seleccionar en el desplegable activo y cerrar modal
+                selectTechnology(result.id, result.nombre);
 
-                    if (!result.succeeded) {
-                        if (quickCreateAlert) {
-                            quickCreateAlert.className = 'alert alert-danger small';
-                            quickCreateAlert.innerText = result.message || 'No se pudo registrar la tecnología.';
-                            quickCreateAlert.classList.remove('d-none');
-                        }
-                        return;
-                    }
+                // Actualizar la grilla de búsqueda del catálogo
+                renderTechResults('');
+            } catch (err) {
+                console.error('Error al registrar tecnología rápida:', err);
+                if (quickCreateAlert) {
+                    quickCreateAlert.className = 'alert alert-danger small';
+                    quickCreateAlert.innerText = err.message || 'Ocurrió un error inesperado al registrar la tecnología.';
+                    quickCreateAlert.classList.remove('d-none');
+                }
+            } finally {
+                if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = false;
+                if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
+            }
+        }
 
-                    // Add to availableTechnologies if not exists
-                    const exists = availableTechnologies.some(t => t.id === result.id);
-                    if (!exists) {
-                        availableTechnologies.push({
-                            id: result.id,
-                            nombre: result.nombre,
-                            familia: result.familia || null
-                        });
-                        availableTechnologies.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-                    }
-
-                    // Add to all selects
-                    addOptionToAllSelects(result.id, result.nombre);
-
-                    // Select and close
-                    selectTechnology(result.id, result.nombre);
-                })
-                .catch(err => {
-                    if (btnSubmitQuickTech) btnSubmitQuickTech.disabled = false;
-                    if (spinnerQuickTech) spinnerQuickTech.classList.add('d-none');
-                    if (quickCreateAlert) {
-                        quickCreateAlert.className = 'alert alert-danger small';
-                        quickCreateAlert.innerText = err.message || 'Ocurrió un error inesperado al registrar la tecnología.';
-                        quickCreateAlert.classList.remove('d-none');
-                    }
-                });
+        if (quickTechNombre) {
+            quickTechNombre.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreateTech(e);
+                }
             });
+        }
+
+        if (quickTechNombreLocal) {
+            quickTechNombreLocal.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreateTech(e);
+                }
+            });
+        }
+
+        if (btnSubmitQuickTech) {
+            btnSubmitQuickTech.addEventListener('click', handleQuickCreateTech);
+        }
+
+        if (formQuickCreateTech) {
+            formQuickCreateTech.addEventListener('submit', handleQuickCreateTech);
         }
 
         // Trigger buttons click
         document.querySelectorAll('.btn-open-tech-lookup').forEach(btn => {
-            btn.addEventListener('click', function () {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
                 const targetId = this.dataset.targetSelect;
                 const selectEl = document.getElementById(targetId);
                 const contextLabel = this.dataset.contextLabel || selectEl?.dataset.contextLabel || 'Tecnología TSI';
+                const initialTab = this.dataset.initialTab || 'search';
                 if (selectEl) {
-                    openTechModal(selectEl, contextLabel);
+                    openTechModal(selectEl, contextLabel, initialTab);
                 }
             });
         });
@@ -1283,22 +1527,33 @@
             sel.addEventListener('change', function () {
                 if (this.value === '__open_modal__') {
                     const contextLabel = this.dataset.contextLabel || 'Tecnología TSI';
-                    openTechModal(this, contextLabel);
+                    openTechModal(this, contextLabel, 'create');
                 } else {
                     this.dataset.previousValue = this.value;
                 }
             });
         });
 
-        // If modal is closed and select still has "__open_modal__", revert it
-        if (modalTechEl) {
-            modalTechEl.addEventListener('hidden.bs.modal', function () {
-                if (currentTargetSelect && currentTargetSelect.value === '__open_modal__') {
-                    currentTargetSelect.value = currentTargetSelect.dataset.previousValue || '';
-                    currentTargetSelect.dispatchEvent(new Event('change'));
+        // Pre-renderizar catálogo inmediatamente al cargar el DOM
+        renderTechResults('');
+
+        // Manejo de modalidad PAYG en contratos de subsidiarias
+        document.querySelectorAll('.switch-payg').forEach(sw => {
+            sw.addEventListener('change', function() {
+                const idx = this.dataset.index;
+                const isPayg = this.checked;
+                const startInput = document.querySelector(`.input-contract-start[data-index="${idx}"]`);
+                const endInput = document.querySelector(`.input-contract-end[data-index="${idx}"]`);
+                if (startInput) {
+                    startInput.disabled = isPayg;
+                    if (isPayg) startInput.value = '';
+                }
+                if (endInput) {
+                    endInput.disabled = isPayg;
+                    if (isPayg) endInput.value = '';
                 }
             });
-        }
+        });
 
         // Initialize default mode
         setStandardMode('pending');
