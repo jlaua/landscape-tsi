@@ -33,6 +33,20 @@
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
 
+        <!-- Barra de Acción Rápida: Guardar desde cualquier paso -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-3 bg-white border rounded-3 shadow-sm">
+            <div>
+                <span class="badge bg-primary fs-7 mb-1">Registro de Solicitud</span>
+                <div class="text-muted small">Complete los datos básicos (Paso 1 y 2) y guarde la evaluación directamente. Los pasos 3 (AS-IS) y 4 (Estándar) son opcionales.</div>
+            </div>
+            <div class="d-flex gap-2">
+                <a asp-action="Evaluations" class="btn btn-outline-danger">Cancelar</a>
+                <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="btnTopSubmitEval">
+                    💾 Guardar Solicitud de Evaluación
+                </button>
+            </div>
+        </div>
+
         <!-- Wizard Navigation Pills -->
         <ul class="nav nav-pills mb-4 bg-light p-2 rounded-3 gap-2" id="evalSteps" role="tablist">
             <li class="nav-item" role="presentation">
@@ -224,9 +238,14 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-outline-secondary px-4 btn-prev-tab" data-prev="#step1-tab">← Volver a Definición</button>
-                    <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step3-tab">Continuar a Diagnóstico AS-IS →</button>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success px-4 fw-bold">
+                            💾 Guardar Solicitud de Evaluación
+                        </button>
+                        <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step3-tab">Continuar a Diagnóstico AS-IS (Opcional) →</button>
+                    </div>
                 </div>
             </div>
 
@@ -236,10 +255,24 @@
             <div class="tab-pane fade" id="step3" role="tabpanel" aria-labelledby="step3-tab">
                 <div class="card p-4 shadow-sm border-0 mb-4">
                     <div class="mb-3">
-                        <h2 class="h5 fw-bold text-primary mb-1">Diagnóstico AS-IS por Subsidiaria</h2>
-                        <p class="text-muted small mb-0">
-                            Para cada empresa participante, registre si ya cuenta con tecnología desplegada, su proveedor local, fecha de fin de contrato (para la convergencia) y drivers de costo.
-                        </p>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <div>
+                                <h2 class="h5 fw-bold text-primary mb-1">Diagnóstico AS-IS por Subsidiaria</h2>
+                                <p class="text-muted small mb-0">
+                                    Para cada empresa participante, registre si ya cuenta con tecnología desplegada, su proveedor local y fecha contractual.
+                                </p>
+                            </div>
+                            <span class="badge bg-info text-dark px-3 py-2 fs-7 fw-semibold">Paso Opcional</span>
+                        </div>
+                        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div class="small">
+                                <strong>💡 ¿No cuenta con contratos o tecnologías en este momento?</strong> Puede omitir este paso y <strong>Guardar la Solicitud ahora</strong>. Al entrar al detalle del proceso podrá registrar las tecnologías de cada empresa de forma individual (con el botón <em>+ Registrar Tecnología Implementada</em>).
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-success fw-bold text-nowrap">
+                                💾 Guardar Solicitud Ahora
+                            </button>
+                        </div>
+                    </div>
                     <div id="alert-no-participating" class="alert alert-warning d-none mb-3 d-flex align-items-center gap-2" role="alert">
                         <span class="fs-5">⚠️</span>
                         <div>
@@ -374,9 +407,14 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-outline-secondary px-4 btn-prev-tab" data-prev="#step2-tab">← Volver a Subsidiarias</button>
-                    <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step4-tab">Continuar a Estándar Corporativo →</button>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success px-4 fw-bold">
+                            💾 Guardar Solicitud de Evaluación
+                        </button>
+                        <button type="button" class="btn btn-primary px-4 btn-next-tab" data-next="#step4-tab">Continuar a Estándar Corporativo (Opcional) →</button>
+                    </div>
                 </div>
             </div>
 
@@ -686,27 +724,61 @@
 <partial name="_ValidationScriptsPartial" />
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // --- 1. Tab Navigation Buttons ---
+        // --- 1. Tab Navigation Helper & Buttons ---
+        function switchToTab(tabSelector) {
+            const tabBtn = document.querySelector(tabSelector);
+            if (!tabBtn) return;
+            const targetPaneId = tabBtn.getAttribute('data-bs-target');
+            if (targetPaneId) {
+                document.querySelectorAll('#evalStepsContent .tab-pane').forEach(p => p.classList.remove('show', 'active'));
+                document.querySelectorAll('#evalSteps .nav-link').forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-selected', 'false');
+                });
+                tabBtn.classList.add('active');
+                tabBtn.setAttribute('aria-selected', 'true');
+                const targetPane = document.querySelector(targetPaneId);
+                if (targetPane) targetPane.classList.add('show', 'active');
+            }
+            if (window.bootstrap && bootstrap.Tab) {
+                try {
+                    bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+                } catch (_) {}
+            }
+            if (typeof refreshAllSubsidiaryParticipation === 'function') {
+                refreshAllSubsidiaryParticipation();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         document.querySelectorAll('.btn-next-tab').forEach(btn => {
             btn.addEventListener('click', function () {
-                const nextTabId = this.dataset.next;
-                const tabTrigger = document.querySelector(nextTabId);
-                if (tabTrigger) {
-                    const tab = new bootstrap.Tab(tabTrigger);
-                    tab.show();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+                switchToTab(this.dataset.next);
             });
         });
 
         document.querySelectorAll('.btn-prev-tab').forEach(btn => {
             btn.addEventListener('click', function () {
-                const prevTabId = this.dataset.prev;
-                const tabTrigger = document.querySelector(prevTabId);
-                if (tabTrigger) {
-                    const tab = new bootstrap.Tab(tabTrigger);
-                    tab.show();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                switchToTab(this.dataset.prev);
+            });
+        });
+
+        document.querySelectorAll('#evalSteps button[data-bs-toggle="pill"]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const targetPaneId = this.getAttribute('data-bs-target');
+                if (targetPaneId) {
+                    document.querySelectorAll('#evalStepsContent .tab-pane').forEach(p => p.classList.remove('show', 'active'));
+                    document.querySelectorAll('#evalSteps .nav-link').forEach(b => {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-selected', 'false');
+                    });
+                    this.classList.add('active');
+                    this.setAttribute('aria-selected', 'true');
+                    const targetPane = document.querySelector(targetPaneId);
+                    if (targetPane) targetPane.classList.add('show', 'active');
+                    if (typeof refreshAllSubsidiaryParticipation === 'function') {
+                        refreshAllSubsidiaryParticipation();
+                    }
                 }
             });
         });
