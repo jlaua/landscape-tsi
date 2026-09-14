@@ -870,6 +870,24 @@ public sealed class AdoptionProcessController(
         return RedirectToAction(nameof(Evaluations));
     }
 
+    [HttpPost("Evaluations/{id:int}/Delete")]
+    [HttpPost("/AdoptionProcess/Evaluations/{id:int}/Delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteEvaluation(int id, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.DeleteProcessCascadeAsync(id, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Evaluations));
+    }
+
     [HttpGet("Evaluations/{id:int}/Edit")]
     [HttpGet("/AdoptionProcess/Evaluations/{id:int}/Edit")]
     [Authorize(Policy = Permissions.CatalogEdit)]

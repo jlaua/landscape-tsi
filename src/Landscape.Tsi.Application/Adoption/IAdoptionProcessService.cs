@@ -28,6 +28,7 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> BatchConveneCompaniesAsync(int procesoId, IEnumerable<ConveneCompanyInput> companies, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> RemoveCompanyFromProcessAsync(int procesoId, int procesoEmpresaId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> DeleteProcessCascadeAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> FinalizeEvaluationWithStandardAsync(FinalizeEvaluationWithStandardCommand command, CancellationToken cancellationToken = default);
 
     Task<EvaluationReportsDto?> GetEvaluationReportsAsync(int procesoId, CancellationToken cancellationToken = default);

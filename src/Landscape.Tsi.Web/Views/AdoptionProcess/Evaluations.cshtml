@@ -218,6 +218,18 @@
                                 Dar de baja
                             </button>
                         }
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-eval ms-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modal-delete-eval"
+                                    data-id="@p.Id"
+                                    data-code="@p.Codigo"
+                                    data-name="@p.Nombre"
+                                    title="Eliminar permanentemente evaluación y registros asociados">
+                                🗑️ Eliminar
+                            </button>
+                        }
                     </td>
                 </tr>
             }
@@ -297,6 +309,41 @@
     </div>
 </div>
 
+<!-- Modal: Eliminar Evaluación y registros asociados -->
+<div class="modal fade" id="modal-delete-eval" tabindex="-1" aria-labelledby="modalDeleteEvalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="form-delete-eval" asp-action="DeleteEvaluation" asp-route-id="0">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title h6 mb-0" id="modalDeleteEvalTitle">🗑️ Eliminar Proceso de Evaluación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-flex align-items-start gap-2 mb-3" role="alert">
+                        <span class="fs-5">⚠️</span>
+                        <div class="small">
+                            <strong>¡Acción destructiva irreversible!</strong><br />
+                            Se eliminará la evaluación junto con sus dependencias: empresas subsidiarias convocadas, asignaciones históricas de estándar y servicios técnicos asociados vinculados a este proceso.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Evaluación a eliminar</label>
+                        <input type="text" id="delete-eval-display" class="form-control bg-light" readonly />
+                    </div>
+                    <p class="small text-muted mb-0">
+                        Esta operación quedará registrada en la pista de auditoría del sistema.
+                    </p>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger fw-bold">🗑️ Confirmar y Eliminar Todo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -311,6 +358,20 @@
 
                 displayInput.value = `${code} - ${name}`;
                 formDeactivate.action = `/Administration/AdoptionProcess/Evaluations/${id}/Deactivate`;
+            });
+        });
+
+        const formDeleteEval = document.getElementById('form-delete-eval');
+        const deleteDisplayInput = document.getElementById('delete-eval-display');
+
+        document.querySelectorAll('.btn-delete-eval').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const code = this.dataset.code;
+                const name = this.dataset.name;
+
+                if (deleteDisplayInput) deleteDisplayInput.value = `${code} - ${name}`;
+                if (formDeleteEval) formDeleteEval.action = `/Administration/AdoptionProcess/Evaluations/${id}/Delete`;
             });
         });
 

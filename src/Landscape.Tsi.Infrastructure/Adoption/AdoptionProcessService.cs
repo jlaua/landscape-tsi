@@ -1415,6 +1415,111 @@ public sealed class AdoptionProcessService(
         return new AdoptionResult(true, "La evaluación ha sido dada de baja exitosamente.");
     }
 
+    public async Task<AdoptionResult> DeleteProcessCascadeAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (proceso is null)
+            return new AdoptionResult(false, "El proceso de evaluación de adopción no existe.");
+
+        var procCode = proceso.CodigoProceso ?? $"PROC-{proceso.IdProcesoAdopcionTSI}";
+        var procName = proceso.NombreProceso ?? $"Proceso {proceso.IdProcesoAdopcionTSI}";
+
+        await using var tx = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        try
+        {
+            // 1. Obtener empresas convocadas para desvincular tecnologías implementadas de las subsidiarias
+            var empresasProceso = await dbContext.AdoptionProcessCompanies
+                .Where(ep => ep.IdProcesoAdopcionTSI == procesoId)
+                .ToListAsync(cancellationToken);
+
+            var empresaProcesoIds = empresasProceso.Select(ep => ep.IdProcesoAdopcionEmpresa).ToHashSet();
+
+            if (empresaProcesoIds.Count > 0)
+            {
+                var techsReferencingProcess = await dbContext.ImplementedTechnologies
+                    .Where(it => it.IdProcesoAdopcionEmpresa.HasValue && empresaProcesoIds.Contains(it.IdProcesoAdopcionEmpresa.Value))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var tech in techsReferencingProcess)
+                {
+                    tech.IdProcesoAdopcionEmpresa = null;
+                }
+            }
+
+            // 2. Servicios de TI vinculados al proceso (TServicioTecnologia) y sus tarifarios hijos
+            var services = await dbContext.TechnologyServices
+                .Include(s => s.TarifariosProyecto)
+                .Include(s => s.TarifariosOperacion)
+                .Where(s => s.IdProcesoAdopcionTSI == procesoId)
+                .ToListAsync(cancellationToken);
+
+            if (services.Count > 0)
+            {
+                foreach (var s in services)
+                {
+                    if (s.TarifariosProyecto.Count > 0)
+                        dbContext.ProjectRateCards.RemoveRange(s.TarifariosProyecto);
+
+                    if (s.TarifariosOperacion.Count > 0)
+                        dbContext.OperationRateCards.RemoveRange(s.TarifariosOperacion);
+                }
+
+                dbContext.TechnologyServices.RemoveRange(services);
+            }
+
+            // 3. Estándares históricos designados vinculados al proceso
+            var standardHistories = await dbContext.StandardTechnologyHistories
+                .Where(e => e.IdProcesoAdopcionTSI == procesoId)
+                .ToListAsync(cancellationToken);
+
+            if (standardHistories.Count > 0)
+            {
+                dbContext.StandardTechnologyHistories.RemoveRange(standardHistories);
+            }
+
+            // 4. Empresas convocadas al proceso
+            if (empresasProceso.Count > 0)
+            {
+                dbContext.AdoptionProcessCompanies.RemoveRange(empresasProceso);
+            }
+
+            // 5. Eliminar el proceso de evaluación en sí
+            dbContext.AdoptionProcesses.Remove(proceso);
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            // 6. Registrar en la pista de auditoría
+            await auditTrail.RecordRelationAsync(
+                "DELETE_EVALUATION_PROCESS",
+                "proceso-adopcion-tsi",
+                "TProcesoAdopcionTSI",
+                procesoId,
+                $"{procCode} - {procName}",
+                actorUserId,
+                correlationId,
+                $"Eliminación en cascada de la evaluación '{procCode}' y todas sus tablas hijas asociadas ({empresasProceso.Count} subsidiarias convocadas, {services.Count} servicios técnicos, {standardHistories.Count} designaciones de estándar).",
+                cancellationToken);
+
+            if (tx != null)
+            {
+                await tx.CommitAsync(cancellationToken);
+            }
+
+            return new AdoptionResult(true, $"La evaluación '{procCode}' y todos sus registros asociados fueron eliminados permanentemente.");
+        }
+        catch (Exception ex)
+        {
+            if (tx != null)
+            {
+                await tx.RollbackAsync(CancellationToken.None);
+            }
+            return new AdoptionResult(false, $"Error al eliminar la evaluación: {ex.Message}");
+        }
+    }
+
     public async Task<AdoptionResult> FinalizeEvaluationWithStandardAsync(FinalizeEvaluationWithStandardCommand command, CancellationToken cancellationToken = default)
     {
         var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == command.ProcesoId, cancellationToken);

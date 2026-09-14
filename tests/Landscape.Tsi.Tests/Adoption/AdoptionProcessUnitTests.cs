@@ -384,6 +384,117 @@ public sealed class AdoptionProcessUnitTests
         Assert.Equal("La tecnología implementada no existe.", result.Message);
     }
 
+    [Fact]
+    public async Task DeleteProcessCascadeAsync_CascadesAndRemovesAllAssociatedRecords()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 100,
+            CodigoProceso = "PROC-TEST-100",
+            NombreProceso = "Proceso Test Cascade Delete",
+            IdBuildingBlock = 1,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var empresaProceso = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 200,
+            IdProcesoAdopcionTSI = 100,
+            IdEmpresaSubsidiaria = 1,
+            Aplica = true
+        };
+        ctx.AdoptionProcessCompanies.Add(empresaProceso);
+
+        var implTech = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 300,
+            IdEmpresaSubsidiaria = 1,
+            IdTecnologiaTSI = 50,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 200
+        };
+        ctx.ImplementedTechnologies.Add(implTech);
+
+        var servicio = new TServicioTecnologia
+        {
+            IdServicio = 400,
+            CodigoServicio = "SRV-TEST",
+            NombreServicio = "Servicio Test",
+            IdProcesoAdopcionTSI = 100,
+            IdTipoServicio = 1,
+            IdTecnologiaTSI = 50,
+            TarifariosProyecto =
+            [
+                new TTarifarioProyectoHoras { IdTarifarioProyecto = 501, IdServicio = 400, Complejidad = "Alta", Subtotal = 5000m }
+            ],
+            TarifariosOperacion =
+            [
+                new TTarifarioOperacion { IdTarifarioOperacion = 601, IdServicio = 400, NivelSoporte = "L2", Subtotal = 2000m }
+            ]
+        };
+        ctx.TechnologyServices.Add(servicio);
+
+        var estandar = new TEstandarTecnologiaHistorico
+        {
+            IdEstandarTecnologia = 700,
+            IdBuildingBlock = 1,
+            IdTecnologiaTSI = 50,
+            IdProcesoAdopcionTSI = 100,
+            RolEstandar = "PRINCIPAL",
+            EstadoVigencia = "ACTIVO_VIGENTE",
+            FechaInicioVigencia = DateTime.Today
+        };
+        ctx.StandardTechnologyHistories.Add(estandar);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var result = await service.DeleteProcessCascadeAsync(100, Guid.NewGuid(), "corr-test-cascade");
+
+        Assert.True(result.Succeeded);
+        Assert.Contains("PROC-TEST-100", result.Message);
+
+        // Assert process is deleted
+        Assert.False(await ctx.AdoptionProcesses.AnyAsync(p => p.IdProcesoAdopcionTSI == 100));
+
+        // Assert companies in process are deleted
+        Assert.False(await ctx.AdoptionProcessCompanies.AnyAsync(ep => ep.IdProcesoAdopcionTSI == 100));
+
+        // Assert services and rate cards are deleted
+        Assert.False(await ctx.TechnologyServices.AnyAsync(s => s.IdProcesoAdopcionTSI == 100));
+        Assert.False(await ctx.ProjectRateCards.AnyAsync(p => p.IdServicio == 400));
+        Assert.False(await ctx.OperationRateCards.AnyAsync(o => o.IdServicio == 400));
+
+        // Assert standard histories are deleted
+        Assert.False(await ctx.StandardTechnologyHistories.AnyAsync(e => e.IdProcesoAdopcionTSI == 100));
+
+        // Assert implemented technology reference to process company is cleared (set to null)
+        var updatedImpl = await ctx.ImplementedTechnologies.FirstOrDefaultAsync(t => t.IdTecnologiaTSIimplementadaSubsidiaria == 300);
+        Assert.NotNull(updatedImpl);
+        Assert.Null(updatedImpl.IdProcesoAdopcionEmpresa);
+    }
+
+    [Fact]
+    public async Task DeleteProcessCascadeAsync_NonExistent_ReturnsFailure()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var result = await service.DeleteProcessCascadeAsync(9999, Guid.NewGuid(), "corr-not-found");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("El proceso de evaluación de adopción no existe.", result.Message);
+    }
+
     private sealed class NullAuditTrail : IAuditTrailService
     {
         public Task RecordCreateAsync(string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, string? description = null, int affectedRecordCount = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;

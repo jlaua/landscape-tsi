@@ -335,6 +335,28 @@ public sealed class AdoptionProcessHttpTests
         Assert.Contains("modal-change-status-eval", content);
         Assert.Contains("btn-change-status-row", content);
         Assert.Contains("Editar", content);
+        Assert.Contains("btn-delete-eval", content);
+        Assert.Contains("modal-delete-eval", content);
+    }
+
+    [Fact]
+    public async Task DeleteEvaluation_WithoutAntiforgery_ReturnsBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.PostAsync("/Administration/AdoptionProcess/Evaluations/1/Delete", new FormUrlEncodedContent([]));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteEvaluation_WithoutDeletePermission_ReturnsForbiddenOrBadRequest()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.PostAsync("/Administration/AdoptionProcess/Evaluations/1/Delete?noDelete=true", new FormUrlEncodedContent([]));
+        Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
     }
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -364,6 +386,7 @@ public sealed class AdoptionProcessHttpTests
             var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
             if (!Request.Query.ContainsKey("noPermission")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogView));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noEdit")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogEdit));
+            if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noDelete")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogDelete));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name)));
         }
     }
@@ -441,6 +464,9 @@ public sealed class AdoptionProcessHttpTests
             Task.FromResult(new AdoptionResult(true, "Ok"));
 
         public Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivo, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> DeleteProcessCascadeAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
 
         public Task<AdoptionResult> FinalizeEvaluationWithStandardAsync(FinalizeEvaluationWithStandardCommand command, CancellationToken cancellationToken = default) =>
