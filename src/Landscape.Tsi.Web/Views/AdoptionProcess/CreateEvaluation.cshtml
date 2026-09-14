@@ -288,10 +288,10 @@
                                                             <option value="@t.Id">@t.Label</option>
                                                         }
                                                     </select>
-                                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="search" title="Buscar con filtros en catálogo">
+                                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" data-bs-toggle="modal" data-bs-target="#modal-technology-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="search" title="Buscar con filtros en catálogo">
                                                         🔍 Buscar
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="create" title="Registrar nueva tecnología en catálogo">
+                                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" data-bs-toggle="modal" data-bs-target="#modal-technology-lookup" data-target-select="select-tech-asis-@i" data-context-label="@empNom" data-initial-tab="create" title="Registrar nueva tecnología en catálogo">
                                                         ➕ Nueva
                                                     </button>
                                                 </div>
@@ -456,10 +456,10 @@
                                             <option value="@t.Id">@t.Label</option>
                                         }
                                     </select>
-                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" id="btn-open-tech-lookup-std" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="search" disabled title="Buscar con filtros en catálogo">
+                                    <button type="button" class="btn btn-outline-primary btn-open-tech-lookup" id="btn-open-tech-lookup-std" data-bs-toggle="modal" data-bs-target="#modal-technology-lookup" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="search" disabled title="Buscar con filtros en catálogo">
                                         🔍 Buscar
                                     </button>
-                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" id="btn-open-tech-lookup-std-new" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="create" disabled title="Registrar nueva tecnología en catálogo">
+                                    <button type="button" class="btn btn-outline-success btn-open-tech-lookup" id="btn-open-tech-lookup-std-new" data-bs-toggle="modal" data-bs-target="#modal-technology-lookup" data-target-select="selectStandardTech" data-context-label="Estándar Corporativo" data-initial-tab="create" disabled title="Registrar nueva tecnología en catálogo">
                                         ➕ Nueva
                                     </button>
                                 </div>
@@ -556,6 +556,13 @@
     </form>
 </section>
 
+<!-- Hidden trigger for programmatic modal opening -->
+<button type="button" id="btn-trigger-tech-modal" class="d-none" data-bs-toggle="modal" data-bs-target="#modal-technology-lookup" aria-hidden="true"></button>
+
+<script type="application/json" id="initialTechCatalog">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo ?? (IReadOnlyList<Landscape.Tsi.Web.Models.TechnologyCatalogItem>)Array.Empty<Landscape.Tsi.Web.Models.TechnologyCatalogItem>(), new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))
+</script>
+
 <!-- =======================================================
      MODAL: BUSCADOR Y REGISTRO RÁPIDO DE TECNOLOGÍAS TSI
      ======================================================= -->
@@ -569,7 +576,7 @@
                     </h5>
                     <small class="text-muted" id="modalTechLookupContext">Seleccionando para: <span class="fw-bold text-dark" id="modalTechContextName">General</span></small>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" id="btnCloseModalTech"></button>
             </div>
 
             <div class="modal-body p-0">
@@ -1122,8 +1129,17 @@
         const quickTechNombreLocal = document.getElementById('quickTechNombreLocal');
         const quickTechFamiliaId = document.getElementById('quickTechFamiliaId');
 
-        // Preload catalog technologies from model
-        let availableTechnologies = (@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo ?? (IReadOnlyList<Landscape.Tsi.Web.Models.TechnologyCatalogItem>)Array.Empty<Landscape.Tsi.Web.Models.TechnologyCatalogItem>(), new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))) || [];
+        // Preload catalog technologies safely
+        let availableTechnologies = [];
+        try {
+            const catalogJsonEl = document.getElementById('initialTechCatalog');
+            if (catalogJsonEl && catalogJsonEl.textContent) {
+                availableTechnologies = JSON.parse(catalogJsonEl.textContent);
+            }
+        } catch (err) {
+            console.warn('Error al parsear catálogo de tecnologías inicial:', err);
+            availableTechnologies = [];
+        }
 
         let currentTargetSelect = null;
 
@@ -1173,7 +1189,7 @@
                 const btnGo = document.getElementById('btnGoToCreateFromEmpty');
                 if (btnGo) {
                     btnGo.addEventListener('click', function () {
-                        if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
+                        if (tabCreateBtn) tabCreateBtn.click();
                         if (quickTechNombre) quickTechNombre.value = q;
                         setTimeout(() => quickTechNombre?.focus(), 150);
                     });
@@ -1222,48 +1238,27 @@
             }
 
             if (initialTab === 'create') {
-                if (tabSearchBtn) {
-                    tabSearchBtn.classList.remove('active');
-                    tabSearchBtn.setAttribute('aria-selected', 'false');
-                }
                 if (tabCreateBtn) {
-                    tabCreateBtn.classList.add('active');
-                    tabCreateBtn.setAttribute('aria-selected', 'true');
+                    tabCreateBtn.click();
                 }
-                const paneSearch = document.getElementById('tab-tech-search');
-                const paneCreate = document.getElementById('tab-tech-create');
-                if (paneSearch) paneSearch.classList.remove('show', 'active');
-                if (paneCreate) paneCreate.classList.add('show', 'active');
-                try {
-                    if (tabCreateBtn) bootstrap.Tab.getOrCreateInstance(tabCreateBtn).show();
-                } catch (_) {}
-                setTimeout(() => quickTechNombre?.focus(), 300);
+                setTimeout(() => quickTechNombre?.focus(), 250);
             } else {
-                if (tabCreateBtn) {
-                    tabCreateBtn.classList.remove('active');
-                    tabCreateBtn.setAttribute('aria-selected', 'false');
-                }
                 if (tabSearchBtn) {
-                    tabSearchBtn.classList.add('active');
-                    tabSearchBtn.setAttribute('aria-selected', 'true');
+                    tabSearchBtn.click();
                 }
-                const paneSearch = document.getElementById('tab-tech-search');
-                const paneCreate = document.getElementById('tab-tech-create');
-                if (paneCreate) paneCreate.classList.remove('show', 'active');
-                if (paneSearch) paneSearch.classList.add('show', 'active');
-                try {
-                    if (tabSearchBtn) bootstrap.Tab.getOrCreateInstance(tabSearchBtn).show();
-                } catch (_) {}
                 if (inputTechSearch) inputTechSearch.value = '';
                 renderTechResults('');
-                setTimeout(() => inputTechSearch?.focus(), 300);
+                setTimeout(() => inputTechSearch?.focus(), 250);
             }
         }
 
         function openTechModal(selectEl, contextLabel, initialTab) {
             currentTargetSelect = selectEl;
             prepareTechModal(selectEl, contextLabel, initialTab);
-            if (modalTechEl) {
+            const triggerBtn = document.getElementById('btn-trigger-tech-modal');
+            if (triggerBtn) {
+                triggerBtn.click();
+            } else if (modalTechEl && window.bootstrap && bootstrap.Modal) {
                 const modal = bootstrap.Modal.getOrCreateInstance(modalTechEl);
                 modal.show();
             }
@@ -1272,11 +1267,11 @@
         if (modalTechEl) {
             modalTechEl.addEventListener('show.bs.modal', function (event) {
                 const trigger = event.relatedTarget;
-                if (trigger) {
-                    let selectEl = currentTargetSelect;
-                    let contextLabel = 'Tecnología TSI';
-                    let initialTab = 'search';
+                let selectEl = currentTargetSelect;
+                let contextLabel = 'Tecnología TSI';
+                let initialTab = 'search';
 
+                if (trigger) {
                     if (trigger.dataset.targetSelect) {
                         selectEl = document.getElementById(trigger.dataset.targetSelect);
                     }
@@ -1288,8 +1283,8 @@
                     if (trigger.dataset.initialTab) {
                         initialTab = trigger.dataset.initialTab;
                     }
-                    prepareTechModal(selectEl, contextLabel, initialTab);
                 }
+                prepareTechModal(selectEl, contextLabel, initialTab);
             });
 
             modalTechEl.addEventListener('hidden.bs.modal', function () {
@@ -1318,11 +1313,18 @@
                 if (card) {
                     const collapse = card.querySelector('.accordion-collapse');
                     if (collapse && !collapse.classList.contains('show')) {
-                        bootstrap.Collapse.getOrCreateInstance(collapse).show();
+                        if (window.bootstrap && bootstrap.Collapse) {
+                            bootstrap.Collapse.getOrCreateInstance(collapse).show();
+                        } else {
+                            collapse.classList.add('show');
+                        }
                     }
                 }
             }
-            if (modalTechEl) {
+            const closeBtn = document.getElementById('btnCloseModalTech');
+            if (closeBtn) {
+                closeBtn.click();
+            } else if (modalTechEl && window.bootstrap && bootstrap.Modal) {
                 const modal = bootstrap.Modal.getInstance(modalTechEl) || bootstrap.Modal.getOrCreateInstance(modalTechEl);
                 modal.hide();
             }
@@ -1507,16 +1509,13 @@
             formQuickCreateTech.addEventListener('submit', handleQuickCreateTech);
         }
 
-        // Trigger buttons click
+        // Keep currentTargetSelect updated when user clicks lookup buttons
         document.querySelectorAll('.btn-open-tech-lookup').forEach(btn => {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
+            btn.addEventListener('click', function () {
                 const targetId = this.dataset.targetSelect;
                 const selectEl = document.getElementById(targetId);
-                const contextLabel = this.dataset.contextLabel || selectEl?.dataset.contextLabel || 'Tecnología TSI';
-                const initialTab = this.dataset.initialTab || 'search';
                 if (selectEl) {
-                    openTechModal(selectEl, contextLabel, initialTab);
+                    currentTargetSelect = selectEl;
                 }
             });
         });
