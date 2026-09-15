@@ -198,7 +198,15 @@ public sealed class MasterTablesController(
     }
 
     [HttpGet("{catalogRoute}")]
-    public async Task<IActionResult> Catalog(string catalogRoute, string? search, int page = 1, int pageSize = 10, int? parentId = null, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Catalog(
+        string catalogRoute,
+        string? search,
+        int page = 1,
+        int pageSize = 10,
+        int? parentId = null,
+        string? sortColumn = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null)
@@ -216,12 +224,14 @@ public sealed class MasterTablesController(
 
         var result = parentId.HasValue
             ? await catalogService.ListRelatedAsync(definition, definition.Columns.Single(column => column.ReferenceCatalogCode == "dominio"), parentId.Value, search, page, pageSize, cancellationToken)
-            : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken);
+            : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken, sortColumn, sortDirection);
         return View(new CatalogPageViewModel
         {
             Definition = definition,
             Search = search,
             Result = result,
+            SortColumn = sortColumn,
+            SortDirection = sortDirection,
             Options = await catalogService.GetOptionsAsync(definition, cancellationToken)
         });
     }
@@ -429,7 +439,7 @@ public sealed class MasterTablesController(
         {
             var result = await deletionImpactService.DeleteAsync(definition.Code, id, confirmation, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
             TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Succeeded
-                ? $"Registro eliminado correctamente. Se eliminaron {result.TotalRecordsDeleted} registros relacionados."
+                ? (result.TotalRecordsDeleted == 1 ? "Registro eliminado correctamente. Se eliminó 1 registro." : $"Registro eliminado correctamente. Se eliminaron {result.TotalRecordsDeleted} registros relacionados.")
                 : result.ErrorMessage ?? "No fue posible eliminar el registro.";
             if (result.Succeeded)
             {

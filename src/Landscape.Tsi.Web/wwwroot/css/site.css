@@ -564,6 +564,21 @@ h3 { font-size: 1.25rem; line-height: 1.3; }
 .page-size-field { flex: 0 0 6rem !important; }
 .result-count { margin: 0; color: #5d5e65; font-size: .9rem; }
 .table-actions { white-space: nowrap; text-align: end !important; }
+.table-actions .md-button + .md-button { margin-left: .35rem; }
+
+.table-sort-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  font-weight: 700;
+}
+.table-sort-link:hover,
+.table-sort-link:focus-visible {
+  color: var(--md-primary);
+  text-decoration: underline;
+}
 
 .pagination-shell {
   display: flex;

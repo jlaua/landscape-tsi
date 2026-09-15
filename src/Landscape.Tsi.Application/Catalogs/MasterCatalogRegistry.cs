@@ -104,7 +104,7 @@ public static class MasterCatalogRegistry
     ];
 
     public static readonly IReadOnlyList<CatalogEntityMetadata> EntityMetadata =
-        Catalogs.Select(catalog => new CatalogEntityMetadata(catalog.Code, catalog.PhysicalTable, catalog.Name, catalog.EntityType, catalog.Group, catalog.NavigationRoute, catalog.IsAdministrable, catalog.Description ?? "Entidad administrable del catálogo Landscape TSI.", catalog.Code is "dominio" or "building-block" or "capacidad-seguridad" or "funcionalidad")).Concat(
+        Catalogs.Select(catalog => new CatalogEntityMetadata(catalog.Code, catalog.PhysicalTable, catalog.Name, catalog.EntityType, catalog.Group, catalog.NavigationRoute, catalog.IsAdministrable, catalog.Description ?? "Entidad administrable del catálogo Landscape TSI.", catalog.IsDeletable)).Concat(
         [
             Entity("regulacion", "TRegulacionAplicable", "Regulación Aplicable", CatalogEntityType.Transactional, "Organización", null, false, "Regulación aplicable a una empresa subsidiaria."),
             Entity("contacto-empresa", "TContactoEmpresaSubsidiaria", "Contacto de Empresa", CatalogEntityType.Transactional, "Organización", null, false, "Contacto asociado a una empresa subsidiaria."),

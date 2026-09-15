@@ -19,7 +19,7 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
     {
         EnsureWhitelisted(definition);
         page = Math.Max(1, page);
-        pageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        pageSize = pageSize is 10 or 25 or 50 or 100 ? pageSize : 10;
         await OpenConnectionAsync(cancellationToken);
         try
         {
@@ -51,7 +51,7 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
         EnsureWhitelisted(definition);
         EnsureForeignKey(definition, foreignKey);
         page = Math.Max(1, page);
-        pageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        pageSize = pageSize is 10 or 25 or 50 or 100 ? pageSize : 10;
         await OpenConnectionAsync(cancellationToken);
         try
         {
@@ -446,6 +446,19 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
     {
         var column = definition.Columns.SingleOrDefault(item => item.Code == sortColumn && definition.ListColumnCodes.Contains(item.Code, StringComparer.Ordinal)) ?? definition.DisplayColumn;
         var direction = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+        if (column.Type == CatalogFieldType.ForeignKey)
+        {
+            var foreignIndex = 0;
+            foreach (var fkCol in definition.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey))
+            {
+                if (fkCol.Code == column.Code)
+                {
+                    var referenced = MasterCatalogRegistry.GetByCode(column.ReferenceCatalogCode!)!;
+                    return $"f{foreignIndex}.{Quote(referenced.DisplayColumn.PhysicalName)} {direction}, c.{Quote(definition.PrimaryKeyColumn)} ASC";
+                }
+                foreignIndex++;
+            }
+        }
         return $"c.{Quote(column.PhysicalName)} {direction}, c.{Quote(definition.PrimaryKeyColumn)} ASC";
     }
 

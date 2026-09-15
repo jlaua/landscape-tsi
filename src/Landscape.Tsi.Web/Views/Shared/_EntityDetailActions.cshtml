@@ -17,6 +17,11 @@
     }
     @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
     {
-        <button class="md-button md-button-danger" type="button" data-bs-toggle="modal" data-bs-target="#delete-catalog-modal" data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })" aria-label="Eliminar @Model.Definition.Name">Eliminar</button>
+        <button class="md-button md-button-danger" type="button"
+                data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })"
+                data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })"
+                data-delete-row-name="@(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? Model.Record.Id.ToString())"
+                aria-label="Eliminar @Model.Definition.Name">Eliminar</button>
     }
 </div>

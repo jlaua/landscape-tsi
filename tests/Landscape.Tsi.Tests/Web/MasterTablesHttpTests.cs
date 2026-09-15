@@ -248,6 +248,57 @@ public sealed class MasterTablesHttpTests
     }
 
     [Fact]
+    public async Task CatalogList_IncludesPageSize100_AndSortLinks_AndRowDeleteButton()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/ciso");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("value=\"100\"", html);
+        Assert.Contains("onchange=\"this.form.submit()\"", html);
+        Assert.Contains("table-sort-link", html);
+        Assert.Contains("sortColumn=nombre", html);
+        Assert.Contains("sortColumn=empresa", html);
+        Assert.Contains("data-delete-impact-url", html);
+        Assert.Contains("data-delete-action-url", html);
+        Assert.Contains("delete-catalog-modal", html);
+        Assert.Contains("domain-delete-impact.js", html);
+    }
+
+    [Theory]
+    [InlineData("asc", "ascending", "\u25b2")]
+    [InlineData("desc", "descending", "\u25bc")]
+    public async Task CatalogList_WithSortingParameters_RendersSortDirectionAndIndicator(string dir, string ariaSort, string indicator)
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/Administration/MasterTables/ciso?sortColumn=nombre&sortDirection={dir}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains($"aria-sort=\"{ariaSort}\"", html);
+        Assert.Contains(indicator, System.Net.WebUtility.HtmlDecode(html));
+    }
+
+    [Fact]
+    public async Task CatalogDeleteImpact_ReturnsJson_ForDeletableMasterCatalog()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/ciso/1/delete-impact");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"rootEntity\":\"ciso\"", json);
+        Assert.Contains("\"totalRecordsToDelete\":1", json);
+    }
+
+    [Fact]
     public async Task OptionsEndpoints_ReturnExpectedOptions()
     {
         await using var factory = CreateFactory();

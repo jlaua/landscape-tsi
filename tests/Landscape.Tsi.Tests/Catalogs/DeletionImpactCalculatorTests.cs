@@ -49,4 +49,20 @@ public sealed class DeletionImpactCalculatorTests
         Assert.False(result.CanDelete);
         Assert.Contains("circular", result.BlockingReason, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void MasterTableWithChildDependencies_ReportsEachChildTableAndTotal()
+    {
+        var cisoNode = new DeletionDependencyNode("CISO", "TCISO", 2, 1, "Empresa / Subsidiaria → CISO", []);
+        var techNode = new DeletionDependencyNode("Tecnología TSI Implementada por Empresa", "TTecnologiaTSIimplementadaSubsidiaria", 3, 1, "Empresa / Subsidiaria → Tecnología TSI Implementada", []);
+        var result = DeletionImpactCalculator.Calculate("empresa-subsidiaria", "TEmpresaSubsidiaria", 10, "Empresa Alfa", [cisoNode, techNode], 50);
+
+        Assert.Equal(2, result.DirectDependents.Count);
+        Assert.Equal(5, result.TotalDependentRecords);
+        Assert.Equal(6, result.TotalRecordsToDelete);
+        Assert.Contains(result.DirectDependents, d => d.EntityName == "CISO" && d.PhysicalTableName == "TCISO" && d.RecordCount == 2);
+        Assert.Contains(result.DirectDependents, d => d.EntityName == "Tecnología TSI Implementada por Empresa" && d.PhysicalTableName == "TTecnologiaTSIimplementadaSubsidiaria" && d.RecordCount == 3);
+        Assert.False(result.RequiresTypedConfirmation);
+        Assert.True(result.CanDelete);
+    }
 }

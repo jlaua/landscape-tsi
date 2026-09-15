@@ -32,9 +32,17 @@
     @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
     <form class="filter-bar" method="get" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" data-loading-form>
         <div class="md-field"><label for="catalog-search">Buscar</label><input id="catalog-search" name="search" value="@Model.Search" type="search" class="form-control" placeholder="Buscar en @Model.Definition.Name…" /></div>
-        <div class="md-field page-size-field"><label for="page-size">Filas</label><select id="page-size" name="pageSize" class="form-select">@foreach (var size in new[] { 10, 25, 50 }) { <option value="@size" selected="@(Model.Result.PageSize == size)">@size</option> }</select></div>
+        <div class="md-field page-size-field"><label for="page-size">Filas</label><select id="page-size" name="pageSize" class="form-select" onchange="this.form.submit()">@foreach (var size in new[] { 10, 25, 50, 100 }) { <option value="@size" selected="@(Model.Result.PageSize == size)">@size</option> }</select></div>
+        @if (!string.IsNullOrWhiteSpace(Model.SortColumn))
+        {
+            <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.SortDirection))
+        {
+            <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+        }
         <button class="md-button md-button-tonal" type="submit">Buscar</button>
-        @if (!string.IsNullOrWhiteSpace(Model.Search)) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Limpiar</a> }
+        @if (!string.IsNullOrWhiteSpace(Model.Search) || !string.IsNullOrWhiteSpace(Model.SortColumn)) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Limpiar</a> }
         <span class="loading-status" role="status" aria-live="polite" hidden>Consultando…</span>
     </form>
     @if (Model.Result.Items.Count == 0)
@@ -45,12 +53,58 @@
     {
         <p class="result-count">@Model.Result.TotalCount registro(s) encontrado(s)</p>
         <div class="responsive-table" role="region" aria-label="Registros de @Model.Definition.Name" tabindex="0">
-            <table><thead><tr>@foreach (var code in Model.Definition.ListColumnCodes) { <th>@Model.Definition.Columns.Single(c => c.Code == code).Label</th> }<th><span class="visually-hidden">Acciones</span></th></tr></thead>
-            <tbody>@foreach (var row in Model.Result.Items) { <tr>@foreach (var code in Model.Definition.ListColumnCodes) { var column = Model.Definition.Columns.Single(c => c.Code == code); <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td> }<td data-label="Acciones" class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@row.Id">Ver detalle</a></td></tr> }</tbody></table>
+            <table>
+                <thead>
+                    <tr>
+                        @foreach (var code in Model.Definition.ListColumnCodes)
+                        {
+                            var column = Model.Definition.Columns.Single(c => c.Code == code);
+                            var isSorted = string.Equals(Model.SortColumn, code, StringComparison.OrdinalIgnoreCase);
+                            var currentDir = isSorted ? (Model.SortDirection?.ToLowerInvariant() == "desc" ? "desc" : "asc") : null;
+                            var nextDir = isSorted && currentDir == "asc" ? "desc" : "asc";
+                            var sortIcon = isSorted ? (currentDir == "desc" ? " \u25bc" : " \u25b2") : "";
+                            var ariaSort = isSorted ? (currentDir == "desc" ? "descending" : "ascending") : "none";
+                            <th scope="col" aria-sort="@ariaSort">
+                                <a class="table-sort-link" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route"
+                                   asp-route-search="@Model.Search" asp-route-pageSize="@Model.Result.PageSize"
+                                   asp-route-sortColumn="@code" asp-route-sortDirection="@nextDir">
+                                    <span>@column.Label</span><span aria-hidden="true">@sortIcon</span>
+                                </a>
+                            </th>
+                        }
+                        <th><span class="visually-hidden">Acciones</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Result.Items)
+                    {
+                        <tr>
+                            @foreach (var code in Model.Definition.ListColumnCodes)
+                            {
+                                var column = Model.Definition.Columns.Single(c => c.Code == code);
+                                <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td>
+                            }
+                            <td data-label="Acciones" class="table-actions">
+                                @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                {
+                                    <button class="md-button md-button-danger" type="button"
+                                            data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                                            data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = row.Id })"
+                                            data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = row.Id })"
+                                            data-delete-row-name="@(row.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? row.Id.ToString())">
+                                        Eliminar
+                                    </button>
+                                }
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@row.Id">Ver detalle</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
         <nav class="pagination-shell" aria-label="Paginación"><span>Página @Model.Result.Page de @Model.Result.TotalPages</span><div>
-            @if (Model.Result.Page > 1) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize">Anterior</a> }
-            @if (Model.Result.Page < Model.Result.TotalPages) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize">Siguiente</a> }
+            @if (Model.Result.Page > 1) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-sortColumn="@Model.SortColumn" asp-route-sortDirection="@Model.SortDirection">Anterior</a> }
+            @if (Model.Result.Page < Model.Result.TotalPages) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-sortColumn="@Model.SortColumn" asp-route-sortDirection="@Model.SortDirection">Siguiente</a> }
         </div></nav>
     }
 </section>
@@ -63,4 +117,43 @@
             <div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar</button></div>
         </form>
     </div></div></div>
+}
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-catalog-modal" tabindex="-1" aria-labelledby="delete-catalog-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-catalog-title">Eliminar registro</h2></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" data-delete-impact-panel>
+                    <p data-delete-impact-status role="status">Analizando dependencias…</p>
+                    <div data-delete-impact-content hidden>
+                        <p>Está a punto de eliminar:</p>
+                        <p class="impact-root"><strong>@Model.Definition.Name:</strong> <span data-delete-root-name></span></p>
+                        <h3>Dependencias afectadas</h3>
+                        <p class="empty-state" data-delete-empty-dependents hidden>No existen registros dependientes en otras tablas.</p>
+                        <ul class="deletion-impact-tree" data-delete-impact-tree></ul>
+                        <p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p>
+                        <p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p>
+                        <p class="app-alert app-alert-warning" data-delete-blocking hidden></p>
+                        <label class="md-field" data-delete-confirmation-field hidden>
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" form="delete-catalog-form" autocomplete="off" data-delete-confirmation />
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="delete-catalog-form" method="post" action="">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                        <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
 }

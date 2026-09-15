@@ -35,7 +35,7 @@ public sealed record MasterCatalogDefinition(
     public string EntityTypeLabel => EntityType == CatalogEntityType.Master ? "Tabla maestra" : "Tabla transaccional";
     public bool IsAdministrable => Enabled;
     public bool IsReadOnly => Code is "estado-adopcion-tsi" or "fase-adopcion" or "estado-capacidad" or "estado-funcionalidad";
-    public bool IsDeletable => Code is "dominio" or "building-block" or "capacidad-seguridad" or "funcionalidad";
+    public bool IsDeletable => IsAdministrable && !IsReadOnly;
     public bool UsesResponsiveDrawer => Code is "capacidad-seguridad" or "funcionalidad" or "casos-uso" or "ciso";
     public bool IncludeInReporting => Code is "dominio" or "building-block" or "capacidad-seguridad" or "funcionalidad" or "tecnologia-tsi" or "familia";
     public string NavigationRoute => Code == "dominio"

@@ -34,8 +34,7 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
         {
             var displayName = await ReadRootNameAsync(entityCode, rootId, cancellationToken);
             if (displayName is null) return null;
-            var counts = await ReadCountsAsync(entityCode, rootId, cancellationToken);
-            return BuildImpact(entityCode, rootId, displayName, counts);
+            return await BuildImpactAsync(entityCode, rootId, displayName, cancellationToken);
         }
         finally
         {
@@ -58,8 +57,7 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                 return new DeletionExecutionResult(false, 0, "El registro ya no existe.");
             }
 
-            var counts = await ReadCountsAsync(entityCode, rootId, cancellationToken);
-            var impact = BuildImpact(entityCode, rootId, displayName, counts);
+            var impact = await BuildImpactAsync(entityCode, rootId, displayName, cancellationToken);
             if (!impact.CanDelete)
             {
                 await transaction.RollbackAsync(CancellationToken.None);
@@ -71,42 +69,50 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                 return new DeletionExecutionResult(false, 0, "Se requiere escribir ELIMINAR para confirmar una operación de alto impacto.");
             }
 
+            var definition = MasterCatalogRegistry.GetByCode(entityCode)!;
             var operation = await auditTrail.BeginDeleteAsync(
                 entityCode,
-                MasterCatalogRegistry.GetByCode(entityCode)!.PhysicalTable,
+                definition.PhysicalTable,
                 rootId,
                 displayName,
                 actorUserId,
                 correlationId,
                 impact.TotalRecordsToDelete,
-                $"{MasterCatalogRegistry.GetByCode(entityCode)!.Name} {displayName} eliminado. Impacto: {impact.TotalRecordsToDelete} registros.",
+                $"{definition.Name} {displayName} eliminado. Impacto: {impact.TotalRecordsToDelete} registros.",
                 cancellationToken);
             await CaptureDeleteSnapshotsAsync(operation, entityCode, rootId, displayName, cancellationToken);
 
             var deleted = 0;
-            if (entityCode == FunctionalityCode)
+            if (entityCode is DomainCode or BuildingBlockCode or CapacityCode or FunctionalityCode)
             {
-                deleted += await ExecuteAsync("DELETE FROM [dbo].[TFuncionalidad] WHERE [idFuncionalidad] = @rootId", rootId, cancellationToken);
-            }
-            else if (entityCode == CapacityCode)
-            {
-                deleted += await ExecuteAsync("DELETE FROM [dbo].[TFuncionalidad] WHERE [idCapacidad] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE FROM [dbo].[TCapacidadDeSeguridad] WHERE [idCapacidad] = @rootId", rootId, cancellationToken);
-            }
-            else if (entityCode == DomainCode)
-            {
-                deleted += await ExecuteAsync("DELETE f FROM [dbo].[TFuncionalidad] f INNER JOIN [dbo].[TCapacidadDeSeguridad] c ON c.[idCapacidad] = f.[idCapacidad] INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = c.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE c FROM [dbo].[TCapacidadDeSeguridad] c INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = c.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE bridge FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] bridge INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = bridge.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE b FROM [dbo].[TBuildingBlock] b WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE FROM [dbo].[TMDominio] WHERE [iddominio] = @rootId", rootId, cancellationToken);
+                if (entityCode == FunctionalityCode)
+                {
+                    deleted += await ExecuteAsync("DELETE FROM [dbo].[TFuncionalidad] WHERE [idFuncionalidad] = @rootId", rootId, cancellationToken);
+                }
+                else if (entityCode == CapacityCode)
+                {
+                    deleted += await ExecuteAsync("DELETE FROM [dbo].[TFuncionalidad] WHERE [idCapacidad] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE FROM [dbo].[TCapacidadDeSeguridad] WHERE [idCapacidad] = @rootId", rootId, cancellationToken);
+                }
+                else if (entityCode == DomainCode)
+                {
+                    deleted += await ExecuteAsync("DELETE f FROM [dbo].[TFuncionalidad] f INNER JOIN [dbo].[TCapacidadDeSeguridad] c ON c.[idCapacidad] = f.[idCapacidad] INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = c.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE c FROM [dbo].[TCapacidadDeSeguridad] c INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = c.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE bridge FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] bridge INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = bridge.[idBuildingBlock] WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE b FROM [dbo].[TBuildingBlock] b WHERE b.[idDominio] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE FROM [dbo].[TMDominio] WHERE [iddominio] = @rootId", rootId, cancellationToken);
+                }
+                else
+                {
+                    deleted += await ExecuteAsync("DELETE f FROM [dbo].[TFuncionalidad] f INNER JOIN [dbo].[TCapacidadDeSeguridad] c ON c.[idCapacidad] = f.[idCapacidad] WHERE c.[idBuildingBlock] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE c FROM [dbo].[TCapacidadDeSeguridad] c WHERE c.[idBuildingBlock] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE bridge FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] bridge WHERE bridge.[idBuildingBlock] = @rootId", rootId, cancellationToken);
+                    deleted += await ExecuteAsync("DELETE FROM [dbo].[TBuildingBlock] WHERE [idBuildingBlock] = @rootId", rootId, cancellationToken);
+                }
             }
             else
             {
-                deleted += await ExecuteAsync("DELETE f FROM [dbo].[TFuncionalidad] f INNER JOIN [dbo].[TCapacidadDeSeguridad] c ON c.[idCapacidad] = f.[idCapacidad] WHERE c.[idBuildingBlock] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE c FROM [dbo].[TCapacidadDeSeguridad] c WHERE c.[idBuildingBlock] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE bridge FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] bridge WHERE bridge.[idBuildingBlock] = @rootId", rootId, cancellationToken);
-                deleted += await ExecuteAsync("DELETE FROM [dbo].[TBuildingBlock] WHERE [idBuildingBlock] = @rootId", rootId, cancellationToken);
+                deleted = await ExecuteGenericDeleteAsync(definition, rootId, cancellationToken);
             }
 
             dbContext.AuthorizationAuditEvents.Add(new Domain.Identity.IamEventoAuditoriaAutorizacion
@@ -117,7 +123,7 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                 Result = "Succeeded",
                 ResourceType = entityCode,
                 ResourceId = rootId.ToString(CultureInfo.InvariantCulture),
-                AfterJson = JsonSerializer.Serialize(new { RootDisplayName = displayName, TotalRecordsDeleted = deleted, Tables = new[] { "TMDominio", "TBuildingBlock", "TCapacidadDeSeguridad", "TFuncionalidad", "TBuildingBlockVsTTecnologiaTSI" } }),
+                AfterJson = JsonSerializer.Serialize(new { RootDisplayName = displayName, TotalRecordsDeleted = deleted, RootTable = definition.PhysicalTable }),
                 CorrelationId = correlationId
             });
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -135,7 +141,20 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
         }
     }
 
-    private DeletionImpactResult BuildImpact(string entityCode, int rootId, string displayName, DependencyCounts counts)
+    private async Task<DeletionImpactResult> BuildImpactAsync(string entityCode, int rootId, string displayName, CancellationToken cancellationToken)
+    {
+        if (entityCode is DomainCode or BuildingBlockCode or CapacityCode or FunctionalityCode)
+        {
+            var counts = await ReadCountsAsync(entityCode, rootId, cancellationToken);
+            return BuildLegacyImpact(entityCode, rootId, displayName, counts);
+        }
+
+        var definition = MasterCatalogRegistry.GetByCode(entityCode)!;
+        var dependents = await DiscoverDependentsAsync(definition, rootId, cancellationToken);
+        return DeletionImpactCalculator.Calculate(definition.Code, definition.PhysicalTable, rootId, displayName, dependents, typedConfirmationThreshold);
+    }
+
+    private DeletionImpactResult BuildLegacyImpact(string entityCode, int rootId, string displayName, DependencyCounts counts)
     {
         var functionalityNode = new DeletionDependencyNode("Funcionalidad", "TFuncionalidad", counts.Functionalities, 3, "Capacidad de Seguridad → Funcionalidad", []);
         var capacity = new DeletionDependencyNode("Capacidad de Seguridad", "TCapacidadDeSeguridad", counts.Capacities, 2, "Building Block → Capacidad de Seguridad", [functionalityNode]);
@@ -163,15 +182,110 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
 
     private async Task<string?> ReadRootNameAsync(string entityCode, int rootId, CancellationToken cancellationToken)
     {
-        var sql = entityCode == DomainCode
-            ? "SELECT [dominio] FROM [dbo].[TMDominio] WHERE [iddominio] = @rootId"
-            : entityCode == BuildingBlockCode
-                ? "SELECT [nombreBuildingBlock] FROM [dbo].[TBuildingBlock] WHERE [idBuildingBlock] = @rootId"
-                : entityCode == CapacityCode
-                    ? "SELECT [nombreCapacidad] FROM [dbo].[TCapacidadDeSeguridad] WHERE [idCapacidad] = @rootId"
-                    : "SELECT [nombreFuncionalidad] FROM [dbo].[TFuncionalidad] WHERE [idFuncionalidad] = @rootId";
+        var definition = MasterCatalogRegistry.GetByCode(entityCode);
+        if (definition is null) return null;
+        var sql = $"SELECT [{definition.DisplayColumn.PhysicalName}] FROM [dbo].[{definition.PhysicalTable}] WHERE [{definition.PrimaryKeyColumn}] = @rootId";
         await using var command = CreateCommand(sql, rootId);
         return await command.ExecuteScalarAsync(cancellationToken) is { } value && value is not DBNull ? value.ToString() : null;
+    }
+
+    private async Task<List<DeletionDependencyNode>> DiscoverDependentsAsync(MasterCatalogDefinition definition, int rootId, CancellationToken cancellationToken)
+    {
+        var result = new List<DeletionDependencyNode>();
+
+        if (definition.Code == "tecnologia-tsi")
+        {
+            var bridgeCount = await ReadCountAsync("SELECT COUNT_BIG(*) FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+            if (bridgeCount > 0)
+            {
+                result.Add(new DeletionDependencyNode("Relaciones Building Block / Tecnología TSI", "TBuildingBlockVsTTecnologiaTSI", bridgeCount, 1, "Tecnología TSI → tabla puente", []));
+            }
+        }
+
+        var selfRefCol = definition.Columns.FirstOrDefault(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase));
+        if (selfRefCol is not null)
+        {
+            var selfCount = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[{definition.PhysicalTable}] WHERE [{selfRefCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+            if (selfCount > 0)
+            {
+                result.Add(new DeletionDependencyNode($"{definition.Name} (Adendas / Sub-registros)", definition.PhysicalTable, selfCount, 1, $"{definition.Name} → {definition.Name}", []));
+            }
+        }
+
+        foreach (var childDef in MasterCatalogRegistry.Catalogs.Where(c => c.Code != definition.Code))
+        {
+            var fkCols = childDef.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var fkCol in fkCols)
+            {
+                var count = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[{childDef.PhysicalTable}] WHERE [{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+                if (count > 0)
+                {
+                    var grandChildren = new List<DeletionDependencyNode>();
+                    if (childDef.Code == "servicio-tecnologia")
+                    {
+                        var projectHours = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[TTarifarioProyectoHoras] WHERE [idServicio] IN (SELECT [idServicio] FROM [dbo].[TServicioTecnologia] WHERE [{fkCol.PhysicalName}] = @rootId)", rootId, cancellationToken);
+                        if (projectHours > 0)
+                            grandChildren.Add(new DeletionDependencyNode("Tarifario de Proyecto (Horas)", "TTarifarioProyectoHoras", projectHours, 2, "Servicio → Tarifario Proyecto", []));
+
+                        var operationTariff = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[TTarifarioOperacion] WHERE [idServicio] IN (SELECT [idServicio] FROM [dbo].[TServicioTecnologia] WHERE [{fkCol.PhysicalName}] = @rootId)", rootId, cancellationToken);
+                        if (operationTariff > 0)
+                            grandChildren.Add(new DeletionDependencyNode("Tarifario de Operación", "TTarifarioOperacion", operationTariff, 2, "Servicio → Tarifario Operación", []));
+                    }
+
+                    result.Add(new DeletionDependencyNode(childDef.Name, childDef.PhysicalTable, count, 1, $"{definition.Name} → {childDef.Name}", grandChildren));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<int> ReadCountAsync(string sql, int rootId, CancellationToken cancellationToken)
+    {
+        await using var command = CreateCommand(sql, rootId);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null || result is DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
+    }
+
+    private async Task<int> ExecuteGenericDeleteAsync(MasterCatalogDefinition definition, int rootId, CancellationToken cancellationToken)
+    {
+        var totalDeleted = 0;
+
+        foreach (var childDef in MasterCatalogRegistry.Catalogs.Where(c => c.Code != definition.Code))
+        {
+            var fkCols = childDef.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var fkCol in fkCols)
+            {
+                if (childDef.Code == "servicio-tecnologia")
+                {
+                    totalDeleted += await ExecuteAsync($"DELETE p FROM [dbo].[TTarifarioProyectoHoras] p INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = p.[idServicio] WHERE s.[{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+                    totalDeleted += await ExecuteAsync($"DELETE o FROM [dbo].[TTarifarioOperacion] o INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = o.[idServicio] WHERE s.[{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+                }
+            }
+        }
+
+        if (definition.Code == "tecnologia-tsi")
+        {
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+        }
+
+        var selfRefCol = definition.Columns.FirstOrDefault(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase));
+        if (selfRefCol is not null)
+        {
+            totalDeleted += await ExecuteAsync($"DELETE FROM [dbo].[{definition.PhysicalTable}] WHERE [{selfRefCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+        }
+
+        foreach (var childDef in MasterCatalogRegistry.Catalogs.Where(c => c.Code != definition.Code))
+        {
+            var fkCols = childDef.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var fkCol in fkCols)
+            {
+                totalDeleted += await ExecuteAsync($"DELETE FROM [dbo].[{childDef.PhysicalTable}] WHERE [{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+            }
+        }
+
+        totalDeleted += await ExecuteAsync($"DELETE FROM [dbo].[{definition.PhysicalTable}] WHERE [{definition.PrimaryKeyColumn}] = @rootId", rootId, cancellationToken);
+        return totalDeleted;
     }
 
     private async Task<DependencyCounts> ReadCountsAsync(string entityCode, int rootId, CancellationToken cancellationToken)
@@ -211,6 +325,22 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
     private async Task CaptureDeleteSnapshotsAsync(AuditOperation operation, string entityCode, int rootId,
         string rootDisplayName, CancellationToken cancellationToken)
     {
+        if (entityCode is not (DomainCode or BuildingBlockCode or CapacityCode or FunctionalityCode))
+        {
+            var def = MasterCatalogRegistry.GetByCode(entityCode)!;
+            var order = 0;
+            foreach (var childDef in MasterCatalogRegistry.Catalogs.Where(c => c.Code != def.Code))
+            {
+                var fkCols = childDef.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, def.Code, StringComparison.OrdinalIgnoreCase)).ToList();
+                foreach (var fkCol in fkCols)
+                {
+                    await CaptureRowsAsync(operation, entityCode, childDef.PhysicalTable, childDef.PrimaryKeyColumn, $"t.[{fkCol.PhysicalName}] = @rootId", childDef.DisplayColumn.PhysicalName, order++, 1, false, rootId, cancellationToken);
+                }
+            }
+            await CaptureRowsAsync(operation, entityCode, def.PhysicalTable, def.PrimaryKeyColumn, $"t.[{def.PrimaryKeyColumn}] = @rootId", def.DisplayColumn.PhysicalName, order, 0, true, rootId, cancellationToken);
+            return;
+        }
+
         if (entityCode == DomainCode)
         {
             await CaptureRowsAsync(operation, entityCode, "TFuncionalidad", "idFuncionalidad", "f.[idCapacidad] IN (SELECT c.[idCapacidad] FROM [dbo].[TCapacidadDeSeguridad] c INNER JOIN [dbo].[TBuildingBlock] b ON b.[idBuildingBlock] = c.[idBuildingBlock] WHERE b.[idDominio] = @rootId)", "nombreFuncionalidad", 0, 3, false, rootId, cancellationToken);
@@ -244,7 +374,7 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
         string predicate, string? displayColumn, int deleteOrder, int restoreOrder, bool root, int rootId,
         CancellationToken cancellationToken)
     {
-        var alias = table == "TMDominio" ? "d" : table == "TBuildingBlock" ? "b" : table == "TCapacidadDeSeguridad" ? "c" : table == "TFuncionalidad" ? "f" : "bridge";
+        var alias = table == "TMDominio" ? "d" : table == "TBuildingBlock" ? "b" : table == "TCapacidadDeSeguridad" ? "c" : table == "TFuncionalidad" ? "f" : table == "TBuildingBlockVsTTecnologiaTSI" ? "bridge" : "t";
         await using var command = CreateCommand($"SELECT * FROM [dbo].[{table}] {alias} WHERE {predicate}", rootId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -295,7 +425,7 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
     private static void EnsureSupported(string entityCode)
     {
         var definition = MasterCatalogRegistry.GetByCode(entityCode);
-        if (definition is null || (entityCode != DomainCode && entityCode != BuildingBlockCode && entityCode != CapacityCode && entityCode != FunctionalityCode) || !MasterCatalogRegistry.EntityMetadata.Single(entity => entity.Code == entityCode).IsDeletable)
+        if (definition is null || !definition.IsDeletable)
         {
             throw new InvalidOperationException("La entidad no pertenece a la lista blanca de eliminaciones habilitadas.");
         }

@@ -83,6 +83,16 @@
                         <td data-label="Descripción">@(item.DescripcionDominio ?? "—")</td>
                         <td data-label="Subdominio CVT">@(item.SubDominioCvt ?? "—")</td>
                         <td data-label="Acciones" class="table-actions">
+                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                            {
+                                <button class="md-button md-button-danger" type="button"
+                                        data-bs-toggle="modal" data-bs-target="#delete-domain-modal"
+                                        data-delete-impact-url="@Url.Action("DomainDeleteImpact", new { id = item.Id })"
+                                        data-delete-action-url="@Url.Action("DeleteDomain", new { id = item.Id })"
+                                        data-delete-row-name="@(item.Dominio ?? item.Id.ToString())">
+                                    Eliminar
+                                </button>
+                            }
                             <a class="md-button md-button-text" asp-action="DomainDetails" asp-route-id="@item.Id"
                                aria-label="Ver detalle de @(item.Dominio ?? "dominio sin nombre")">Ver detalle</a>
                         </td>
@@ -149,7 +159,50 @@
     </div>
 }
 
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-domain-modal" tabindex="-1" aria-labelledby="delete-domain-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-domain-title">Eliminar registro</h2></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" data-delete-impact-panel>
+                    <p data-delete-impact-status role="status">Analizando dependencias…</p>
+                    <div data-delete-impact-content hidden>
+                        <p>Está a punto de eliminar:</p>
+                        <p class="impact-root"><strong>Dominio:</strong> <span data-delete-root-name></span></p>
+                        <h3>Dependencias afectadas</h3>
+                        <p class="empty-state" data-delete-empty-dependents hidden>No existen registros dependientes en otras tablas.</p>
+                        <ul class="deletion-impact-tree" data-delete-impact-tree></ul>
+                        <p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p>
+                        <p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p>
+                        <p class="app-alert app-alert-warning" data-delete-blocking hidden></p>
+                        <label class="md-field" data-delete-confirmation-field hidden>
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" form="delete-domain-form" autocomplete="off" data-delete-confirmation />
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="delete-domain-form" method="post" action="">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                        <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     <script src="~/js/domain-relationships.js" asp-append-version="true"></script>
+    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+    {
+        <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+    }
 }
