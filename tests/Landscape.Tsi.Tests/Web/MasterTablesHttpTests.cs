@@ -427,6 +427,40 @@ public sealed class MasterTablesHttpTests
         Assert.Contains("value=\"/Administration/MasterTables/proceso-adopcion-tsi/details/1\"", html);
     }
 
+    [Theory]
+    [InlineData("contacto-vendor", "Nombre del contacto")]
+    [InlineData("contacto-partner", "Nombre del partner")]
+    public async Task ContactCatalogs_RenderAttributes_InListAndDetails(string route, string mainLabel)
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Verificar listado
+        var listResponse = await client.GetAsync($"/Administration/MasterTables/{route}");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var rawListHtml = await listResponse.Content.ReadAsStringAsync();
+        var listHtml = WebUtility.HtmlDecode(rawListHtml);
+        Assert.Contains(mainLabel, listHtml);
+        Assert.Contains("Rol / Cargo", listHtml);
+        Assert.Contains("Correo electrónico", listHtml);
+        Assert.Contains("Teléfono", listHtml);
+
+        // 2. Verificar detalle
+        var detailResponse = await client.GetAsync($"/Administration/MasterTables/{route}/details/1");
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var rawDetailHtml = await detailResponse.Content.ReadAsStringAsync();
+        var detailHtml = WebUtility.HtmlDecode(rawDetailHtml);
+        Assert.Contains("Rol / Cargo", detailHtml);
+        Assert.Contains("Otro", detailHtml);
+        Assert.Contains("Notas", detailHtml);
+
+        // 3. Modal de creación en la vista de lista
+        Assert.Contains("field-rol", listHtml);
+        Assert.Contains("field-otro", listHtml);
+        Assert.Contains("field-notas", listHtml);
+    }
+
+
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");

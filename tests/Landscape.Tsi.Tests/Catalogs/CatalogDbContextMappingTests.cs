@@ -69,6 +69,12 @@ public sealed class CatalogDbContextMappingTests
         Assert.Equal("montoAnual", context.Model.FindEntityType(typeof(TContratoTecnologia))!.FindProperty(nameof(TContratoTecnologia.MontoAnual))!.GetColumnName());
         Assert.Equal("montoTrianual", context.Model.FindEntityType(typeof(TContratoTecnologia))!.FindProperty(nameof(TContratoTecnologia.MontoTrianual))!.GetColumnName());
         Assert.Equal("precioUnitario", context.Model.FindEntityType(typeof(TDriver))!.FindProperty(nameof(TDriver.PrecioUnitario))!.GetColumnName());
+        Assert.Equal("ROL", context.Model.FindEntityType(typeof(TContactoVendor))!.FindProperty(nameof(TContactoVendor.Rol))!.GetColumnName());
+        Assert.Equal("NOTAS", context.Model.FindEntityType(typeof(TContactoVendor))!.FindProperty(nameof(TContactoVendor.Notas))!.GetColumnName());
+        Assert.Equal("otro", context.Model.FindEntityType(typeof(TContactoVendor))!.FindProperty(nameof(TContactoVendor.Otro))!.GetColumnName());
+        Assert.Equal("ROL", context.Model.FindEntityType(typeof(TContactoPartner))!.FindProperty(nameof(TContactoPartner.Rol))!.GetColumnName());
+        Assert.Equal("NOTAS", context.Model.FindEntityType(typeof(TContactoPartner))!.FindProperty(nameof(TContactoPartner.Notas))!.GetColumnName());
+        Assert.Equal("otro", context.Model.FindEntityType(typeof(TContactoPartner))!.FindProperty(nameof(TContactoPartner.Otro))!.GetColumnName());
     }
 
     [Fact]

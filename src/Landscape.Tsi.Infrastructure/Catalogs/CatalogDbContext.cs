@@ -64,8 +64,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TModalidadLaboral>(b, "TModalidadLaboral", "idModalidadLaboral", (e, p) => { p(e, x => x.Nombre, "TipoModalidadLaboral"); p(e, x => x.Descripcion, "descripcion"); });
         Map<TTipoOperacion>(b, "TTipoOperacion", "idTipoModeloOperacion", (e, p) => { p(e, x => x.Nombre, "TipoModeloDeOperacion"); p(e, x => x.Descripcion, "Descripcion"); });
         Map<TVendor>(b, "TVendor", "idVendor", (e, p) => { p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); p(e, x => x.NombreVendor, "nombreVendor"); });
-        Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); });
-        Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); });
+        Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
+        Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
 
         b.Entity<TBuildingBlock>().HasOne<TmDominio>().WithMany().HasForeignKey(x => x.IdDominio).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TBuildingBlock>().HasOne<TEstadoFaseAdopcion>().WithMany().HasForeignKey(x => x.IdFase).OnDelete(DeleteBehavior.NoAction);
