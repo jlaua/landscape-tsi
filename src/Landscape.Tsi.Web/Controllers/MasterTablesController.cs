@@ -422,8 +422,155 @@ public sealed class MasterTablesController(
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
         if (definition is null || !definition.IsDeletable) return NotFound();
-        var impact = await deletionImpactService.PreviewAsync(definition.Code, id, cancellationToken);
-        return impact is null ? NotFound() : Json(impact);
+        try
+        {
+            var impact = await deletionImpactService.PreviewAsync(definition.Code, id, cancellationToken);
+            return impact is null ? NotFound() : Json(impact);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al calcular el impacto de eliminación para {Route} id {Id}. Correlación: {CorrelationId}", catalogRoute, id, HttpContext.TraceIdentifier);
+            return StatusCode(500, new { message = "Error al calcular el impacto de dependencias." });
+        }
+    }
+
+    [HttpGet("tecnologia-tsi-implementada/company-metrics")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> ImplementedTechnologiesCompanyMetrics(CancellationToken cancellationToken)
+    {
+        var parentDef = MasterCatalogRegistry.GetByCode("empresa-subsidiaria");
+        var childDef = MasterCatalogRegistry.GetByCode("tecnologia-tsi-implementada");
+        if (parentDef is null || childDef is null) return NotFound();
+
+        var fkCol = childDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "empresa-subsidiaria");
+        if (fkCol is null) return NotFound();
+
+        var buckets = await catalogService.GetRelationCountsAsync(parentDef, childDef, fkCol, cancellationToken);
+        var totalCompanies = buckets.Count(b => b.Total > 0);
+        var totalImplementations = buckets.Sum(b => b.Total);
+        var averagePerCompany = totalCompanies == 0 ? 0 : Math.Round((double)totalImplementations / totalCompanies, 1);
+
+        return Json(new
+        {
+            summary = new
+            {
+                totalCompanies,
+                totalImplementations,
+                averagePerCompany
+            },
+            companies = buckets.Select(b => new
+            {
+                companyId = b.ParentId,
+                companyName = b.ParentName,
+                count = b.Total
+            }).OrderByDescending(b => b.count).ThenBy(b => b.companyName).ToList()
+        });
+    }
+
+    [HttpGet("tecnologia-tsi-implementada/companies/{companyId:int}/technologies")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> ImplementedTechnologiesByCompany(int companyId, CancellationToken cancellationToken)
+    {
+        var childDef = MasterCatalogRegistry.GetByCode("tecnologia-tsi-implementada");
+        if (childDef is null) return NotFound();
+
+        var fkCol = childDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "empresa-subsidiaria");
+        if (fkCol is null) return NotFound();
+
+        var related = await catalogService.ListRelatedAsync(childDef, fkCol, companyId, null, 1, 100, cancellationToken);
+        var items = related.Items.Select(row => new
+        {
+            id = row.Id,
+            empresa = row.DisplayValues.GetValueOrDefault("empresa") ?? "—",
+            tecnologia = row.DisplayValues.GetValueOrDefault("tecnologia") ?? "—",
+            buildingBlock = row.DisplayValues.GetValueOrDefault("buildingBlock") ?? "—",
+            versionDesplegada = row.DisplayValues.GetValueOrDefault("versionDesplegada") ?? "—",
+            esInstanciaCorporativa = row.DisplayValues.GetValueOrDefault("esInstanciaCorporativa") ?? "—",
+            esTecnologiaPrimaria = row.DisplayValues.GetValueOrDefault("esTecnologiaPrimaria") ?? "—",
+            detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteImpactUrl = Url.Action(nameof(CatalogDeleteImpact), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteActionUrl = Url.Action(nameof(DeleteCatalog), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteRowName = $"{(row.DisplayValues.GetValueOrDefault("empresa") ?? "")} — {(row.DisplayValues.GetValueOrDefault("tecnologia") ?? row.Id.ToString())}"
+        }).ToList();
+
+        return Json(new { companyId, items, total = related.TotalCount });
+    }
+
+    [HttpPost("tecnologia-tsi-implementada/bulk-delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkDeleteImplementedTechnologies([FromForm] int[] selectedIds, [FromForm] string? confirmation, [FromForm] string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute("tecnologia-tsi-implementada");
+        if (definition is null || !definition.IsDeletable) return NotFound();
+
+        if (selectedIds == null || selectedIds.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Debe seleccionar al menos un registro para eliminar.";
+            return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+        }
+
+        if (!string.Equals(confirmation?.Trim(), "ELIMINAR", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Debe escribir ELIMINAR para confirmar la eliminación masiva.";
+            return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+        }
+
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var successCount = 0;
+        var totalCascadeRecords = 0;
+        var errors = new List<string>();
+
+        foreach (var id in selectedIds.Distinct())
+        {
+            try
+            {
+                var result = await deletionImpactService.DeleteAsync(definition.Code, id, confirmation, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+                if (result.Succeeded)
+                {
+                    successCount++;
+                    totalCascadeRecords += result.TotalRecordsDeleted;
+                }
+                else if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+                {
+                    errors.Add($"ID {id}: {result.ErrorMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error al eliminar masivamente id {Id} de {Catalog}. Correlación: {CorrelationId}", id, definition.Name, HttpContext.TraceIdentifier);
+                errors.Add($"ID {id}: Error interno al procesar.");
+            }
+        }
+
+        if (successCount > 0)
+        {
+            var message = $"Se eliminaron exitosamente {successCount} tecnología(s) implementada(s) ({totalCascadeRecords} registro(s) en cascada).";
+            if (errors.Count > 0)
+            {
+                message += $" Hubo errores en {errors.Count} elemento(s).";
+            }
+            TempData["SuccessMessage"] = message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = errors.Count > 0
+                ? $"No fue posible eliminar los registros seleccionados: {string.Join("; ", errors.Take(3))}"
+                : "No fue posible eliminar los registros seleccionados.";
+        }
+
+        return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+    }
+
+    private IActionResult RedirectToLocalOrCatalog(string? returnUrl, string catalogRoute)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+        return RedirectToAction(nameof(Catalog), new { catalogRoute });
     }
 
     [HttpPost("{catalogRoute}/{id:int}/delete")]

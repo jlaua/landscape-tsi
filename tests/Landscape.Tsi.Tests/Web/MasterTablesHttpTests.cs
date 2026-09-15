@@ -299,6 +299,113 @@ public sealed class MasterTablesHttpTests
     }
 
     [Fact]
+    public async Task CatalogDeleteImpact_ForImplementedTechnology_ReturnsOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/tecnologia-tsi-implementada/1/delete-impact");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"rootEntity\":\"tecnologia-tsi-implementada\"", json);
+    }
+
+    [Fact]
+    public async Task ImplementedTechnologiesCompanyMetrics_ReturnsOk_WithBuckets()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/tecnologia-tsi-implementada/company-metrics");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"totalCompanies\":2", json);
+        Assert.Contains("\"totalImplementations\":8", json);
+        Assert.Contains("\"companyName\":\"BCP\"", json);
+    }
+
+    [Fact]
+    public async Task ImplementedTechnologiesByCompany_ReturnsOk_WithItems()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/tecnologia-tsi-implementada/companies/1/technologies");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"empresa\":\"BCP\"", json);
+        Assert.Contains("\"tecnologia\":\"Crowdstrike\"", json);
+        Assert.Contains("\"deleteImpactUrl\"", json);
+    }
+
+    [Fact]
+    public async Task BulkDelete_RequiresValidConfirmation_RedirectsWithError()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        var content = new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("selectedIds", "1"),
+            new KeyValuePair<string, string>("confirmation", "INVALID")
+        ]);
+
+        var response = await client.PostAsync("/Administration/MasterTables/tecnologia-tsi-implementada/bulk-delete", content);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Administration/MasterTables/tecnologia-tsi-implementada", response.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task BulkDelete_Success_DeletesSelectedItems_RedirectsWithSuccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        var content = new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("selectedIds", "1"),
+            new KeyValuePair<string, string>("selectedIds", "2"),
+            new KeyValuePair<string, string>("confirmation", "ELIMINAR")
+        ]);
+
+        var response = await client.PostAsync("/Administration/MasterTables/tecnologia-tsi-implementada/bulk-delete", content);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Administration/MasterTables/tecnologia-tsi-implementada", response.Headers.Location?.ToString());
+    }
+
+    private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string path = "/Administration/MasterTables/tecnologia-tsi-implementada")
+    {
+        var response = await client.GetAsync(path);
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        var match = Regex.Match(html, @"name=""__RequestVerificationToken""[^>]*value=""([^""]+)""");
+        Assert.True(match.Success, "No se encontró el token de antiforgery.");
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
+
+    [Fact]
+    public async Task ImplementedTechnologiesCatalogView_RendersBulkToolbarAndDashboard()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/tecnologia-tsi-implementada");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("bulk-actions-bar", html);
+        Assert.Contains("select-all-tech", html);
+        Assert.Contains("company-technologies-dashboard", html);
+        Assert.Contains("company-tech-chart", html);
+        Assert.Contains("implemented-tech-admin.js", html);
+    }
+
+    [Fact]
     public async Task OptionsEndpoints_ReturnExpectedOptions()
     {
         await using var factory = CreateFactory();
@@ -493,13 +600,15 @@ public sealed class MasterTablesHttpTests
         });
     });
 
+    private static readonly string TestUserId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+
     private sealed class MasterTablesAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             if (Request.Query.ContainsKey("anonymous")) return Task.FromResult(AuthenticateResult.NoResult());
-            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
+            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, TestUserId) };
             if (!Request.Query.ContainsKey("noPermission")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogView));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noCreate")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogCreate));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noEdit")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogEdit));
@@ -519,8 +628,10 @@ public sealed class MasterTablesHttpTests
         public static string CurrentName { get; private set; } = "Familia de prueba";
         private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName });
         public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null) => Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
-        public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new CatalogPageResult([], 1, pageSize, 0));
-        public Task<IReadOnlyList<CatalogRelationBucket>> GetRelationCountsAsync(MasterCatalogDefinition parent, MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CatalogRelationBucket>>([]);
+        public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CatalogPageResult([new CatalogRow(1, new Dictionary<string, object?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" }, new Dictionary<string, string?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" })], 1, pageSize, 1));
+        public Task<IReadOnlyList<CatalogRelationBucket>> GetRelationCountsAsync(MasterCatalogDefinition parent, MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CatalogRelationBucket>>([new CatalogRelationBucket(1, "BCP", 5), new CatalogRelationBucket(2, "Mibanco", 3)]);
         public Task<int> GetRelatedCountAsync(MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, int parentId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default) => Task.FromResult<CatalogRow?>(id is 1 or 999 ? Row : null);
         public Task<IReadOnlyDictionary<string, IReadOnlyList<CatalogOption>>> GetOptionsAsync(MasterCatalogDefinition definition, CancellationToken cancellationToken = default)

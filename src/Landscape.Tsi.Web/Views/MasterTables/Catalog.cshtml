@@ -4,6 +4,8 @@
 @{
     ViewData["Title"] = Model.Definition.Name;
     var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Options = Model.Options };
+    var isImplementedTech = Model.Definition.Route == "tecnologia-tsi-implementada";
+    var canDelete = Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete);
 }
 <nav aria-label="Ruta de navegación">
     <ol class="breadcrumb-list">
@@ -52,10 +54,35 @@
     else
     {
         <p class="result-count">@Model.Result.TotalCount registro(s) encontrado(s)</p>
+
+        @if (isImplementedTech && canDelete)
+        {
+            <div class="bulk-actions-toolbar" id="bulk-actions-bar" style="display: none;" aria-live="polite">
+                <div class="bulk-actions-info">
+                    <span class="bulk-badge" id="bulk-selection-count">0</span>
+                    <span>tecnología(s) seleccionada(s)</span>
+                </div>
+                <div class="bulk-actions-buttons">
+                    <button type="button" class="md-button md-button-danger" data-bs-toggle="modal" data-bs-target="#bulk-delete-modal">
+                        Eliminar seleccionados
+                    </button>
+                    <button type="button" class="md-button md-button-text" id="clear-selection-btn">
+                        Limpiar selección
+                    </button>
+                </div>
+            </div>
+        }
+
         <div class="responsive-table" role="region" aria-label="Registros de @Model.Definition.Name" tabindex="0">
             <table>
                 <thead>
                     <tr>
+                        @if (isImplementedTech && canDelete)
+                        {
+                            <th scope="col" class="row-selector-header" style="width: 44px; text-align: center;">
+                                <input type="checkbox" id="select-all-tech" class="form-check-input" aria-label="Seleccionar todas las filas" />
+                            </th>
+                        }
                         @foreach (var code in Model.Definition.ListColumnCodes)
                         {
                             var column = Model.Definition.Columns.Single(c => c.Code == code);
@@ -78,20 +105,34 @@
                 <tbody>
                     @foreach (var row in Model.Result.Items)
                     {
+                        var rowTechName = row.DisplayValues.GetValueOrDefault("tecnologia") ?? row.Id.ToString();
+                        var rowCompanyName = row.DisplayValues.GetValueOrDefault("empresa") ?? "";
+                        var deleteRowName = isImplementedTech
+                            ? $"{rowCompanyName} — {rowTechName}"
+                            : (row.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? row.Id.ToString());
+
                         <tr>
+                            @if (isImplementedTech && canDelete)
+                            {
+                                <td class="row-selector-cell" style="width: 44px; text-align: center;">
+                                    <input type="checkbox" class="form-check-input tech-row-select" value="@row.Id"
+                                           data-tech-name="@rowTechName" data-company-name="@rowCompanyName"
+                                           aria-label="Seleccionar @rowTechName de @rowCompanyName" />
+                                </td>
+                            }
                             @foreach (var code in Model.Definition.ListColumnCodes)
                             {
                                 var column = Model.Definition.Columns.Single(c => c.Code == code);
                                 <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td>
                             }
                             <td data-label="Acciones" class="table-actions">
-                                @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                @if (canDelete)
                                 {
                                     <button class="md-button md-button-danger" type="button"
                                             data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
                                             data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = row.Id })"
                                             data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = row.Id })"
-                                            data-delete-row-name="@(row.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? row.Id.ToString())">
+                                            data-delete-row-name="@deleteRowName">
                                         Eliminar
                                     </button>
                                 }
@@ -108,6 +149,64 @@
         </div></nav>
     }
 </section>
+
+@if (isImplementedTech)
+{
+    <section class="report-card company-technologies-dashboard mt-5" aria-labelledby="company-tech-analytics-title">
+        <div class="report-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <p class="eyebrow">REPORTE GRÁFICO</p>
+                <h2 id="company-tech-analytics-title">Tecnologías TSI Implementadas por Empresa</h2>
+                <p class="supporting-text">Distribución de tecnologías implementadas en cada empresa subsidiaria. Haga clic en una barra del gráfico para consultar el detalle de tecnologías.</p>
+            </div>
+            <div class="analytics-metrics-summary d-flex gap-3">
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-total-companies">—</span>
+                    <span class="kpi-mini-label">Empresas con Tecnologías</span>
+                </div>
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-total-technologies">—</span>
+                    <span class="kpi-mini-label">Total Implementadas</span>
+                </div>
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-avg-technologies">—</span>
+                    <span class="kpi-mini-label">Promedio / Empresa</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-chart-wrap" style="height: 340px; position: relative;">
+            <canvas id="company-tech-chart" aria-label="Tecnologías por Empresa"></canvas>
+        </div>
+
+        <div class="company-tech-drilldown mt-4" id="company-tech-drilldown" hidden>
+            <div class="drilldown-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+                <div>
+                    <h3 class="h5 mb-0" id="drilldown-company-title">Tecnologías Implementadas</h3>
+                    <p class="supporting-text small mb-0" id="drilldown-company-subtitle">Detalle de tecnologías asignadas a la empresa.</p>
+                </div>
+                <button type="button" class="md-button md-button-text" id="drilldown-close-btn">Ocultar detalle</button>
+            </div>
+
+            <div class="responsive-table" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tecnología TSI</th>
+                            <th>Building Block</th>
+                            <th>Versión desplegada</th>
+                            <th>Instancia corporativa</th>
+                            <th>Primaria</th>
+                            <th style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="drilldown-tech-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}
 @if (!Model.Definition.IsReadOnly && Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
 {
     <div class="modal fade @(Model.Definition.UsesResponsiveDrawer ? "catalog-editor-drawer" : null)" id="create-catalog-modal" tabindex="-1" aria-labelledby="create-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
@@ -155,5 +254,56 @@
             </div>
         </div>
     </div>
-    <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+}
+
+@if (isImplementedTech && canDelete)
+{
+    <div class="modal fade" id="bulk-delete-modal" tabindex="-1" aria-labelledby="bulk-delete-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <form method="post" asp-action="BulkDeleteImplementedTechnologies" id="bulk-delete-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <div id="bulk-selected-ids-container"></div>
+                    <div class="modal-header">
+                        <div>
+                            <p class="eyebrow">ACCIÓN DESTRUCTIVA MASIVA</p>
+                            <h2 class="modal-title" id="bulk-delete-title">Eliminar tecnologías seleccionadas</h2>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="app-alert app-alert-warning mb-3">
+                            <strong>¡Atención!</strong> Está a punto de eliminar <span id="bulk-modal-count">0</span> tecnología(s) implementada(s).
+                            Esta operación eliminará en cascada todos los contratos, adendas, drivers operativos y modelos de operación asociados a cada una.
+                        </div>
+                        <p class="mb-2"><strong>Registros seleccionados:</strong></p>
+                        <ul class="bulk-selected-list" id="bulk-modal-list"></ul>
+                        <label class="md-field mt-3">
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" id="bulk-confirmation-input" autocomplete="off" placeholder="ELIMINAR" required />
+                        </label>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="md-button md-button-danger" id="bulk-modal-submit-btn" disabled>
+                            Eliminar masivamente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (canDelete)
+    {
+        <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+    }
+    @if (isImplementedTech)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+        <script src="~/js/implemented-tech-admin.js" asp-append-version="true"></script>
+    }
 }

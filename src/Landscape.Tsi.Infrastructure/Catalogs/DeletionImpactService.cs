@@ -184,9 +184,52 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
     {
         var definition = MasterCatalogRegistry.GetByCode(entityCode);
         if (definition is null) return null;
+
+        if (entityCode == "tecnologia-tsi-implementada")
+        {
+            var sqlImpl = """
+                SELECT CONCAT(
+                    COALESCE(e.[nombreEmpresa], 'Empresa'),
+                    ' — ',
+                    COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], 'Tecnología'),
+                    CASE WHEN i.[versionDesplegada] IS NOT NULL AND RTRIM(LTRIM(i.[versionDesplegada])) <> '' THEN CONCAT(' (', i.[versionDesplegada], ')') ELSE '' END
+                )
+                FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] i
+                LEFT JOIN [dbo].[TEmpresaSubsidiaria] e ON e.[idEmpresaSubsidiaria] = i.[idEmpresaSubsidiaria]
+                LEFT JOIN [dbo].[TTecnologiaTSI] t ON t.[idTecnologiaTSI] = i.[idTecnologiaTSI]
+                WHERE i.[idTecnologiaTSIimplementadaSubsidiaria] = @rootId
+                """;
+            await using var cmdImpl = CreateCommand(sqlImpl, rootId);
+            try
+            {
+                var resImpl = await cmdImpl.ExecuteScalarAsync(cancellationToken);
+                if (resImpl is not null && resImpl is not DBNull)
+                {
+                    var text = resImpl.ToString();
+                    if (!string.IsNullOrWhiteSpace(text)) return text;
+                }
+            }
+            catch
+            {
+                // Degradar al flujo estándar si las tablas relacionadas o columnas no coinciden
+            }
+        }
+
         var sql = $"SELECT [{definition.DisplayColumn.PhysicalName}] FROM [dbo].[{definition.PhysicalTable}] WHERE [{definition.PrimaryKeyColumn}] = @rootId";
         await using var command = CreateCommand(sql, rootId);
-        return await command.ExecuteScalarAsync(cancellationToken) is { } value && value is not DBNull ? value.ToString() : null;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        if (!reader.IsDBNull(0))
+        {
+            var display = reader.GetValue(0)?.ToString();
+            if (!string.IsNullOrWhiteSpace(display)) return display;
+        }
+
+        return $"{definition.Name} #{rootId}";
     }
 
     private async Task<List<DeletionDependencyNode>> DiscoverDependentsAsync(MasterCatalogDefinition definition, int rootId, CancellationToken cancellationToken)
@@ -242,9 +285,16 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
 
     private async Task<int> ReadCountAsync(string sql, int rootId, CancellationToken cancellationToken)
     {
-        await using var command = CreateCommand(sql, rootId);
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return result is null || result is DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
+        try
+        {
+            await using var command = CreateCommand(sql, rootId);
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is null || result is DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     private async Task<int> ExecuteGenericDeleteAsync(MasterCatalogDefinition definition, int rootId, CancellationToken cancellationToken)
@@ -260,6 +310,10 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                 {
                     totalDeleted += await ExecuteAsync($"DELETE p FROM [dbo].[TTarifarioProyectoHoras] p INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = p.[idServicio] WHERE s.[{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
                     totalDeleted += await ExecuteAsync($"DELETE o FROM [dbo].[TTarifarioOperacion] o INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = o.[idServicio] WHERE s.[{fkCol.PhysicalName}] = @rootId", rootId, cancellationToken);
+                }
+                else if (childDef.Code == "contrato-tecnologia")
+                {
+                    totalDeleted += await ExecuteAsync($"DELETE FROM [dbo].[TContratoTecnologia] WHERE [{fkCol.PhysicalName}] = @rootId AND [idContratoPadre] IS NOT NULL", rootId, cancellationToken);
                 }
             }
         }
