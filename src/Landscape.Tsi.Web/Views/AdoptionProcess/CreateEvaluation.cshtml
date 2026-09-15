@@ -345,16 +345,36 @@
                                             </div>
 
                                             <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].VendorNombre" class="form-label fw-semibold">Fabricante / Vendor Local</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].VendorNombre" class="form-control" placeholder="Ej. CyberArk, BeyondTrust..." />
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label asp-for="SubsidiaryAsIsList[i].VendorId" class="form-label fw-semibold mb-0">Fabricante / Vendor Local</label>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor" data-index="@i" title="Registrar nuevo Vendor">+ Nuevo</button>
+                                                </div>
+                                                <select asp-for="SubsidiaryAsIsList[i].VendorId" class="form-select select-vendor" data-index="@i">
+                                                    <option value="">-- Seleccionar Vendor --</option>
+                                                    @foreach (var v in Model.Vendors)
+                                                    {
+                                                        <option value="@v.Id">@v.Label</option>
+                                                    }
+                                                </select>
+                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorNombre" class="input-vendor-name" data-index="@i" />
                                             </div>
                                             <div class="col-md-3">
                                                 <label asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-label fw-semibold">Contacto Vendor Local</label>
                                                 <input asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-control" placeholder="Nombre / Email comercial" />
                                             </div>
                                             <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="form-label fw-semibold">Partner / Integrador Local</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="form-control" placeholder="Ej. Noventiq, Logicalis..." />
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label asp-for="SubsidiaryAsIsList[i].PartnerId" class="form-label fw-semibold mb-0">Partner / Integrador Local</label>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner" data-index="@i" title="Registrar nuevo Partner">+ Nuevo</button>
+                                                </div>
+                                                <select asp-for="SubsidiaryAsIsList[i].PartnerId" class="form-select select-partner" data-index="@i">
+                                                    <option value="">-- Directo (Sin Partner) --</option>
+                                                    @foreach (var pt in Model.Partners)
+                                                    {
+                                                        <option value="@pt.Id">@pt.Label</option>
+                                                    }
+                                                </select>
+                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="input-partner-name" data-index="@i" />
                                             </div>
                                             <div class="col-md-3">
                                                 <label asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="form-label fw-semibold">Contacto Partner Local</label>
@@ -365,23 +385,29 @@
                                             <div class="col-12 mt-3">
                                                 <h6 class="fw-bold text-secondary border-bottom pb-2">Contrato Local Vigente</h6>
                                             </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <label asp-for="SubsidiaryAsIsList[i].NumeroContrato" class="form-label fw-semibold">N° Contrato</label>
                                                 <input asp-for="SubsidiaryAsIsList[i].NumeroContrato" class="form-control" placeholder="CT-LOCAL-2024-..." />
                                             </div>
-                                            <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" class="form-label fw-semibold">Fecha Inicio Contrato</label>
+                                            <div class="col-md-2">
+                                                <label asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" class="form-label fw-semibold">Fecha Inicio</label>
                                                 <input asp-for="SubsidiaryAsIsList[i].FechaInicioContrato" type="date" class="form-control input-contract-start" data-index="@i" />
-                                                <div class="form-text text-muted small">Opcional.</div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].FechaFinContrato" class="form-label fw-semibold">Fecha Fin Contrato</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].FechaFinContrato" type="date" class="form-control input-contract-end" data-index="@i" />
-                                                <div class="form-text text-muted small">Por defecto toma la fecha de la solicitud si no se indica.</div>
                                             </div>
                                             <div class="col-md-2">
-                                                <label asp-for="SubsidiaryAsIsList[i].MontoContratado" class="form-label fw-semibold">Monto Contratado</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].MontoContratado" type="number" step="0.01" class="form-control" placeholder="0.00" />
+                                                <label asp-for="SubsidiaryAsIsList[i].FechaFinContrato" class="form-label fw-semibold">Fecha Fin</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].FechaFinContrato" type="date" class="form-control input-contract-end" data-index="@i" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label asp-for="SubsidiaryAsIsList[i].MontoAnual" class="form-label fw-semibold">Monto Anual</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].MontoAnual" type="number" step="0.01" class="form-control input-monto-anual" data-index="@i" placeholder="0.00" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label asp-for="SubsidiaryAsIsList[i].MontoTrianual" class="form-label fw-semibold">Monto Tri-anual</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].MontoTrianual" type="number" step="0.01" class="form-control input-monto-trianual" data-index="@i" placeholder="0.00" />
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label asp-for="SubsidiaryAsIsList[i].MontoContratado" class="form-label fw-semibold">Total</label>
+                                                <input asp-for="SubsidiaryAsIsList[i].MontoContratado" type="number" step="0.01" class="form-control input-monto-total" data-index="@i" placeholder="0.00" />
                                             </div>
                                             <div class="col-md-1">
                                                 <label asp-for="SubsidiaryAsIsList[i].MonedaContrato" class="form-label fw-semibold">Moneda</label>
@@ -600,6 +626,74 @@
 <script type="application/json" id="initialTechCatalog">
     @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TecnologiasCatalogo ?? (IReadOnlyList<Landscape.Tsi.Web.Models.TechnologyCatalogItem>)Array.Empty<Landscape.Tsi.Web.Models.TechnologyCatalogItem>(), new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))
 </script>
+
+<!-- =======================================================
+     MODAL: REGISTRO RÁPIDO DE VENDOR / FABRICANTE
+     ======================================================= -->
+<div class="modal fade" id="modalQuickVendor" tabindex="-1" aria-labelledby="modalQuickVendorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-primary" id="modalQuickVendorLabel">
+                    🏢 Registrar Nuevo Fabricante / Vendor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quickVendorAlert" class="alert d-none small"></div>
+                <div class="mb-3">
+                    <label for="quickVendorNombre" class="form-label fw-semibold">Nombre del Fabricante / Vendor <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickVendorNombre" placeholder="Ej. CyberArk, Akamai, Imperva, F5 Networks..." autocomplete="off" />
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold" id="btnSubmitQuickVendor">
+                    <span id="spinnerQuickVendor" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                    💾 Guardar Vendor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================================================
+     MODAL: REGISTRO RÁPIDO DE PARTNER / INTEGRADOR
+     ======================================================= -->
+<div class="modal fade" id="modalQuickPartner" tabindex="-1" aria-labelledby="modalQuickPartnerLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-primary" id="modalQuickPartnerLabel">
+                    🤝 Registrar Nuevo Partner / Integrador
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quickPartnerAlert" class="alert d-none small"></div>
+                <div class="mb-3">
+                    <label for="quickPartnerNombre" class="form-label fw-semibold">Nombre del Partner / Integrador <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickPartnerNombre" placeholder="Ej. Noventiq, Logicalis, Apukay, Telefónica Tech..." autocomplete="off" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickPartnerEmail" class="form-label fw-semibold">Correo Electrónico (Opcional)</label>
+                    <input type="email" class="form-control" id="quickPartnerEmail" placeholder="contacto@partner.com" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickPartnerTelefono" class="form-label fw-semibold">Teléfono de Contacto (Opcional)</label>
+                    <input type="text" class="form-control" id="quickPartnerTelefono" placeholder="+51 999 999 999" />
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold" id="btnSubmitQuickPartner">
+                    <span id="spinnerQuickPartner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                    💾 Guardar Partner
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- =======================================================
      MODAL: BUSCADOR Y REGISTRO RÁPIDO DE TECNOLOGÍAS TSI
@@ -1608,6 +1702,261 @@
                     openTechModal(this, contextLabel, 'create');
                 } else {
                     this.dataset.previousValue = this.value;
+                }
+            });
+        });
+
+        // ----------------------------------------------------
+        // QUICK CREATE VENDOR
+        // ----------------------------------------------------
+        let activeVendorIndex = null;
+        const modalQuickVendorEl = document.getElementById('modalQuickVendor');
+        const modalQuickVendor = modalQuickVendorEl ? bootstrap.Modal.getOrCreateInstance(modalQuickVendorEl) : null;
+        const quickVendorNombre = document.getElementById('quickVendorNombre');
+        const quickVendorAlert = document.getElementById('quickVendorAlert');
+        const btnSubmitQuickVendor = document.getElementById('btnSubmitQuickVendor');
+        const spinnerQuickVendor = document.getElementById('spinnerQuickVendor');
+
+        document.querySelectorAll('.btn-quick-vendor').forEach(btn => {
+            btn.addEventListener('click', function () {
+                activeVendorIndex = this.getAttribute('data-index');
+                if (quickVendorNombre) quickVendorNombre.value = '';
+                if (quickVendorAlert) {
+                    quickVendorAlert.classList.add('d-none');
+                    quickVendorAlert.innerText = '';
+                }
+                modalQuickVendor?.show();
+                setTimeout(() => quickVendorNombre?.focus(), 200);
+            });
+        });
+
+        async function handleQuickCreateVendor() {
+            const nombre = (quickVendorNombre?.value || '').trim();
+            if (!nombre) {
+                if (quickVendorAlert) {
+                    quickVendorAlert.className = 'alert alert-danger small';
+                    quickVendorAlert.innerText = 'El nombre del Vendor es obligatorio.';
+                    quickVendorAlert.classList.remove('d-none');
+                }
+                quickVendorNombre?.focus();
+                return;
+            }
+
+            if (quickVendorAlert) quickVendorAlert.classList.add('d-none');
+            if (btnSubmitQuickVendor) btnSubmitQuickVendor.disabled = true;
+            if (spinnerQuickVendor) spinnerQuickVendor.classList.remove('d-none');
+
+            try {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                const formData = new URLSearchParams();
+                formData.append('__RequestVerificationToken', token);
+                formData.append('nombreVendor', nombre);
+
+                const res = await fetch('@Url.Action("QuickCreateVendor", "AdoptionProcess")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString()
+                });
+
+                if (!res.ok) throw new Error('Error al registrar el vendor');
+                const data = await res.json();
+                if (!data.succeeded) {
+                    if (quickVendorAlert) {
+                        quickVendorAlert.className = 'alert alert-danger small';
+                        quickVendorAlert.innerText = data.message || 'Error al guardar.';
+                        quickVendorAlert.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                // Add to all vendor selects
+                document.querySelectorAll('.select-vendor').forEach(sel => {
+                    const exists = Array.from(sel.options).some(o => o.value == String(data.id));
+                    if (!exists) {
+                        const opt = document.createElement('option');
+                        opt.value = data.id;
+                        opt.text = data.nombre;
+                        sel.appendChild(opt);
+                    }
+                });
+
+                // Select for active row
+                if (activeVendorIndex !== null) {
+                    const activeSelect = document.querySelector(`.select-vendor[data-index="${activeVendorIndex}"]`);
+                    const hiddenName = document.querySelector(`.input-vendor-name[data-index="${activeVendorIndex}"]`);
+                    if (activeSelect) activeSelect.value = data.id;
+                    if (hiddenName) hiddenName.value = data.nombre;
+                }
+
+                modalQuickVendor?.hide();
+            } catch (err) {
+                if (quickVendorAlert) {
+                    quickVendorAlert.className = 'alert alert-danger small';
+                    quickVendorAlert.innerText = err.message || 'Error de conexión.';
+                    quickVendorAlert.classList.remove('d-none');
+                }
+            } finally {
+                if (btnSubmitQuickVendor) btnSubmitQuickVendor.disabled = false;
+                if (spinnerQuickVendor) spinnerQuickVendor.classList.add('d-none');
+            }
+        }
+
+        if (btnSubmitQuickVendor) btnSubmitQuickVendor.addEventListener('click', handleQuickCreateVendor);
+        if (quickVendorNombre) {
+            quickVendorNombre.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreateVendor();
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // QUICK CREATE PARTNER
+        // ----------------------------------------------------
+        let activePartnerIndex = null;
+        const modalQuickPartnerEl = document.getElementById('modalQuickPartner');
+        const modalQuickPartner = modalQuickPartnerEl ? bootstrap.Modal.getOrCreateInstance(modalQuickPartnerEl) : null;
+        const quickPartnerNombre = document.getElementById('quickPartnerNombre');
+        const quickPartnerEmail = document.getElementById('quickPartnerEmail');
+        const quickPartnerTelefono = document.getElementById('quickPartnerTelefono');
+        const quickPartnerAlert = document.getElementById('quickPartnerAlert');
+        const btnSubmitQuickPartner = document.getElementById('btnSubmitQuickPartner');
+        const spinnerQuickPartner = document.getElementById('spinnerQuickPartner');
+
+        document.querySelectorAll('.btn-quick-partner').forEach(btn => {
+            btn.addEventListener('click', function () {
+                activePartnerIndex = this.getAttribute('data-index');
+                if (quickPartnerNombre) quickPartnerNombre.value = '';
+                if (quickPartnerEmail) quickPartnerEmail.value = '';
+                if (quickPartnerTelefono) quickPartnerTelefono.value = '';
+                if (quickPartnerAlert) {
+                    quickPartnerAlert.classList.add('d-none');
+                    quickPartnerAlert.innerText = '';
+                }
+                modalQuickPartner?.show();
+                setTimeout(() => quickPartnerNombre?.focus(), 200);
+            });
+        });
+
+        async function handleQuickCreatePartner() {
+            const nombre = (quickPartnerNombre?.value || '').trim();
+            const email = (quickPartnerEmail?.value || '').trim();
+            const telefono = (quickPartnerTelefono?.value || '').trim();
+
+            if (!nombre) {
+                if (quickPartnerAlert) {
+                    quickPartnerAlert.className = 'alert alert-danger small';
+                    quickPartnerAlert.innerText = 'El nombre del Partner es obligatorio.';
+                    quickPartnerAlert.classList.remove('d-none');
+                }
+                quickPartnerNombre?.focus();
+                return;
+            }
+
+            if (quickPartnerAlert) quickPartnerAlert.classList.add('d-none');
+            if (btnSubmitQuickPartner) btnSubmitQuickPartner.disabled = true;
+            if (spinnerQuickPartner) spinnerQuickPartner.classList.remove('d-none');
+
+            try {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                const formData = new URLSearchParams();
+                formData.append('__RequestVerificationToken', token);
+                formData.append('nombrePartner', nombre);
+                if (email) formData.append('email', email);
+                if (telefono) formData.append('telefono', telefono);
+
+                const res = await fetch('@Url.Action("QuickCreatePartner", "AdoptionProcess")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString()
+                });
+
+                if (!res.ok) throw new Error('Error al registrar el partner');
+                const data = await res.json();
+                if (!data.succeeded) {
+                    if (quickPartnerAlert) {
+                        quickPartnerAlert.className = 'alert alert-danger small';
+                        quickPartnerAlert.innerText = data.message || 'Error al guardar.';
+                        quickPartnerAlert.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                // Add to all partner selects
+                document.querySelectorAll('.select-partner').forEach(sel => {
+                    const exists = Array.from(sel.options).some(o => o.value == String(data.id));
+                    if (!exists) {
+                        const opt = document.createElement('option');
+                        opt.value = data.id;
+                        opt.text = data.nombre;
+                        sel.appendChild(opt);
+                    }
+                });
+
+                // Select for active row
+                if (activePartnerIndex !== null) {
+                    const activeSelect = document.querySelector(`.select-partner[data-index="${activePartnerIndex}"]`);
+                    const hiddenName = document.querySelector(`.input-partner-name[data-index="${activePartnerIndex}"]`);
+                    if (activeSelect) activeSelect.value = data.id;
+                    if (hiddenName) hiddenName.value = data.nombre;
+                }
+
+                modalQuickPartner?.hide();
+            } catch (err) {
+                if (quickPartnerAlert) {
+                    quickPartnerAlert.className = 'alert alert-danger small';
+                    quickPartnerAlert.innerText = err.message || 'Error de conexión.';
+                    quickPartnerAlert.classList.remove('d-none');
+                }
+            } finally {
+                if (btnSubmitQuickPartner) btnSubmitQuickPartner.disabled = false;
+                if (spinnerQuickPartner) spinnerQuickPartner.classList.add('d-none');
+            }
+        }
+
+        if (btnSubmitQuickPartner) btnSubmitQuickPartner.addEventListener('click', handleQuickCreatePartner);
+        if (quickPartnerNombre) {
+            quickPartnerNombre.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreatePartner();
+                }
+            });
+        }
+
+        // Sincronizar selección de Vendor y Partner a inputs ocultos
+        document.querySelectorAll('.select-vendor').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = this.getAttribute('data-index');
+                const hidden = document.querySelector(`.input-vendor-name[data-index="${idx}"]`);
+                if (hidden) {
+                    hidden.value = this.selectedIndex > 0 ? this.options[this.selectedIndex].text : '';
+                }
+            });
+        });
+
+        document.querySelectorAll('.select-partner').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = this.getAttribute('data-index');
+                const hidden = document.querySelector(`.input-partner-name[data-index="${idx}"]`);
+                if (hidden) {
+                    hidden.value = this.selectedIndex > 0 ? this.options[this.selectedIndex].text : '';
+                }
+            });
+        });
+
+        // Sincronizar montos Anual / Tri-anual hacia Total
+        document.querySelectorAll('.input-monto-trianual, .input-monto-anual').forEach(inp => {
+            inp.addEventListener('input', function () {
+                const idx = this.getAttribute('data-index');
+                const totalInp = document.querySelector(`.input-monto-total[data-index="${idx}"]`);
+                const trianualInp = document.querySelector(`.input-monto-trianual[data-index="${idx}"]`);
+                const anualInp = document.querySelector(`.input-monto-anual[data-index="${idx}"]`);
+                if (totalInp && (!totalInp.value || parseFloat(totalInp.value) === 0)) {
+                    totalInp.value = (trianualInp && trianualInp.value) ? trianualInp.value : ((anualInp && anualInp.value) ? anualInp.value : '');
                 }
             });
         });

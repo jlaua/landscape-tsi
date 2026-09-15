@@ -10,6 +10,7 @@ public sealed record EvaluationScopeReportRowDto(
     DateTime? FechaVencimientoContrato,
     string? TecnologiaAsIs,
     string? TipoContrato,
+    string? Vendor,
     string? Partner,
     string? TipoOperacion);
 

@@ -66,7 +66,9 @@ public sealed class AdoptionProcessSchemaIntegrationTests
             ("TDriver", "precioUnitario"),
             ("TDriver", "moneda"),
             ("TCasosDeUso", "idEstandarTecnologia"),
-            ("TContratoTecnologia", "esPayg")
+            ("TContratoTecnologia", "esPayg"),
+            ("TContratoTecnologia", "montoAnual"),
+            ("TContratoTecnologia", "montoTrianual")
         };
 
         foreach (var (table, column) in expectedColumns)

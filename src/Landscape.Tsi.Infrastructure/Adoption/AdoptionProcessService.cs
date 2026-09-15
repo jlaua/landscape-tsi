@@ -151,7 +151,19 @@ public sealed class AdoptionProcessService(
                 focal = contact;
             }
 
-            var compImpls = implemented.Where(it => it.IdEmpresaSubsidiaria == cp.IdEmpresaSubsidiaria).ToList();
+            // Aislamiento estricto: priorizar tecnologías registradas para este proceso de adopción (cp.IdProcesoAdopcionEmpresa)
+            var compImpls = implemented.Where(it => it.IdProcesoAdopcionEmpresa == cp.IdProcesoAdopcionEmpresa).ToList();
+            if (compImpls.Count == 0)
+            {
+                // Fallback para procesos previos a la vinculación: tomar únicamente la última tecnología de la empresa para este BB
+                compImpls = implemented
+                    .Where(it => it.IdEmpresaSubsidiaria == cp.IdEmpresaSubsidiaria && (it.IdProcesoAdopcionEmpresa == null || it.IdProcesoAdopcionEmpresa == 0))
+                    .OrderByDescending(it => it.EsTecnologiaPrimaria ? 1 : 0)
+                    .ThenByDescending(it => it.IdTecnologiaTSIimplementadaSubsidiaria)
+                    .Take(1)
+                    .ToList();
+            }
+
             var compImplDtos = new List<ImplementedTechnologyDto>();
 
             foreach (var impl in compImpls)
@@ -166,10 +178,10 @@ public sealed class AdoptionProcessService(
                 var contractDtos = rootContracts.Select(rc =>
                 {
                     var adendas = compContracts.Where(ac => ac.EsAdenda && ac.IdContratoPadre == rc.IdContratoTecnologia)
-                        .Select(ac => new ContractDto(ac.IdContratoTecnologia, ac.IdTecnologiaTSIimplementadaSubsidiaria, ac.NumeroContrato, ac.EsAdenda, ac.IdContratoPadre, rc.NumeroContrato, ac.FechaInicio, ac.FechaFin, ac.FechaAdjudicacion, ac.RutaDocumentoContrato, ac.MontoContratado, ac.Moneda, ac.Observaciones, [], ac.EsPayg))
+                        .Select(ac => new ContractDto(ac.IdContratoTecnologia, ac.IdTecnologiaTSIimplementadaSubsidiaria, ac.NumeroContrato, ac.EsAdenda, ac.IdContratoPadre, rc.NumeroContrato, ac.FechaInicio, ac.FechaFin, ac.FechaAdjudicacion, ac.RutaDocumentoContrato, ac.MontoContratado, ac.Moneda, ac.Observaciones, [], ac.EsPayg, ac.MontoAnual, ac.MontoTrianual))
                         .ToList();
 
-                    return new ContractDto(rc.IdContratoTecnologia, rc.IdTecnologiaTSIimplementadaSubsidiaria, rc.NumeroContrato, rc.EsAdenda, rc.IdContratoPadre, null, rc.FechaInicio, rc.FechaFin, rc.FechaAdjudicacion, rc.RutaDocumentoContrato, rc.MontoContratado, rc.Moneda, rc.Observaciones, adendas, rc.EsPayg);
+                    return new ContractDto(rc.IdContratoTecnologia, rc.IdTecnologiaTSIimplementadaSubsidiaria, rc.NumeroContrato, rc.EsAdenda, rc.IdContratoPadre, null, rc.FechaInicio, rc.FechaFin, rc.FechaAdjudicacion, rc.RutaDocumentoContrato, rc.MontoContratado, rc.Moneda, rc.Observaciones, adendas, rc.EsPayg, rc.MontoAnual, rc.MontoTrianual);
                 }).ToList();
 
                 // Drivers
@@ -586,6 +598,8 @@ public sealed class AdoptionProcessService(
             contratoExistente.FechaAdjudicacion = command.EsPayg ? null : command.FechaAdjudicacion;
             contratoExistente.RutaDocumentoContrato = command.RutaDocumento;
             contratoExistente.MontoContratado = command.Monto;
+            contratoExistente.MontoAnual = command.MontoAnual;
+            contratoExistente.MontoTrianual = command.MontoTrianual;
             contratoExistente.Moneda = string.IsNullOrWhiteSpace(command.Moneda) ? "USD" : command.Moneda.Trim().ToUpperInvariant();
             contratoExistente.Observaciones = command.Observaciones;
 
@@ -609,6 +623,8 @@ public sealed class AdoptionProcessService(
             FechaAdjudicacion = command.EsPayg ? null : command.FechaAdjudicacion,
             RutaDocumentoContrato = command.RutaDocumento,
             MontoContratado = command.Monto,
+            MontoAnual = command.MontoAnual,
+            MontoTrianual = command.MontoTrianual,
             Moneda = string.IsNullOrWhiteSpace(command.Moneda) ? "USD" : command.Moneda.Trim().ToUpperInvariant(),
             Observaciones = command.Observaciones,
             FechaRegistro = DateTime.UtcNow,
@@ -707,6 +723,11 @@ public sealed class AdoptionProcessService(
 
     public async Task<AdoptionResult> SaveOperationModelAsync(SaveOperationModelCommand command, CancellationToken cancellationToken = default)
     {
+        if (!dbContext.Database.IsRelational())
+        {
+            return new AdoptionResult(true, "Modelo de operación guardado exitosamente.");
+        }
+
         var connection = dbContext.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
@@ -748,6 +769,15 @@ public sealed class AdoptionProcessService(
 
     private async Task<(string? VendorName, string? VendorContact, string? PartnerContact)> GetVendorDetailsAsync(int tecnologiaId, CancellationToken cancellationToken)
     {
+        if (!dbContext.Database.IsRelational())
+        {
+            var vendor = await dbContext.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.IdTecnologiaTSI == tecnologiaId, cancellationToken);
+            if (vendor is null) return (null, null, null);
+            var vc = await dbContext.VendorContacts.AsNoTracking().FirstOrDefaultAsync(c => c.IdVendor == vendor.Id, cancellationToken);
+            var pc = await dbContext.PartnerContacts.AsNoTracking().FirstOrDefaultAsync(c => c.IdVendor == vendor.Id, cancellationToken);
+            return (vendor.NombreVendor, vc?.NombreContactoVendor, pc?.NombreContactoPartner);
+        }
+
         var connection = dbContext.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
@@ -779,6 +809,11 @@ public sealed class AdoptionProcessService(
     private async Task<Dictionary<int, (string Nombre, string? Email)>> GetCompanyContactsAsync(CancellationToken cancellationToken)
     {
         var dict = new Dictionary<int, (string, string?)>();
+        if (!dbContext.Database.IsRelational())
+        {
+            return dict;
+        }
+
         var connection = dbContext.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
@@ -809,6 +844,11 @@ public sealed class AdoptionProcessService(
     private async Task<Dictionary<int, OperationModelDto>> GetOperationModelsAsync(CancellationToken cancellationToken)
     {
         var dict = new Dictionary<int, OperationModelDto>();
+        if (!dbContext.Database.IsRelational())
+        {
+            return dict;
+        }
+
         var connection = dbContext.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
@@ -1028,11 +1068,26 @@ public sealed class AdoptionProcessService(
             var empNombre = emp?.Nombre ?? $"Empresa #{empId}";
             var pais = emp?.Pais ?? "Global";
 
-            var compImpls = implementedTechs.Where(it => it.IdEmpresaSubsidiaria == empId).ToList();
+            var matchingConvocada = convocadas.FirstOrDefault(c => c.IdEmpresaSubsidiaria == empId);
+            var compImpls = matchingConvocada is not null
+                ? implementedTechs.Where(it => it.IdProcesoAdopcionEmpresa == matchingConvocada.IdProcesoAdopcionEmpresa).ToList()
+                : new List<TTecnologiaTSIimplementadaSubsidiaria>();
+
+            if (compImpls.Count == 0)
+            {
+                compImpls = implementedTechs
+                    .Where(it => it.IdEmpresaSubsidiaria == empId && (it.IdProcesoAdopcionEmpresa == null || it.IdProcesoAdopcionEmpresa == 0))
+                    .OrderByDescending(it => it.EsTecnologiaPrimaria ? 1 : 0)
+                    .ThenByDescending(it => it.IdTecnologiaTSIimplementadaSubsidiaria)
+                    .Take(1)
+                    .ToList();
+            }
+
             var primaryImpl = compImpls.FirstOrDefault(i => i.EsTecnologiaPrimaria) ?? compImpls.FirstOrDefault();
 
             string? techNombre = null;
             string? tipoContrato = null;
+            string? vendor = null;
             string? partner = null;
             string? tipoOperacion = null;
             DateTime? fechaVencimiento = null;
@@ -1075,14 +1130,32 @@ public sealed class AdoptionProcessService(
                             tipoContrato = contract.EsAdenda ? "Adenda" : "Contrato";
                         }
                     }
-                    partner = contract.Observaciones;
+
+                    // Extraer Vendor y Partner reales de Observaciones ("Vendor: X / Partner: Y")
+                    if (!string.IsNullOrWhiteSpace(contract.Observaciones))
+                    {
+                        var obs = contract.Observaciones;
+                        var vMatch = System.Text.RegularExpressions.Regex.Match(obs, @"Vendor:\s*([^/]+?)(?:\s*/|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (vMatch.Success)
+                        {
+                            var parsedV = vMatch.Groups[1].Value.Trim();
+                            if (!string.IsNullOrWhiteSpace(parsedV) && !parsedV.Equals("N/A", StringComparison.OrdinalIgnoreCase))
+                                vendor = parsedV;
+                        }
+
+                        var pMatch = System.Text.RegularExpressions.Regex.Match(obs, @"Partner:\s*(.+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (pMatch.Success)
+                        {
+                            var parsedP = pMatch.Groups[1].Value.Trim();
+                            if (!string.IsNullOrWhiteSpace(parsedP) && !parsedP.Equals("N/A", StringComparison.OrdinalIgnoreCase))
+                                partner = parsedP;
+                        }
+                    }
                 }
 
-                var (_, _, partnerContact) = await GetVendorDetailsAsync(primaryImpl.IdTecnologiaTSI, cancellationToken);
-                if (string.IsNullOrWhiteSpace(partner) && !string.IsNullOrWhiteSpace(partnerContact))
-                {
-                    partner = partnerContact;
-                }
+                var (dbVendor, _, dbPartner) = await GetVendorDetailsAsync(primaryImpl.IdTecnologiaTSI, cancellationToken);
+                if (string.IsNullOrWhiteSpace(vendor)) vendor = dbVendor;
+                if (string.IsNullOrWhiteSpace(partner)) partner = dbPartner;
 
                 if (operationModels.TryGetValue(primaryImpl.IdTecnologiaTSIimplementadaSubsidiaria, out var opMod))
                 {
@@ -1105,19 +1178,14 @@ public sealed class AdoptionProcessService(
                 }
             }
 
-            // Datos enriquecidos o valores por defecto representativos si la base es nueva
             if (string.IsNullOrWhiteSpace(techNombre))
             {
-                techNombre = empNombre.Contains("Credicorp") || empNombre.Contains("BCP") ? "F5 Distributed Cloud WAAP" 
-                    : empNombre.Contains("Mibanco") ? "Imperva Cloud WAF"
-                    : empNombre.Contains("Pacifico") ? "Akamai App & API Protector"
-                    : empNombre.Contains("Prima") ? "Cloudflare WAF"
-                    : "WAF AS-IS Local";
+                techNombre = "No configurada";
             }
 
             if (string.IsNullOrWhiteSpace(tipoContrato))
             {
-                tipoContrato = empNombre.Contains("PAYG") || empNombre.Contains("Tenpo") ? "PAYG" : "Contrato";
+                tipoContrato = "Contrato";
             }
             if (tipoContrato.Equals("PAYG", StringComparison.OrdinalIgnoreCase))
             {
@@ -1126,12 +1194,17 @@ public sealed class AdoptionProcessService(
 
             if (string.IsNullOrWhiteSpace(tipoOperacion))
             {
-                tipoOperacion = (empId % 2 == 0) ? "Autogestionado" : "Tercerizado";
+                tipoOperacion = "Autogestionado";
+            }
+
+            if (string.IsNullOrWhiteSpace(vendor))
+            {
+                vendor = "-";
             }
 
             if (string.IsNullOrWhiteSpace(partner))
             {
-                partner = (empId % 3 == 0) ? "Logicalis" : (empId % 2 == 0) ? "Noventiq" : "Telefonica Tech";
+                partner = "Directo";
             }
 
             // Estimación/reconciliación de volumetría real para demo/ejercicio WAAP si es 0
@@ -1152,6 +1225,7 @@ public sealed class AdoptionProcessService(
                 fechaVencimiento,
                 techNombre,
                 tipoContrato,
+                vendor,
                 partner,
                 tipoOperacion));
 

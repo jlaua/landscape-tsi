@@ -34,6 +34,9 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TContratoTecnologia> TechnologyContracts => Set<TContratoTecnologia>();
     public DbSet<TTecnologiaTSIimplementadaSubsidiaria> ImplementedTechnologies => Set<TTecnologiaTSIimplementadaSubsidiaria>();
     public DbSet<TDriver> Drivers => Set<TDriver>();
+    public DbSet<TVendor> Vendors => Set<TVendor>();
+    public DbSet<TContactoPartner> PartnerContacts => Set<TContactoPartner>();
+    public DbSet<TContactoVendor> VendorContacts => Set<TContactoVendor>();
 
     // Entidades de Servicios y Tarifarios
     public DbSet<TTipoServicio> ServiceTypes => Set<TTipoServicio>();
@@ -60,6 +63,9 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TMEstadoAdopcionTSI>(b, "TMEstadoAdopcionTSI", "idEstadoAdopcionTSI", (e, p) => { p(e, x => x.Nombre, "nombreEstadoAdopcionTSI"); p(e, x => x.Descripcion, "descripcionEstadoAdopcionTSI"); });
         Map<TModalidadLaboral>(b, "TModalidadLaboral", "idModalidadLaboral", (e, p) => { p(e, x => x.Nombre, "TipoModalidadLaboral"); p(e, x => x.Descripcion, "descripcion"); });
         Map<TTipoOperacion>(b, "TTipoOperacion", "idTipoModeloOperacion", (e, p) => { p(e, x => x.Nombre, "TipoModeloDeOperacion"); p(e, x => x.Descripcion, "Descripcion"); });
+        Map<TVendor>(b, "TVendor", "idVendor", (e, p) => { p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); p(e, x => x.NombreVendor, "nombreVendor"); });
+        Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); });
+        Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); });
 
         b.Entity<TBuildingBlock>().HasOne<TmDominio>().WithMany().HasForeignKey(x => x.IdDominio).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TBuildingBlock>().HasOne<TEstadoFaseAdopcion>().WithMany().HasForeignKey(x => x.IdFase).OnDelete(DeleteBehavior.NoAction);
@@ -154,6 +160,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.FechaAdjudicacion).HasColumnName("fechaAdjudicacion").HasColumnType("date");
             entity.Property(x => x.RutaDocumentoContrato).HasColumnName("rutaDocumentoContrato").HasMaxLength(500);
             entity.Property(x => x.MontoContratado).HasColumnName("montoContratado").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.MontoAnual).HasColumnName("montoAnual").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.MontoTrianual).HasColumnName("montoTrianual").HasColumnType("decimal(18,2)");
             entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
             entity.Property(x => x.Observaciones).HasColumnName("observaciones");
             entity.Property(x => x.FechaRegistro).HasColumnName("fechaRegistro").HasColumnType("datetime2(0)");

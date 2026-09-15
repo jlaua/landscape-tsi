@@ -16,3 +16,6 @@ public sealed class TMPosturaRoadmap : MasterCatalogEntity { public string? Nomb
 public sealed class TMEstadoAdopcionTSI : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
 public sealed class TModalidadLaboral : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
 public sealed class TTipoOperacion : MasterCatalogEntity { public string? Nombre { get; set; } public string? Descripcion { get; set; } }
+public sealed class TVendor : MasterCatalogEntity { public int? IdTecnologiaTSI { get; set; } public string? NombreVendor { get; set; } }
+public sealed class TContactoPartner : MasterCatalogEntity { public int? IdVendor { get; set; } public string? NombreContactoPartner { get; set; } public string? Email { get; set; } public string? Telefono { get; set; } }
+public sealed class TContactoVendor : MasterCatalogEntity { public int? IdVendor { get; set; } public string? NombreContactoVendor { get; set; } public string? Email { get; set; } public string? Telefono { get; set; } }

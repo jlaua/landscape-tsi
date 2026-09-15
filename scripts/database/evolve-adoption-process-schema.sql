@@ -216,4 +216,32 @@ BEGIN
     ALTER TABLE dbo.TCasosDeUso ADD CONSTRAINT FK_TCasosDeUso_TEstandarTecnologiaHistorico FOREIGN KEY (idEstandarTecnologia) REFERENCES dbo.TEstandarTecnologiaHistorico(idEstandarTecnologia);
 END;
 
+-- 5.5 TContratoTecnologia: montoAnual, montoTrianual
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TContratoTecnologia') AND name = N'montoAnual')
+BEGIN
+    ALTER TABLE dbo.TContratoTecnologia ADD montoAnual DECIMAL(18,2) NULL;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TContratoTecnologia') AND name = N'montoTrianual')
+BEGIN
+    ALTER TABLE dbo.TContratoTecnologia ADD montoTrianual DECIMAL(18,2) NULL;
+END;
+
+-- 5.6 Reconciliación e integridad de tecnologías huérfanas vinculadas a procesos de evaluación
+-- Asocia idProcesoAdopcionEmpresa en TTecnologiaTSIimplementadaSubsidiaria si el registro fue creado
+-- durante un proceso de evaluación y quedó con idProcesoAdopcionEmpresa en NULL.
+UPDATE impl
+SET impl.idProcesoAdopcionEmpresa = pae.idProcesoAdopcionEmpresa
+FROM dbo.TTecnologiaTSIimplementadaSubsidiaria impl
+INNER JOIN dbo.TProcesoAdopcionEmpresa pae 
+    ON pae.idEmpresaSubsidiaria = impl.idEmpresaSubsidiaria
+INNER JOIN dbo.TProcesoAdopcionTSI p 
+    ON p.idProcesoAdopcionTSI = pae.idProcesoAdopcionTSI 
+   AND p.idBuildingBlock = impl.idBuildingBlock
+WHERE impl.idProcesoAdopcionEmpresa IS NULL
+  AND EXISTS (
+      SELECT 1 FROM dbo.TContratoTecnologia ct
+      WHERE ct.idTecnologiaTSIimplementadaSubsidiaria = impl.idTecnologiaTSIimplementadaSubsidiaria
+  );
+
 COMMIT TRANSACTION;

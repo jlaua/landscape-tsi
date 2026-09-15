@@ -45,7 +45,11 @@ public sealed class CatalogDbContextMappingTests
             [typeof(TServicioTecnologia)] = "TServicioTecnologia",
             [typeof(TTarifarioProyectoHoras)] = "TTarifarioProyectoHoras",
             [typeof(TActividadNivelSoporte)] = "TActividadNivelSoporte",
-            [typeof(TTarifarioOperacion)] = "TTarifarioOperacion"
+            [typeof(TTarifarioOperacion)] = "TTarifarioOperacion",
+            // Entidades de Fabricantes y Contactos
+            [typeof(TVendor)] = "TVendor",
+            [typeof(TContactoPartner)] = "TContactoPartner",
+            [typeof(TContactoVendor)] = "TContactoVendor"
         };
 
         Assert.Equal(expected.Count, context.Model.GetEntityTypes().Count());
@@ -62,6 +66,8 @@ public sealed class CatalogDbContextMappingTests
         Assert.Equal("idFamilia", context.Model.FindEntityType(typeof(TBuildingBlock))!.FindProperty(nameof(TBuildingBlock.IdFamilia))!.GetColumnName());
         Assert.Equal("codigoProceso", context.Model.FindEntityType(typeof(TProcesoAdopcionTSI))!.FindProperty(nameof(TProcesoAdopcionTSI.CodigoProceso))!.GetColumnName());
         Assert.Equal("numeroContrato", context.Model.FindEntityType(typeof(TContratoTecnologia))!.FindProperty(nameof(TContratoTecnologia.NumeroContrato))!.GetColumnName());
+        Assert.Equal("montoAnual", context.Model.FindEntityType(typeof(TContratoTecnologia))!.FindProperty(nameof(TContratoTecnologia.MontoAnual))!.GetColumnName());
+        Assert.Equal("montoTrianual", context.Model.FindEntityType(typeof(TContratoTecnologia))!.FindProperty(nameof(TContratoTecnologia.MontoTrianual))!.GetColumnName());
         Assert.Equal("precioUnitario", context.Model.FindEntityType(typeof(TDriver))!.FindProperty(nameof(TDriver.PrecioUnitario))!.GetColumnName());
     }
 

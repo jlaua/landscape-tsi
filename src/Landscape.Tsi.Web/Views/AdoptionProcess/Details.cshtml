@@ -405,7 +405,24 @@
                                                                                 @($"{c.FechaInicio?.ToString("dd/MM/yyyy") ?? "—"} - {c.FechaFin?.ToString("dd/MM/yyyy") ?? "—"}")
                                                                             }
                                                                         </td>
-                                                                        <td>@(c.Monto.HasValue ? $"{c.Moneda} {c.Monto:N2}" : "—")</td>
+                                                                        <td>
+                                                                            @if (c.MontoAnual.HasValue || c.MontoTrianual.HasValue)
+                                                                            {
+                                                                                <div><strong>@(c.Monto.HasValue ? $"{c.Moneda} {c.Monto:N2}" : "—")</strong></div>
+                                                                                @if (c.MontoAnual.HasValue)
+                                                                                {
+                                                                                    <div class="small text-muted">Anual: @c.Moneda @c.MontoAnual.Value.ToString("N2")</div>
+                                                                                }
+                                                                                @if (c.MontoTrianual.HasValue)
+                                                                                {
+                                                                                    <div class="small text-muted">Tri-anual: @c.Moneda @c.MontoTrianual.Value.ToString("N2")</div>
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                @(c.Monto.HasValue ? $"{c.Moneda} {c.Monto:N2}" : "—")
+                                                                            }
+                                                                        </td>
                                                                         <td>
                                                                             @if (!string.IsNullOrWhiteSpace(c.RutaDocumento))
                                                                             {
@@ -464,7 +481,24 @@
                                                                                     @($"{ad.FechaInicio?.ToString("dd/MM/yyyy") ?? "—"} - {ad.FechaFin?.ToString("dd/MM/yyyy") ?? "—"}")
                                                                                 }
                                                                             </td>
-                                                                            <td>@(ad.Monto.HasValue ? $"{ad.Moneda} {ad.Monto:N2}" : "—")</td>
+                                                                            <td>
+                                                                                @if (ad.MontoAnual.HasValue || ad.MontoTrianual.HasValue)
+                                                                                {
+                                                                                    <div><strong>@(ad.Monto.HasValue ? $"{ad.Moneda} {ad.Monto:N2}" : "—")</strong></div>
+                                                                                    @if (ad.MontoAnual.HasValue)
+                                                                                    {
+                                                                                        <div class="small text-muted">Anual: @ad.Moneda @ad.MontoAnual.Value.ToString("N2")</div>
+                                                                                    }
+                                                                                    @if (ad.MontoTrianual.HasValue)
+                                                                                    {
+                                                                                        <div class="small text-muted">Tri-anual: @ad.Moneda @ad.MontoTrianual.Value.ToString("N2")</div>
+                                                                                    }
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    @(ad.Monto.HasValue ? $"{ad.Moneda} {ad.Monto:N2}" : "—")
+                                                                                }
+                                                                            </td>
                                                                             <td>
                                                                                 @if (!string.IsNullOrWhiteSpace(ad.RutaDocumento))
                                                                                 {

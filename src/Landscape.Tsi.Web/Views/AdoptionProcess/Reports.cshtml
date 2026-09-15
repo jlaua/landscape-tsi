@@ -102,7 +102,8 @@
                                 <th scope="col">Fecha Vencimiento</th>
                                 <th scope="col">WAF AS-IS</th>
                                 <th scope="col">Tipo Contrato</th>
-                                <th scope="col">Partner</th>
+                                <th scope="col">Fabricante / Vendor</th>
+                                <th scope="col">Partner / Integrador</th>
                                 <th scope="col">Operación</th>
                             </tr>
                         </thead>
@@ -131,6 +132,9 @@
                                     <span class="badge @(row.TipoContrato == "PAYG" ? "bg-info-subtle text-dark border border-info" : "bg-light text-secondary border")">
                                         @(row.TipoContrato ?? "Contrato")
                                     </span>
+                                </td>
+                                <td>
+                                    <span class="small fw-semibold text-dark">@(row.Vendor ?? "-")</span>
                                 </td>
                                 <td>
                                     <span class="small">@(row.Partner ?? "Directo")</span>

@@ -84,6 +84,8 @@ public sealed class CreateEvaluationViewModel
     public IReadOnlyList<CatalogOption> Familias { get; set; } = [];
     public IReadOnlyList<CatalogOption> TiposOperacion { get; set; } = [];
     public IReadOnlyList<CatalogOption> ModalidadesLaborales { get; set; } = [];
+    public IReadOnlyList<CatalogOption> Vendors { get; set; } = [];
+    public IReadOnlyList<CatalogOption> Partners { get; set; } = [];
 
     // Selección múltiple con checkboxes de empresas
     public List<SubsidiaryCheckboxItem> Subsidiaries { get; set; } = [];
@@ -125,8 +127,10 @@ public sealed class SubsidiaryAsIsInputModel
     public int? TecnologiaId { get; set; }
     public string? TecnologiaNombre { get; set; }
     public string? VersionDesplegada { get; set; }
+    public int? VendorId { get; set; }
     public string? VendorNombre { get; set; }
     public string? VendorContacto { get; set; }
+    public int? PartnerId { get; set; }
     public string? PartnerNombre { get; set; }
     public string? PartnerContacto { get; set; }
     public string? NumeroContrato { get; set; }
@@ -134,6 +138,8 @@ public sealed class SubsidiaryAsIsInputModel
     public DateTime? FechaInicioContrato { get; set; }
     public DateTime? FechaFinContrato { get; set; }
     public decimal? MontoContratado { get; set; }
+    public decimal? MontoAnual { get; set; }
+    public decimal? MontoTrianual { get; set; }
     public string MonedaContrato { get; set; } = "USD";
     public List<DriverInputModel> Drivers { get; set; } = [];
     public int? TipoOperacionId { get; set; }

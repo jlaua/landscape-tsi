@@ -95,7 +95,9 @@ public sealed record ContractDto(
     string Moneda,
     string? Observaciones,
     IReadOnlyList<ContractDto> Adendas,
-    bool EsPayg = false);
+    bool EsPayg = false,
+    decimal? MontoAnual = null,
+    decimal? MontoTrianual = null);
 
 public sealed record DriverDto(
     int Id,
@@ -177,7 +179,9 @@ public sealed record SaveContractCommand(
     Guid ActorUserId,
     string CorrelationId,
     bool EsPayg = false,
-    int? ContratoId = null);
+    int? ContratoId = null,
+    decimal? MontoAnual = null,
+    decimal? MontoTrianual = null);
 
 public sealed record SaveDriverCommand(
     int TecnologiaImplementadaId,

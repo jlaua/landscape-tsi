@@ -476,7 +476,7 @@ public sealed class AdoptionProcessHttpTests
         {
             if (procesoId <= 0) return Task.FromResult<EvaluationReportsDto?>(null);
 
-            var scopeRow = new EvaluationScopeReportRowDto(1, "Banco Subsidiaria", "Perú", DateTime.Today.AddMonths(12), "F5 WAAP", "Contrato", "Logicalis", "Autogestionado");
+            var scopeRow = new EvaluationScopeReportRowDto(1, "Banco Subsidiaria", "Perú", DateTime.Today.AddMonths(12), "F5 WAAP", "Contrato", "F5 Networks", "Logicalis", "Autogestionado");
             var milestone = new ContractTimelineMilestoneDto("Dic-26", 2026, 12, false);
             var expRow = new ContractExpirationRowDto(1, 1, "Banco Subsidiaria", "F5 WAAP", 250m, 35, 120m, DateTime.Today.AddMonths(12), "Dic-26", new Dictionary<string, bool> { ["Dic-26"] = true });
             var expReport = new ContractExpirationReportDto([milestone], [expRow], new Dictionary<string, decimal> { ["Dic-26"] = 250m }, new Dictionary<string, int> { ["Dic-26"] = 35 }, new Dictionary<string, decimal> { ["Dic-26"] = 120m }, 250m, 35, 120m);

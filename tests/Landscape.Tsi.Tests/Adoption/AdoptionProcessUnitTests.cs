@@ -1,6 +1,7 @@
 using Landscape.Tsi.Application.Adoption;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Adoption;
+using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Adoption;
 using Landscape.Tsi.Infrastructure.Catalogs;
 using Microsoft.EntityFrameworkCore;
@@ -493,6 +494,209 @@ public sealed class AdoptionProcessUnitTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("El proceso de evaluación de adopción no existe.", result.Message);
+    }
+
+    [Fact]
+    public async Task GetEvaluationReportsAsync_ExtractsRealVendorAndPartner_WithoutSyntheticMockData()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 120,
+            CodigoProceso = "PROC-120",
+            NombreProceso = "Evaluación WAAP 3",
+            IdBuildingBlock = 1,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var bb = new TBuildingBlock { Id = 1, Nombre = "Web Application Firewall" };
+        ctx.BuildingBlocks.Add(bb);
+
+        var emp = new TEmpresaSubsidiaria { Id = 10, Nombre = "Mibanco", Pais = "Peru" };
+        ctx.Companies.Add(emp);
+
+        var tech = new TTecnologiaTSI { Id = 50, NombreCorporativo = "Akamai App & API Protector" };
+        ctx.Technologies.Add(tech);
+
+        var empresaProceso = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 300,
+            IdProcesoAdopcionTSI = 120,
+            IdEmpresaSubsidiaria = 10,
+            Aplica = true
+        };
+        ctx.AdoptionProcessCompanies.Add(empresaProceso);
+
+        var implTech = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 500,
+            IdEmpresaSubsidiaria = 10,
+            IdTecnologiaTSI = 50,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 300,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.Add(implTech);
+
+        var contract = new TContratoTecnologia
+        {
+            IdContratoTecnologia = 600,
+            IdTecnologiaTSIimplementadaSubsidiaria = 500,
+            NumeroContrato = "CT-WAAP-001",
+            Observaciones = "Vendor: AKAMAI / Partner: Apukay",
+            MontoContratado = 36000m,
+            MontoAnual = 12000m,
+            MontoTrianual = 36000m,
+            Moneda = "USD"
+        };
+        ctx.TechnologyContracts.Add(contract);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var report = await service.GetEvaluationReportsAsync(120);
+
+        Assert.NotNull(report);
+        Assert.Single(report.AlcanceReport);
+        var row = report.AlcanceReport[0];
+        Assert.Equal("Mibanco", row.EmpresaNombre);
+        Assert.Equal("AKAMAI", row.Vendor);
+        Assert.Equal("Apukay", row.Partner);
+        Assert.DoesNotContain("Noventiq", row.Partner ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Telefonica Tech", row.Partner ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Logicalis", row.Partner ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BuildProcessDetailAsync_IsolatesTechnologiesByProcesoEmpresa_WithoutDuplicates()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var bb = new TBuildingBlock { Id = 1, Nombre = "WAAP" };
+        ctx.BuildingBlocks.Add(bb);
+
+        var emp = new TEmpresaSubsidiaria { Id = 10, Nombre = "Mibanco" };
+        ctx.Companies.Add(emp);
+
+        var tech1 = new TTecnologiaTSI { Id = 50, NombreCorporativo = "Imperva" };
+        var tech2 = new TTecnologiaTSI { Id = 51, NombreCorporativo = "Akamai" };
+        ctx.Technologies.AddRange(tech1, tech2);
+
+        var proceso120 = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 120,
+            CodigoProceso = "PROC-120",
+            NombreProceso = "Evaluación WAAP 3",
+            IdBuildingBlock = 1,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso120);
+
+        var pe120 = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 301,
+            IdProcesoAdopcionTSI = 120,
+            IdEmpresaSubsidiaria = 10,
+            Aplica = true
+        };
+        ctx.AdoptionProcessCompanies.Add(pe120);
+
+        var pe99 = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 201,
+            IdProcesoAdopcionTSI = 99,
+            IdEmpresaSubsidiaria = 10,
+            Aplica = true
+        };
+        ctx.AdoptionProcessCompanies.Add(pe99);
+
+        var oldImpl = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 1001,
+            IdEmpresaSubsidiaria = 10,
+            IdTecnologiaTSI = 50,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 201
+        };
+
+        var currentImpl = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 1002,
+            IdEmpresaSubsidiaria = 10,
+            IdTecnologiaTSI = 51,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 301,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.AddRange(oldImpl, currentImpl);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var detail = await service.GetProcessDetailAsync(120);
+
+        Assert.NotNull(detail);
+        Assert.Single(detail.EmpresasParticipantes);
+        var mibanco = detail.EmpresasParticipantes[0];
+        Assert.Single(mibanco.TecnologiasImplementadas);
+        Assert.Equal("Akamai", mibanco.TecnologiasImplementadas[0].TecnologiaNombre);
+        Assert.Equal(1002, mibanco.TecnologiasImplementadas[0].Id);
+    }
+
+    [Fact]
+    public async Task SaveContractAsync_StoresAndReturnsMontoAnualAndTrianual()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var impl = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 50,
+            IdEmpresaSubsidiaria = 1,
+            IdTecnologiaTSI = 1,
+            IdBuildingBlock = 1
+        };
+        ctx.ImplementedTechnologies.Add(impl);
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var command = new SaveContractCommand(
+            TecnologiaImplementadaId: 50,
+            NumeroContrato: "CTR-2026-001",
+            EsAdenda: false,
+            ContratoPadreId: null,
+            FechaInicio: new DateTime(2026, 1, 1),
+            FechaFin: new DateTime(2028, 12, 31),
+            FechaAdjudicacion: null,
+            RutaDocumento: null,
+            Monto: 150000m,
+            Moneda: "USD",
+            Observaciones: "Vendor: AKAMAI / Partner: Apukay",
+            ActorUserId: Guid.NewGuid(),
+            CorrelationId: "corr-test-amounts",
+            EsPayg: false,
+            MontoAnual: 50000m,
+            MontoTrianual: 150000m);
+
+        var result = await service.SaveContractAsync(command);
+        Assert.True(result.Succeeded);
+
+        var contract = await ctx.TechnologyContracts.FirstOrDefaultAsync(c => c.IdTecnologiaTSIimplementadaSubsidiaria == 50);
+        Assert.NotNull(contract);
+        Assert.Equal(150000m, contract.MontoContratado);
+        Assert.Equal(50000m, contract.MontoAnual);
+        Assert.Equal(150000m, contract.MontoTrianual);
+        Assert.Equal("Vendor: AKAMAI / Partner: Apukay", contract.Observaciones);
     }
 
     private sealed class NullAuditTrail : IAuditTrailService

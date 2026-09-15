@@ -58,6 +58,8 @@ public sealed class TContratoTecnologia
     public DateTime? FechaAdjudicacion { get; set; }
     public string? RutaDocumentoContrato { get; set; }
     public decimal? MontoContratado { get; set; }
+    public decimal? MontoAnual { get; set; }
+    public decimal? MontoTrianual { get; set; }
     public string Moneda { get; set; } = "USD";
     public string? Observaciones { get; set; }
     public DateTime FechaRegistro { get; set; }

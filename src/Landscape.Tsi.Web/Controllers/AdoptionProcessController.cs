@@ -776,13 +776,35 @@ public sealed class AdoptionProcessController(
                 .Select(s => s.EmpresaId)
                 .ToHashSet();
 
+            var processCompanyMap = await dbContext.AdoptionProcessCompanies.AsNoTracking()
+                .Where(cp => cp.IdProcesoAdopcionTSI == procesoId)
+                .ToDictionaryAsync(cp => cp.IdEmpresaSubsidiaria, cp => cp.IdProcesoAdopcionEmpresa, cancellationToken);
+
             foreach (var asIs in model.SubsidiaryAsIsList.Where(a => participatingEmpresaIds.Contains(a.EmpresaId) && a.TieneTecnologia && a.TecnologiaId.HasValue && a.TecnologiaId.Value > 0))
             {
+                var cpId = processCompanyMap.GetValueOrDefault(asIs.EmpresaId);
+
+                // Resolver nombres de vendor o partner si no vienen en el request pero se eligió un ID
+                if (string.IsNullOrWhiteSpace(asIs.VendorNombre) && asIs.VendorId.HasValue && asIs.VendorId.Value > 0)
+                {
+                    asIs.VendorNombre = await dbContext.Vendors.AsNoTracking()
+                        .Where(v => v.Id == asIs.VendorId.Value)
+                        .Select(v => v.NombreVendor)
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+                if (string.IsNullOrWhiteSpace(asIs.PartnerNombre) && asIs.PartnerId.HasValue && asIs.PartnerId.Value > 0)
+                {
+                    asIs.PartnerNombre = await dbContext.PartnerContacts.AsNoTracking()
+                        .Where(p => p.Id == asIs.PartnerId.Value)
+                        .Select(p => p.NombreContactoPartner)
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+
                 var regCmd = new RegisterImplementedTechnologyCommand(
                     EmpresaId: asIs.EmpresaId,
                     TecnologiaId: asIs.TecnologiaId!.Value,
                     BuildingBlockId: model.BuildingBlockId,
-                    ProcesoEmpresaId: null,
+                    ProcesoEmpresaId: cpId > 0 ? cpId : null,
                     EsPrimaria: true,
                     VersionDesplegada: asIs.VersionDesplegada,
                     ActorUserId: actor.Value,
@@ -794,23 +816,28 @@ public sealed class AdoptionProcessController(
                 {
                     var implId = regResult.EntityId.Value;
 
-                    if (!string.IsNullOrWhiteSpace(asIs.NumeroContrato))
+                    if (!string.IsNullOrWhiteSpace(asIs.NumeroContrato) || asIs.MontoContratado.HasValue || asIs.MontoAnual.HasValue || asIs.MontoTrianual.HasValue)
                     {
+                        var effectiveMonto = asIs.MontoTrianual ?? asIs.MontoAnual ?? asIs.MontoContratado;
+                        var numContrato = !string.IsNullOrWhiteSpace(asIs.NumeroContrato) ? asIs.NumeroContrato : $"CT-{asIs.EmpresaId}-{procesoId}";
+
                         await adoptionService.SaveContractAsync(new SaveContractCommand(
                             TecnologiaImplementadaId: implId,
-                            NumeroContrato: asIs.NumeroContrato,
+                            NumeroContrato: numContrato,
                             EsAdenda: false,
                             ContratoPadreId: null,
                             FechaInicio: asIs.EsPayg ? null : (asIs.FechaInicioContrato ?? (model.FechaInicio != default ? model.FechaInicio : DateTime.Today)),
                             FechaFin: asIs.EsPayg ? null : (asIs.FechaFinContrato ?? (model.FechaInicio != default ? model.FechaInicio : DateTime.Today)),
                             FechaAdjudicacion: null,
                             RutaDocumento: null,
-                            Monto: asIs.MontoContratado,
+                            Monto: effectiveMonto,
                             Moneda: string.IsNullOrWhiteSpace(asIs.MonedaContrato) ? "USD" : asIs.MonedaContrato,
-                            Observaciones: $"Vendor: {asIs.VendorNombre} / Partner: {asIs.PartnerNombre}",
+                            Observaciones: $"Vendor: {asIs.VendorNombre ?? "-"} / Partner: {asIs.PartnerNombre ?? "Directo"}",
                             ActorUserId: actor.Value,
                             CorrelationId: HttpContext.TraceIdentifier,
-                            EsPayg: asIs.EsPayg), cancellationToken);
+                            EsPayg: asIs.EsPayg,
+                            MontoAnual: asIs.MontoAnual,
+                            MontoTrianual: asIs.MontoTrianual), cancellationToken);
                     }
 
                     if (asIs.Drivers != null)
@@ -1061,6 +1088,20 @@ public sealed class AdoptionProcessController(
             .Select(w => new CatalogOption(w.Id, w.Nombre ?? $"Modalidad #{w.Id}"))
             .ToListAsync(cancellationToken);
 
+        model.Vendors = await dbContext.Vendors.AsNoTracking()
+            .Where(v => !string.IsNullOrWhiteSpace(v.NombreVendor))
+            .OrderBy(v => v.NombreVendor)
+            .Select(v => new CatalogOption(v.Id, v.NombreVendor!))
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        model.Partners = await dbContext.PartnerContacts.AsNoTracking()
+            .Where(p => !string.IsNullOrWhiteSpace(p.NombreContactoPartner))
+            .OrderBy(p => p.NombreContactoPartner)
+            .Select(p => new CatalogOption(p.Id, p.NombreContactoPartner!))
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
         var contactsMap = await LoadContactsPerCompanyAsync(cancellationToken);
 
         if (model.Subsidiaries.Count == 0)
@@ -1205,6 +1246,146 @@ public sealed class AdoptionProcessController(
             familia = familyName,
             message = $"Tecnología '{trimmedNombre}' registrada exitosamente en el catálogo."
         });
+    }
+
+    [HttpPost("QuickCreateVendor")]
+    [HttpPost("/AdoptionProcess/QuickCreateVendor")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickCreateVendor([FromForm] string nombreVendor, [FromForm] int? tecnologiaId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombreVendor))
+        {
+            return Json(new { succeeded = false, message = "El nombre del Vendor es obligatorio." });
+        }
+
+        var trimmed = nombreVendor.Trim();
+        var existing = await dbContext.Vendors.AsNoTracking()
+            .FirstOrDefaultAsync(v => v.NombreVendor == trimmed, cancellationToken);
+
+        if (existing is not null)
+        {
+            return Json(new
+            {
+                succeeded = true,
+                alreadyExisted = true,
+                id = existing.Id,
+                nombre = existing.NombreVendor,
+                message = $"El Vendor '{trimmed}' ya existía en el catálogo y ha sido seleccionado."
+            });
+        }
+
+        var newVendor = new TVendor
+        {
+            NombreVendor = trimmed,
+            IdTecnologiaTSI = (tecnologiaId.HasValue && tecnologiaId.Value > 0) ? tecnologiaId.Value : null
+        };
+
+        dbContext.Vendors.Add(newVendor);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            succeeded = true,
+            alreadyExisted = false,
+            id = newVendor.Id,
+            nombre = newVendor.NombreVendor,
+            message = $"Vendor '{trimmed}' registrado exitosamente."
+        });
+    }
+
+    [HttpPost("QuickCreatePartner")]
+    [HttpPost("/AdoptionProcess/QuickCreatePartner")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickCreatePartner([FromForm] string nombrePartner, [FromForm] int? vendorId, [FromForm] string? email, [FromForm] string? telefono, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombrePartner))
+        {
+            return Json(new { succeeded = false, message = "El nombre del Partner es obligatorio." });
+        }
+
+        var trimmed = nombrePartner.Trim();
+        var existing = await dbContext.PartnerContacts.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.NombreContactoPartner == trimmed, cancellationToken);
+
+        if (existing is not null)
+        {
+            return Json(new
+            {
+                succeeded = true,
+                alreadyExisted = true,
+                id = existing.Id,
+                nombre = existing.NombreContactoPartner,
+                message = $"El Partner '{trimmed}' ya existía en el catálogo y ha sido seleccionado."
+            });
+        }
+
+        var newPartner = new TContactoPartner
+        {
+            NombreContactoPartner = trimmed,
+            IdVendor = (vendorId.HasValue && vendorId.Value > 0) ? vendorId.Value : null,
+            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim()
+        };
+
+        dbContext.PartnerContacts.Add(newPartner);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            succeeded = true,
+            alreadyExisted = false,
+            id = newPartner.Id,
+            nombre = newPartner.NombreContactoPartner,
+            message = $"Partner '{trimmed}' registrado exitosamente."
+        });
+    }
+
+    [HttpGet("GetVendors")]
+    [HttpGet("/AdoptionProcess/GetVendors")]
+    public async Task<IActionResult> GetVendors(int? tecnologiaId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Vendors.AsNoTracking();
+        if (tecnologiaId.HasValue && tecnologiaId.Value > 0)
+        {
+            query = query.Where(v => v.IdTecnologiaTSI == tecnologiaId.Value || v.IdTecnologiaTSI == null);
+        }
+
+        var list = await query
+            .Where(v => !string.IsNullOrWhiteSpace(v.NombreVendor))
+            .OrderBy(v => v.NombreVendor)
+            .Select(v => new { id = v.Id, nombre = v.NombreVendor })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return Json(list);
+    }
+
+    [HttpGet("GetPartners")]
+    [HttpGet("/AdoptionProcess/GetPartners")]
+    public async Task<IActionResult> GetPartners(int? vendorId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.PartnerContacts.AsNoTracking();
+        if (vendorId.HasValue && vendorId.Value > 0)
+        {
+            query = query.Where(p => p.IdVendor == vendorId.Value || p.IdVendor == null);
+        }
+
+        var list = await query
+            .Where(p => !string.IsNullOrWhiteSpace(p.NombreContactoPartner))
+            .OrderBy(p => p.NombreContactoPartner)
+            .Select(p => new { id = p.Id, nombre = p.NombreContactoPartner })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return Json(list);
     }
 
     [HttpGet("SearchTechnologies")]
