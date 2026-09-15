@@ -26,4 +26,6 @@ public sealed class CatalogDetailViewModel
     public CatalogPageResult? ProcessCompanies { get; init; }
     public CatalogPageResult? ProcessStandards { get; init; }
     public CatalogPageResult? ProcessServices { get; init; }
+
+    public IReadOnlyList<VendorTechnologyDto>? VendorTechnologies { get; init; }
 }

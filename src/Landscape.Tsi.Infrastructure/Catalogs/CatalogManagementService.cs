@@ -115,6 +115,190 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
         finally { await CloseConnectionAsync(); }
     }
 
+    public async Task<IReadOnlyDictionary<int, int>> GetVendorTechnologyCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default)
+    {
+        var idList = vendorIds.Distinct().ToList();
+        if (idList.Count == 0) return new Dictionary<int, int>();
+
+        var result = new Dictionary<int, int>();
+        foreach (var id in idList) result[id] = 0;
+
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var paramNames = new List<string>();
+            for (var i = 0; i < idList.Count; i++)
+            {
+                paramNames.Add($"@p{i}");
+            }
+
+            var sql = $@"
+SELECT v.idVendor, COUNT(DISTINCT all_techs.idTecnologiaTSI) AS TechCount
+FROM [dbo].[TVendor] v
+OUTER APPLY (
+    SELECT v2.idTecnologiaTSI
+    FROM [dbo].[TVendor] v2
+    WHERE (v2.idVendor = v.idVendor OR (v2.nombreVendor = v.nombreVendor AND v.nombreVendor IS NOT NULL AND v.nombreVendor <> ''))
+      AND v2.idTecnologiaTSI IS NOT NULL
+    UNION
+    SELECT s.idTecnologiaTSI
+    FROM [dbo].[TServicioTecnologia] s
+    WHERE (s.idVendor = v.idVendor OR s.idVendor IN (SELECT v3.idVendor FROM [dbo].[TVendor] v3 WHERE v3.nombreVendor = v.nombreVendor AND v.nombreVendor IS NOT NULL AND v.nombreVendor <> ''))
+      AND s.idTecnologiaTSI IS NOT NULL
+) all_techs
+WHERE v.idVendor IN ({string.Join(", ", paramNames)})
+GROUP BY v.idVendor";
+
+            await using var command = CreateCommand(sql);
+            for (var i = 0; i < idList.Count; i++)
+            {
+                AddParameter(command, paramNames[i], idList[i]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var vendorId = reader.GetInt32(0);
+                var count = reader.GetInt32(1);
+                result[vendorId] = count;
+            }
+
+            return result;
+        }
+        catch (Exception)
+        {
+            try
+            {
+                var paramNames = new List<string>();
+                for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+                var fallbackSql = $@"
+SELECT v.idVendor, COUNT(DISTINCT v2.idTecnologiaTSI) AS TechCount
+FROM [dbo].[TVendor] v
+LEFT JOIN [dbo].[TVendor] v2 ON (v2.idVendor = v.idVendor OR (v2.nombreVendor = v.nombreVendor AND v.nombreVendor IS NOT NULL AND v.nombreVendor <> '')) AND v2.idTecnologiaTSI IS NOT NULL
+WHERE v.idVendor IN ({string.Join(", ", paramNames)})
+GROUP BY v.idVendor";
+
+                await using var fallbackCmd = CreateCommand(fallbackSql);
+                for (var i = 0; i < idList.Count; i++) AddParameter(fallbackCmd, paramNames[i], idList[i]);
+                await using var fallbackReader = await fallbackCmd.ExecuteReaderAsync(cancellationToken);
+                while (await fallbackReader.ReadAsync(cancellationToken))
+                {
+                    result[fallbackReader.GetInt32(0)] = fallbackReader.GetInt32(1);
+                }
+                return result;
+            }
+            catch
+            {
+                return result;
+            }
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task<IReadOnlyList<VendorTechnologyDto>> GetVendorTechnologiesAsync(int vendorId, CancellationToken cancellationToken = default)
+    {
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var sql = @"
+DECLARE @vName NVARCHAR(200);
+SELECT @vName = nombreVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+
+SELECT DISTINCT
+    t.idTecnologiaTSI AS Id,
+    COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo') AS NombreCorporativo,
+    t.[nombreTecnologiaAlternativa2-Local] AS NombreLocal,
+    f.nombreFamilia AS Familia,
+    ea.nombreEstadoAdopcionTSI AS EstadoAdopcion,
+    t.licenciamiento AS Licenciamiento,
+    t.entorno AS Entorno
+FROM [dbo].[TTecnologiaTSI] t
+LEFT JOIN [dbo].[TMFamilia] f ON f.idFamilia = t.idFamilia
+LEFT JOIN [dbo].[TMEstadoAdopcionTSI] ea ON ea.idEstadoAdopcionTSI = t.idEstadoAdopcionTSI
+WHERE t.idTecnologiaTSI IN (
+    SELECT v2.idTecnologiaTSI
+    FROM [dbo].[TVendor] v2
+    WHERE (v2.idVendor = @vendorId OR (v2.nombreVendor = @vName AND @vName IS NOT NULL AND @vName <> ''))
+      AND v2.idTecnologiaTSI IS NOT NULL
+    UNION
+    SELECT s.idTecnologiaTSI
+    FROM [dbo].[TServicioTecnologia] s
+    WHERE (s.idVendor = @vendorId OR s.idVendor IN (SELECT v3.idVendor FROM [dbo].[TVendor] v3 WHERE v3.nombreVendor = @vName AND @vName IS NOT NULL AND @vName <> ''))
+      AND s.idTecnologiaTSI IS NOT NULL
+)
+ORDER BY COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo');";
+
+            await using var command = CreateCommand(sql);
+            AddParameter(command, "@vendorId", vendorId);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var list = new List<VendorTechnologyDto>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                list.Add(new VendorTechnologyDto(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6)
+                ));
+            }
+            return list;
+        }
+        catch (Exception)
+        {
+            try
+            {
+                var fallbackSql = @"
+DECLARE @vName NVARCHAR(200);
+SELECT @vName = nombreVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+
+SELECT DISTINCT
+    t.idTecnologiaTSI AS Id,
+    COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo') AS NombreCorporativo,
+    t.[nombreTecnologiaAlternativa2-Local] AS NombreLocal,
+    f.nombreFamilia AS Familia,
+    ea.nombreEstadoAdopcionTSI AS EstadoAdopcion,
+    t.licenciamiento AS Licenciamiento,
+    t.entorno AS Entorno
+FROM [dbo].[TTecnologiaTSI] t
+LEFT JOIN [dbo].[TMFamilia f ON f.idFamilia = t.idFamilia
+LEFT JOIN [dbo].[TMEstadoAdopcionTSI] ea ON ea.idEstadoAdopcionTSI = t.idEstadoAdopcionTSI
+WHERE t.idTecnologiaTSI IN (
+    SELECT v2.idTecnologiaTSI
+    FROM [dbo].[TVendor] v2
+    WHERE (v2.idVendor = @vendorId OR (v2.nombreVendor = @vName AND @vName IS NOT NULL AND @vName <> ''))
+      AND v2.idTecnologiaTSI IS NOT NULL
+)
+ORDER BY COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo');";
+
+                await using var fallbackCmd = CreateCommand(fallbackSql);
+                AddParameter(fallbackCmd, "@vendorId", vendorId);
+                await using var fallbackReader = await fallbackCmd.ExecuteReaderAsync(cancellationToken);
+                var fallbackList = new List<VendorTechnologyDto>();
+                while (await fallbackReader.ReadAsync(cancellationToken))
+                {
+                    fallbackList.Add(new VendorTechnologyDto(
+                        fallbackReader.GetInt32(0),
+                        fallbackReader.GetString(1),
+                        fallbackReader.IsDBNull(2) ? null : fallbackReader.GetString(2),
+                        fallbackReader.IsDBNull(3) ? null : fallbackReader.GetString(3),
+                        fallbackReader.IsDBNull(4) ? null : fallbackReader.GetString(4),
+                        fallbackReader.IsDBNull(5) ? null : fallbackReader.GetString(5),
+                        fallbackReader.IsDBNull(6) ? null : fallbackReader.GetString(6)
+                    ));
+                }
+                return fallbackList;
+            }
+            catch
+            {
+                return [];
+            }
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
     public async Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default)
     {
         EnsureWhitelisted(definition);

@@ -10,4 +10,5 @@ public sealed class CatalogPageViewModel
     public string? Search { get; init; }
     public string? SortColumn { get; init; }
     public string? SortDirection { get; init; }
+    public IReadOnlyDictionary<int, int>? VendorTechnologyCounts { get; init; }
 }

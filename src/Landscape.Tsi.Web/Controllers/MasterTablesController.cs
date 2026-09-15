@@ -225,6 +225,13 @@ public sealed class MasterTablesController(
         var result = parentId.HasValue
             ? await catalogService.ListRelatedAsync(definition, definition.Columns.Single(column => column.ReferenceCatalogCode == "dominio"), parentId.Value, search, page, pageSize, cancellationToken)
             : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken, sortColumn, sortDirection);
+
+        IReadOnlyDictionary<int, int>? vendorTechCounts = null;
+        if (definition.Code == "vendor" && result.Items.Count > 0)
+        {
+            vendorTechCounts = await catalogService.GetVendorTechnologyCountsAsync(result.Items.Select(x => x.Id), cancellationToken);
+        }
+
         return View(new CatalogPageViewModel
         {
             Definition = definition,
@@ -232,7 +239,39 @@ public sealed class MasterTablesController(
             Result = result,
             SortColumn = sortColumn,
             SortDirection = sortDirection,
-            Options = await catalogService.GetOptionsAsync(definition, cancellationToken)
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            VendorTechnologyCounts = vendorTechCounts
+        });
+    }
+
+    [HttpGet("vendor/{id:int}/technologies")]
+    public async Task<IActionResult> GetVendorTechnologies(int id, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        var vendorName = vendor.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{id}";
+        var technologies = await catalogService.GetVendorTechnologiesAsync(id, cancellationToken);
+
+        return Json(new
+        {
+            vendorId = id,
+            vendorName,
+            totalCount = technologies.Count,
+            items = technologies.Select(t => new
+            {
+                id = t.Id,
+                nombreCorporativo = t.NombreCorporativo,
+                nombreLocal = t.NombreLocal ?? "—",
+                familia = t.Familia ?? "—",
+                estadoAdopcion = t.EstadoAdopcion ?? "—",
+                licenciamiento = t.Licenciamiento ?? "—",
+                entorno = t.Entorno ?? "—",
+                detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "tecnologia-tsi", id = t.Id })
+            })
         });
     }
 
@@ -391,6 +430,12 @@ public sealed class MasterTablesController(
             options = mutableOptions;
         }
 
+        IReadOnlyList<VendorTechnologyDto>? vendorTechnologies = null;
+        if (definition.Code == "vendor")
+        {
+            vendorTechnologies = await catalogService.GetVendorTechnologiesAsync(id, cancellationToken);
+        }
+
         return View(new CatalogDetailViewModel
         {
             Definition = definition,
@@ -412,7 +457,8 @@ public sealed class MasterTablesController(
             ImplementedServices = implementedServices,
             ProcessCompanies = processCompanies,
             ProcessStandards = processStandards,
-            ProcessServices = processServices
+            ProcessServices = processServices,
+            VendorTechnologies = vendorTechnologies
         });
     }
 

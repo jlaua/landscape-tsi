@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
@@ -567,6 +568,56 @@ public sealed class MasterTablesHttpTests
         Assert.Contains("field-notas", listHtml);
     }
 
+    [Fact]
+    public async Task VendorCatalog_RendersAttributes_InListAndDetails()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Verificar listado de Vendor
+        var listResponse = await client.GetAsync("/Administration/MasterTables/vendor");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var rawListHtml = await listResponse.Content.ReadAsStringAsync();
+        var listHtml = WebUtility.HtmlDecode(rawListHtml);
+
+        Assert.Contains("Nombre del vendor", listHtml);
+        Assert.Contains("Descripción del vendor", listHtml);
+        Assert.Contains("Tecnologías TSI", listHtml);
+        Assert.Contains("vendor-tech-count-btn", listHtml);
+        Assert.Contains("vendor-technologies-modal", listHtml);
+        Assert.Contains("vendor-admin.js", listHtml);
+
+        // 2. Verificar detalle de Vendor
+        var detailResponse = await client.GetAsync("/Administration/MasterTables/vendor/details/1");
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var rawDetailHtml = await detailResponse.Content.ReadAsStringAsync();
+        var detailHtml = WebUtility.HtmlDecode(rawDetailHtml);
+
+        Assert.Contains("Descripción del vendor", detailHtml);
+        Assert.Contains("Tecnologías TSI Asociadas", detailHtml);
+        Assert.Contains("Crowdstrike Falcon", detailHtml);
+        Assert.Contains("Fortinet FortiGate", detailHtml);
+    }
+
+    [Fact]
+    public async Task VendorTechnologiesEndpoint_ReturnsJsonWithTechnologies()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/vendor/1/technologies");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, json.GetProperty("vendorId").GetInt32());
+        Assert.Equal(2, json.GetProperty("totalCount").GetInt32());
+
+        var items = json.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+        Assert.Equal("Crowdstrike Falcon", items[0].GetProperty("nombreCorporativo").GetString());
+        Assert.Equal("Fortinet FortiGate", items[1].GetProperty("nombreCorporativo").GetString());
+    }
+
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
@@ -626,7 +677,7 @@ public sealed class MasterTablesHttpTests
     private sealed class StubCatalogService : ICatalogManagementService
     {
         public static string CurrentName { get; private set; } = "Familia de prueba";
-        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName });
+        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike" }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike" });
         public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null) => Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
         public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CatalogPageResult([new CatalogRow(1, new Dictionary<string, object?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" }, new Dictionary<string, string?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" })], 1, pageSize, 1));
@@ -648,6 +699,20 @@ public sealed class MasterTablesHttpTests
         {
             if (values.TryGetValue("nombreCorporativo", out var name) && !string.IsNullOrWhiteSpace(name)) CurrentName = name;
             return Task.FromResult(true);
+        }
+        public Task<IReadOnlyDictionary<int, int>> GetVendorTechnologyCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default)
+        {
+            var dict = vendorIds.ToDictionary(id => id, id => 2);
+            return Task.FromResult<IReadOnlyDictionary<int, int>>(dict);
+        }
+        public Task<IReadOnlyList<VendorTechnologyDto>> GetVendorTechnologiesAsync(int vendorId, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<VendorTechnologyDto> list =
+            [
+                new(1, "Crowdstrike Falcon", "Crowdstrike Local", "EDR", "Estratégica", "Suscripción anual", "Cloud"),
+                new(2, "Fortinet FortiGate", "Fortinet FW", "Firewall", "Transición", "Perpetuo", "On-Premise")
+            ];
+            return Task.FromResult(list);
         }
     }
 

@@ -63,7 +63,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TMEstadoAdopcionTSI>(b, "TMEstadoAdopcionTSI", "idEstadoAdopcionTSI", (e, p) => { p(e, x => x.Nombre, "nombreEstadoAdopcionTSI"); p(e, x => x.Descripcion, "descripcionEstadoAdopcionTSI"); });
         Map<TModalidadLaboral>(b, "TModalidadLaboral", "idModalidadLaboral", (e, p) => { p(e, x => x.Nombre, "TipoModalidadLaboral"); p(e, x => x.Descripcion, "descripcion"); });
         Map<TTipoOperacion>(b, "TTipoOperacion", "idTipoModeloOperacion", (e, p) => { p(e, x => x.Nombre, "TipoModeloDeOperacion"); p(e, x => x.Descripcion, "Descripcion"); });
-        Map<TVendor>(b, "TVendor", "idVendor", (e, p) => { p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); p(e, x => x.NombreVendor, "nombreVendor"); });
+        Map<TVendor>(b, "TVendor", "idVendor", (e, p) => { p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); p(e, x => x.NombreVendor, "nombreVendor"); p(e, x => x.DescripcionVendor, "descripcionVendor"); });
         Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
         Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
 
