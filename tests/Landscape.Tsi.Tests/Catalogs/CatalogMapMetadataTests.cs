@@ -84,6 +84,7 @@ public sealed class CatalogMapMetadataTests
             ["tarifario-proyecto-horas"] = "T",
             ["tarifario-operacion"] = "T",
             ["vendor"] = "T",
+            ["partner"] = "T",
             ["contacto-vendor"] = "T",
             ["contacto-partner"] = "T"
         };
@@ -111,7 +112,7 @@ public sealed class CatalogMapMetadataTests
 
         Assert.Equal(12, entities.Count(entity => entity.Group == "Arquitectura de seguridad"));
         Assert.Equal(3, entities.Count(entity => entity.Group == "Tecnología"));
-        Assert.Equal(6, entities.Count(entity => entity.Group == "Organización"));
+        Assert.Equal(7, entities.Count(entity => entity.Group == "Organización"));
         Assert.Equal(10, entities.Count(entity => entity.Group == "Operación"));
 
         Assert.Equal(

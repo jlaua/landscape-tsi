@@ -537,7 +537,7 @@ public sealed class MasterTablesHttpTests
 
     [Theory]
     [InlineData("contacto-vendor", "Nombre del contacto")]
-    [InlineData("contacto-partner", "Nombre del partner")]
+    [InlineData("contacto-partner", "Nombre del contacto")]
     public async Task ContactCatalogs_RenderAttributes_InListAndDetails(string route, string mainLabel)
     {
         await using var factory = CreateFactory();
@@ -618,6 +618,39 @@ public sealed class MasterTablesHttpTests
         Assert.Equal("Fortinet FortiGate", items[1].GetProperty("nombreCorporativo").GetString());
     }
 
+    [Fact]
+    public async Task PartnerCatalog_RendersAttributes_InListAndDetails()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Verificar listado de Partner
+        var listResponse = await client.GetAsync("/Administration/MasterTables/partner");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var rawListHtml = await listResponse.Content.ReadAsStringAsync();
+        var listHtml = WebUtility.HtmlDecode(rawListHtml);
+
+        Assert.Contains("Nombre del partner", listHtml);
+        Assert.Contains("Descripción del partner", listHtml);
+        Assert.Contains("Vendor", listHtml);
+        Assert.Contains("Tecnología TSI", listHtml);
+
+        // 2. Verificar detalle de Partner
+        var detailResponse = await client.GetAsync("/Administration/MasterTables/partner/details/1");
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var rawDetailHtml = await detailResponse.Content.ReadAsStringAsync();
+        var detailHtml = WebUtility.HtmlDecode(rawDetailHtml);
+
+        Assert.Contains("Nombre del partner", detailHtml);
+        Assert.Contains("Descripción del partner", detailHtml);
+
+        // 3. Verificar que aparece en el index de tablas maestras
+        var indexResponse = await client.GetAsync("/Administration/MasterTables");
+        Assert.Equal(HttpStatusCode.OK, indexResponse.StatusCode);
+        var indexHtml = WebUtility.HtmlDecode(await indexResponse.Content.ReadAsStringAsync());
+        Assert.Contains("Partner", indexHtml);
+    }
+
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
@@ -677,7 +710,7 @@ public sealed class MasterTablesHttpTests
     private sealed class StubCatalogService : ICatalogManagementService
     {
         public static string CurrentName { get; private set; } = "Familia de prueba";
-        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike" }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike" });
+        private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike", ["nombrePartner"] = "Partner Test", ["descripcionPartner"] = "Descripción del partner", ["vendor"] = "Vendor Test" }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike", ["nombrePartner"] = "Partner Test", ["descripcionPartner"] = "Descripción del partner", ["vendor"] = "Vendor Test" });
         public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null) => Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
         public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CatalogPageResult([new CatalogRow(1, new Dictionary<string, object?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" }, new Dictionary<string, string?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" })], 1, pageSize, 1));

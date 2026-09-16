@@ -62,10 +62,12 @@ public static class MasterCatalogRegistry
             [ForeignKey("servicio", "idServicio", "Servicio", "servicio-tecnologia"), Text("nivelSoporte", "nivelSoporte", "Nivel de soporte"), Text("modalidad", "modalidad", "Modalidad"), Text("detalleModalidad", "detalleModalidad", "Detalle de modalidad", true), Text("horasBaseMensual", "horasBaseMensual", "Horas base mensual"), Text("expertise", "expertise", "Expertise"), Text("locacion", "locacion", "Locación"), Text("tarifaHora", "tarifaHora", "Tarifa por hora"), Text("tarifaMensual", "tarifaMensual", "Tarifa mensual"), Text("cantidadMeses", "cantidadMeses", "Cantidad de meses"), Text("horasEstimadas", "horasEstimadas", "Horas estimadas"), Text("subtotal", "subtotal", "Subtotal"), Text("moneda", "moneda", "Moneda")], ["servicio", "nivelSoporte", "modalidad", "tarifaHora", "tarifaMensual", "subtotal", "moneda"], CatalogEntityType.Transactional, "Matriz tarifaria de operación y soporte continuo N1, N2 y N3."),
         Define("vendor", "Vendor", "TVendor", "idVendor", "vendor", "Organización", "nombreVendor", CatalogEditorMode.Modal,
             [Text("nombreVendor", "nombreVendor", "Nombre del vendor"), Text("descripcionVendor", "descripcionVendor", "Descripción del vendor", true), ForeignKey("tecnologia", "idTecnologiaTSI", "Tecnología TSI", "tecnologia-tsi")], ["nombreVendor", "descripcionVendor", "tecnologia"], CatalogEntityType.Transactional, "Proveedores o fabricantes relacionados con tecnología TSI."),
+        Define("partner", "Partner", "TPartner", "idPartner", "partner", "Organización", "nombrePartner", CatalogEditorMode.Modal,
+            [Text("nombrePartner", "nombrePartner", "Nombre del partner"), Text("descripcionPartner", "descripcionPartner", "Descripción del partner", true), ForeignKey("vendor", "idVendor", "Vendor", "vendor"), ForeignKey("tecnologia", "idTecnologiaTSI", "Tecnología TSI", "tecnologia-tsi")], ["nombrePartner", "descripcionPartner", "vendor", "tecnologia"], CatalogEntityType.Transactional, "Empresas partner, canales o integradores de tecnología TSI."),
         Define("contacto-vendor", "Contacto de Vendor", "TContactoVendor", "idContactoVendor", "contacto-vendor", "Organización", "nombreContactoVendor", CatalogEditorMode.Modal,
             [ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoVendor", "nombreContactoVendor", "Nombre del contacto"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoVendor", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un vendor."),
         Define("contacto-partner", "Contacto de Partner", "TContactoPartner", "idContactoPartner", "contacto-partner", "Organización", "nombreContactoPartner", CatalogEditorMode.Modal,
-            [ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoPartner", "nombreContactoPartner", "Nombre del partner"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoPartner", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un partner de tecnología.")
+            [ForeignKey("partner", "idPartner", "Partner", "partner"), ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoPartner", "nombreContactoPartner", "Nombre del contacto"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoPartner", "partner", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un partner de tecnología.")
     ];
 
     public static readonly IReadOnlyList<CatalogRelationDefinition> Relations =
@@ -100,6 +102,8 @@ public static class MasterCatalogRegistry
         new("servicio-tecnologia", "tarifario-operacion", "Uno a muchos", "FK_TTarifarioOperacion_TServicioTecnologia"),
         new("tecnologia-tsi", "vendor", "Uno a muchos", "FK_TVendor_TTecnologiaTSI"),
         new("vendor", "contacto-vendor", "Uno a muchos", "FK_TContactoVendor_TVendor"),
+        new("vendor", "partner", "Uno a muchos", "FK_TPartner_TVendor"),
+        new("partner", "contacto-partner", "Uno a muchos", "FK_TContactoPartner_TPartner"),
         new("vendor", "contacto-partner", "Uno a muchos", "FK_TContactoPartner_TVendor")
     ];
 
@@ -132,6 +136,8 @@ public static class MasterCatalogRegistry
         Relationship("empresa-subsidiaria", "tecnologia-tsi-implementada", "1", "N", "FK_TTecnologiaTSIimplementadaSubsidiaria_TEmpresaSubsidiaria"),
         Relationship("tecnologia-tsi", "vendor", "1", "N", "FK_TVendor_TTecnologiaTSI"),
         Relationship("vendor", "contacto-vendor", "1", "N", "FK_TContactoVendor_TVendor"),
+        Relationship("vendor", "partner", "1", "N", "FK_TPartner_TVendor"),
+        Relationship("partner", "contacto-partner", "1", "N", "FK_TContactoPartner_TPartner"),
         Relationship("vendor", "contacto-partner", "1", "N", "FK_TContactoPartner_TVendor"),
         Relationship("tecnologia-tsi-implementada", "driver", "1", "N", "FK_TDriver_TTecnologiaTSIimplementadaSubsidiaria"),
         Relationship("modalidad-laboral", "modelo-operacion", "1", "N", "FK_TModeloDeOperacion_TModalidadLaboral"),

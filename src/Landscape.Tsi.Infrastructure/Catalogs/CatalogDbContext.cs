@@ -35,6 +35,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TTecnologiaTSIimplementadaSubsidiaria> ImplementedTechnologies => Set<TTecnologiaTSIimplementadaSubsidiaria>();
     public DbSet<TDriver> Drivers => Set<TDriver>();
     public DbSet<TVendor> Vendors => Set<TVendor>();
+    public DbSet<TPartner> Partners => Set<TPartner>();
     public DbSet<TContactoPartner> PartnerContacts => Set<TContactoPartner>();
     public DbSet<TContactoVendor> VendorContacts => Set<TContactoVendor>();
 
@@ -64,7 +65,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TModalidadLaboral>(b, "TModalidadLaboral", "idModalidadLaboral", (e, p) => { p(e, x => x.Nombre, "TipoModalidadLaboral"); p(e, x => x.Descripcion, "descripcion"); });
         Map<TTipoOperacion>(b, "TTipoOperacion", "idTipoModeloOperacion", (e, p) => { p(e, x => x.Nombre, "TipoModeloDeOperacion"); p(e, x => x.Descripcion, "Descripcion"); });
         Map<TVendor>(b, "TVendor", "idVendor", (e, p) => { p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); p(e, x => x.NombreVendor, "nombreVendor"); p(e, x => x.DescripcionVendor, "descripcionVendor"); });
-        Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
+        Map<TPartner>(b, "TPartner", "idPartner", (e, p) => { p(e, x => x.NombrePartner, "nombrePartner"); p(e, x => x.DescripcionPartner, "descripcionPartner"); p(e, x => x.IdVendor, "idVendor"); p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); });
+        Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdPartner, "idPartner"); p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
         Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
 
         b.Entity<TBuildingBlock>().HasOne<TmDominio>().WithMany().HasForeignKey(x => x.IdDominio).OnDelete(DeleteBehavior.NoAction);

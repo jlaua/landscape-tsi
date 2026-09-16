@@ -48,6 +48,7 @@ public sealed class CatalogDbContextMappingTests
             [typeof(TTarifarioOperacion)] = "TTarifarioOperacion",
             // Entidades de Fabricantes y Contactos
             [typeof(TVendor)] = "TVendor",
+            [typeof(TPartner)] = "TPartner",
             [typeof(TContactoPartner)] = "TContactoPartner",
             [typeof(TContactoVendor)] = "TContactoVendor"
         };

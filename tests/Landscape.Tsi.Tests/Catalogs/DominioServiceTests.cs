@@ -65,9 +65,9 @@ public sealed class DominioServiceTests
         Assert.True(MasterCatalogRegistry.IsAdministrable("dominio"));
         Assert.True(MasterCatalogRegistry.IsAdministrable("building-block"));
         Assert.False(MasterCatalogRegistry.IsAdministrable("TMDominio"));
-        Assert.Equal(31, MasterCatalogRegistry.Catalogs.Count);
-        Assert.Equal(31, MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Code).Distinct().Count());
-        Assert.Equal(31, MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Route).Distinct().Count());
+        Assert.Equal(32, MasterCatalogRegistry.Catalogs.Count);
+        Assert.Equal(32, MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Code).Distinct().Count());
+        Assert.Equal(32, MasterCatalogRegistry.Catalogs.Select(catalog => catalog.Route).Distinct().Count());
         Assert.All(MasterCatalogRegistry.Catalogs, catalog =>
         {
             Assert.DoesNotContain(catalog.PhysicalTable, catalog.Route, StringComparison.OrdinalIgnoreCase);
