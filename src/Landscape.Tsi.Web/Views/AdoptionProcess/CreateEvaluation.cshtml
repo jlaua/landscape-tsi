@@ -346,8 +346,8 @@
 
                                             <div class="col-md-3">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <label asp-for="SubsidiaryAsIsList[i].VendorId" class="form-label fw-semibold mb-0">Fabricante / Vendor Local</label>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor" data-index="@i" title="Registrar nuevo Vendor">+ Nuevo</button>
+                                                    <label asp-for="SubsidiaryAsIsList[i].VendorId" class="form-label fw-semibold mb-0">Fabricante / Vendor</label>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor" data-index="@i" title="Registrar nuevo Fabricante / Vendor">+ Nuevo</button>
                                                 </div>
                                                 <select asp-for="SubsidiaryAsIsList[i].VendorId" class="form-select select-vendor" data-index="@i">
                                                     <option value="">-- Seleccionar Vendor --</option>
@@ -359,8 +359,14 @@
                                                 <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorNombre" class="input-vendor-name" data-index="@i" />
                                             </div>
                                             <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-label fw-semibold">Contacto Vendor Local</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].VendorContacto" class="form-control" placeholder="Nombre / Email comercial" />
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-label fw-semibold mb-0">Contacto Vendor Local</label>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor-contact" data-index="@i" title="Registrar nuevo Contacto Vendor">+ Nuevo</button>
+                                                </div>
+                                                <select asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-select select-vendor-contact" data-index="@i">
+                                                    <option value="">-- Seleccionar Contacto --</option>
+                                                </select>
+                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorContacto" class="input-vendor-contact-name" data-index="@i" />
                                             </div>
                                             <div class="col-md-3">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -377,8 +383,14 @@
                                                 <input type="hidden" asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="input-partner-name" data-index="@i" />
                                             </div>
                                             <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="form-label fw-semibold">Contacto Partner Local</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="form-control" placeholder="Nombre / Email partner" />
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label asp-for="SubsidiaryAsIsList[i].PartnerContactoId" class="form-label fw-semibold mb-0">Contacto Partner Local</label>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner-contact" data-index="@i" title="Registrar nuevo Contacto Partner">+ Nuevo</button>
+                                                </div>
+                                                <select asp-for="SubsidiaryAsIsList[i].PartnerContactoId" class="form-select select-partner-contact" data-index="@i">
+                                                    <option value="">-- Seleccionar Contacto --</option>
+                                                </select>
+                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="input-partner-contact-name" data-index="@i" />
                                             </div>
 
                                             <!-- Contrato Local -->
@@ -676,12 +688,18 @@
                     <input type="text" class="form-control" id="quickPartnerNombre" placeholder="Ej. Noventiq, Logicalis, Apukay, Telefónica Tech..." autocomplete="off" />
                 </div>
                 <div class="mb-3">
-                    <label for="quickPartnerEmail" class="form-label fw-semibold">Correo Electrónico (Opcional)</label>
-                    <input type="email" class="form-control" id="quickPartnerEmail" placeholder="contacto@partner.com" />
+                    <label for="quickPartnerVendorId" class="form-label fw-semibold">Fabricante / Vendor Asociado (Opcional)</label>
+                    <select class="form-select" id="quickPartnerVendorId">
+                        <option value="">-- Sin Vendor Asociado --</option>
+                        @foreach (var v in Model.Vendors)
+                        {
+                            <option value="@v.Id">@v.Label</option>
+                        }
+                    </select>
                 </div>
                 <div class="mb-3">
-                    <label for="quickPartnerTelefono" class="form-label fw-semibold">Teléfono de Contacto (Opcional)</label>
-                    <input type="text" class="form-control" id="quickPartnerTelefono" placeholder="+51 999 999 999" />
+                    <label for="quickPartnerDescripcion" class="form-label fw-semibold">Descripción o Notas (Opcional)</label>
+                    <input type="text" class="form-control" id="quickPartnerDescripcion" placeholder="Observaciones sobre el partner..." />
                 </div>
             </div>
             <div class="modal-footer bg-light">
@@ -689,6 +707,112 @@
                 <button type="button" class="btn btn-primary fw-bold" id="btnSubmitQuickPartner">
                     <span id="spinnerQuickPartner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
                     💾 Guardar Partner
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================================================
+     MODAL: REGISTRO RÁPIDO DE CONTACTO VENDOR
+     ======================================================= -->
+<div class="modal fade" id="modalQuickVendorContact" tabindex="-1" aria-labelledby="modalQuickVendorContactLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-primary" id="modalQuickVendorContactLabel">
+                    👤 Registrar Nuevo Contacto de Fabricante / Vendor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quickVendorContactAlert" class="alert d-none small"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Fabricante / Vendor Asociado <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control bg-light" id="quickVendorContactVendorNombre" readonly />
+                    <input type="hidden" id="quickVendorContactVendorId" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickVendorContactNombre" class="form-label fw-semibold">Nombre y Apellidos del Contacto <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickVendorContactNombre" placeholder="Ej. Juan Pérez" autocomplete="off" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickVendorContactRol" class="form-label fw-semibold">Cargo / Rol</label>
+                    <input type="text" class="form-control" id="quickVendorContactRol" placeholder="Ej. Territory Manager, Sales Engineer..." />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="quickVendorContactEmail" class="form-label fw-semibold">Email</label>
+                        <input type="email" class="form-control" id="quickVendorContactEmail" placeholder="juan.perez@vendor.com" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="quickVendorContactTelefono" class="form-label fw-semibold">Teléfono</label>
+                        <input type="text" class="form-control" id="quickVendorContactTelefono" placeholder="+51 999 888 777" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="quickVendorContactNotas" class="form-label fw-semibold">Notas Adicionales</label>
+                    <input type="text" class="form-control" id="quickVendorContactNotas" placeholder="Opcional..." />
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold" id="btnSubmitQuickVendorContact">
+                    <span id="spinnerQuickVendorContact" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                    💾 Guardar Contacto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================================================
+     MODAL: REGISTRO RÁPIDO DE CONTACTO PARTNER
+     ======================================================= -->
+<div class="modal fade" id="modalQuickPartnerContact" tabindex="-1" aria-labelledby="modalQuickPartnerContactLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-primary" id="modalQuickPartnerContactLabel">
+                    👤 Registrar Nuevo Contacto de Partner / Integrador
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quickPartnerContactAlert" class="alert d-none small"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Partner / Integrador Asociado <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control bg-light" id="quickPartnerContactPartnerNombre" readonly />
+                    <input type="hidden" id="quickPartnerContactPartnerId" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickPartnerContactNombre" class="form-label fw-semibold">Nombre y Apellidos del Contacto <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickPartnerContactNombre" placeholder="Ej. Carlos Campos" autocomplete="off" />
+                </div>
+                <div class="mb-3">
+                    <label for="quickPartnerContactRol" class="form-label fw-semibold">Cargo / Rol</label>
+                    <input type="text" class="form-control" id="quickPartnerContactRol" placeholder="Ej. Account Executive, Preventa..." />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label for="quickPartnerContactEmail" class="form-label fw-semibold">Email</label>
+                        <input type="email" class="form-control" id="quickPartnerContactEmail" placeholder="carlos.campos@partner.com" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="quickPartnerContactTelefono" class="form-label fw-semibold">Teléfono</label>
+                        <input type="text" class="form-control" id="quickPartnerContactTelefono" placeholder="+51 987 654 321" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="quickPartnerContactNotas" class="form-label fw-semibold">Notas Adicionales</label>
+                    <input type="text" class="form-control" id="quickPartnerContactNotas" placeholder="Opcional..." />
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold" id="btnSubmitQuickPartnerContact">
+                    <span id="spinnerQuickPartnerContact" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                    💾 Guardar Contacto
                 </button>
             </div>
         </div>
@@ -1785,7 +1909,10 @@
                 if (activeVendorIndex !== null) {
                     const activeSelect = document.querySelector(`.select-vendor[data-index="${activeVendorIndex}"]`);
                     const hiddenName = document.querySelector(`.input-vendor-name[data-index="${activeVendorIndex}"]`);
-                    if (activeSelect) activeSelect.value = data.id;
+                    if (activeSelect) {
+                        activeSelect.value = data.id;
+                        activeSelect.dispatchEvent(new Event('change'));
+                    }
                     if (hiddenName) hiddenName.value = data.nombre;
                 }
 
@@ -1813,14 +1940,15 @@
         }
 
         // ----------------------------------------------------
+        // ----------------------------------------------------
         // QUICK CREATE PARTNER
         // ----------------------------------------------------
         let activePartnerIndex = null;
         const modalQuickPartnerEl = document.getElementById('modalQuickPartner');
         const modalQuickPartner = modalQuickPartnerEl ? bootstrap.Modal.getOrCreateInstance(modalQuickPartnerEl) : null;
         const quickPartnerNombre = document.getElementById('quickPartnerNombre');
-        const quickPartnerEmail = document.getElementById('quickPartnerEmail');
-        const quickPartnerTelefono = document.getElementById('quickPartnerTelefono');
+        const quickPartnerVendorId = document.getElementById('quickPartnerVendorId');
+        const quickPartnerDescripcion = document.getElementById('quickPartnerDescripcion');
         const quickPartnerAlert = document.getElementById('quickPartnerAlert');
         const btnSubmitQuickPartner = document.getElementById('btnSubmitQuickPartner');
         const spinnerQuickPartner = document.getElementById('spinnerQuickPartner');
@@ -1829,12 +1957,18 @@
             btn.addEventListener('click', function () {
                 activePartnerIndex = this.getAttribute('data-index');
                 if (quickPartnerNombre) quickPartnerNombre.value = '';
-                if (quickPartnerEmail) quickPartnerEmail.value = '';
-                if (quickPartnerTelefono) quickPartnerTelefono.value = '';
+                if (quickPartnerDescripcion) quickPartnerDescripcion.value = '';
                 if (quickPartnerAlert) {
                     quickPartnerAlert.classList.add('d-none');
                     quickPartnerAlert.innerText = '';
                 }
+
+                // Si la fila actual tiene un Vendor seleccionado, preseleccionarlo en el modal
+                if (activePartnerIndex !== null && quickPartnerVendorId) {
+                    const rowVendorSelect = document.querySelector(`.select-vendor[data-index="${activePartnerIndex}"]`);
+                    quickPartnerVendorId.value = rowVendorSelect?.value || '';
+                }
+
                 modalQuickPartner?.show();
                 setTimeout(() => quickPartnerNombre?.focus(), 200);
             });
@@ -1842,8 +1976,8 @@
 
         async function handleQuickCreatePartner() {
             const nombre = (quickPartnerNombre?.value || '').trim();
-            const email = (quickPartnerEmail?.value || '').trim();
-            const telefono = (quickPartnerTelefono?.value || '').trim();
+            const vendorId = quickPartnerVendorId?.value || '';
+            const descripcion = (quickPartnerDescripcion?.value || '').trim();
 
             if (!nombre) {
                 if (quickPartnerAlert) {
@@ -1865,8 +1999,8 @@
                 const formData = new URLSearchParams();
                 formData.append('__RequestVerificationToken', token);
                 formData.append('nombrePartner', nombre);
-                if (email) formData.append('email', email);
-                if (telefono) formData.append('telefono', telefono);
+                if (vendorId) formData.append('vendorId', vendorId);
+                if (descripcion) formData.append('descripcion', descripcion);
 
                 const res = await fetch('@Url.Action("QuickCreatePartner", "AdoptionProcess")', {
                     method: 'POST',
@@ -1900,7 +2034,10 @@
                 if (activePartnerIndex !== null) {
                     const activeSelect = document.querySelector(`.select-partner[data-index="${activePartnerIndex}"]`);
                     const hiddenName = document.querySelector(`.input-partner-name[data-index="${activePartnerIndex}"]`);
-                    if (activeSelect) activeSelect.value = data.id;
+                    if (activeSelect) {
+                        activeSelect.value = data.id;
+                        activeSelect.dispatchEvent(new Event('change'));
+                    }
                     if (hiddenName) hiddenName.value = data.nombre;
                 }
 
@@ -1927,13 +2064,386 @@
             });
         }
 
-        // Sincronizar selección de Vendor y Partner a inputs ocultos
+        // ----------------------------------------------------
+        // CARGA DINÁMICA DE CONTACTOS DE VENDOR Y QUICK CREATE
+        // ----------------------------------------------------
+        let activeVendorContactIndex = null;
+        const modalQuickVendorContactEl = document.getElementById('modalQuickVendorContact');
+        const modalQuickVendorContact = modalQuickVendorContactEl ? bootstrap.Modal.getOrCreateInstance(modalQuickVendorContactEl) : null;
+        const quickVendorContactAlert = document.getElementById('quickVendorContactAlert');
+        const quickVendorContactVendorNombre = document.getElementById('quickVendorContactVendorNombre');
+        const quickVendorContactVendorId = document.getElementById('quickVendorContactVendorId');
+        const quickVendorContactNombre = document.getElementById('quickVendorContactNombre');
+        const quickVendorContactRol = document.getElementById('quickVendorContactRol');
+        const quickVendorContactEmail = document.getElementById('quickVendorContactEmail');
+        const quickVendorContactTelefono = document.getElementById('quickVendorContactTelefono');
+        const quickVendorContactNotas = document.getElementById('quickVendorContactNotas');
+        const btnSubmitQuickVendorContact = document.getElementById('btnSubmitQuickVendorContact');
+        const spinnerQuickVendorContact = document.getElementById('spinnerQuickVendorContact');
+
+        async function loadVendorContacts(vendorId, targetSelect, selectedId = null) {
+            if (!targetSelect) return;
+            targetSelect.innerHTML = '<option value="">-- Seleccionar Contacto --</option>';
+            if (!vendorId) return;
+
+            try {
+                const res = await fetch(`@Url.Action("GetVendorContacts", "AdoptionProcess")?vendorId=${vendorId}`);
+                if (!res.ok) return;
+                const contacts = await res.json();
+                if (Array.isArray(contacts) && contacts.length > 0) {
+                    contacts.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.dataset.name = c.nombre;
+                        opt.text = c.nombre + (c.rol ? ` (${c.rol})` : '') + (c.email ? ` - ${c.email}` : '');
+                        if (selectedId && String(selectedId) === String(c.id)) {
+                            opt.selected = true;
+                        }
+                        targetSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('Error al cargar contactos de vendor:', e);
+            }
+        }
+
+        document.querySelectorAll('.btn-quick-vendor-contact').forEach(btn => {
+            btn.addEventListener('click', function () {
+                activeVendorContactIndex = this.getAttribute('data-index');
+                const rowVendorSelect = document.querySelector(`.select-vendor[data-index="${activeVendorContactIndex}"]`);
+                const vendorId = rowVendorSelect?.value;
+                const vendorNombre = rowVendorSelect?.selectedIndex > 0 ? rowVendorSelect.options[rowVendorSelect.selectedIndex].text : '';
+
+                if (!vendorId) {
+                    alert('Por favor, seleccione primero un Fabricante / Vendor en esta fila para poder asociar un contacto.');
+                    rowVendorSelect?.focus();
+                    return;
+                }
+
+                if (quickVendorContactVendorNombre) quickVendorContactVendorNombre.value = vendorNombre;
+                if (quickVendorContactVendorId) quickVendorContactVendorId.value = vendorId;
+                if (quickVendorContactNombre) quickVendorContactNombre.value = '';
+                if (quickVendorContactRol) quickVendorContactRol.value = '';
+                if (quickVendorContactEmail) quickVendorContactEmail.value = '';
+                if (quickVendorContactTelefono) quickVendorContactTelefono.value = '';
+                if (quickVendorContactNotas) quickVendorContactNotas.value = '';
+                if (quickVendorContactAlert) {
+                    quickVendorContactAlert.classList.add('d-none');
+                    quickVendorContactAlert.innerText = '';
+                }
+
+                modalQuickVendorContact?.show();
+                setTimeout(() => quickVendorContactNombre?.focus(), 200);
+            });
+        });
+
+        async function handleQuickCreateVendorContact() {
+            const vendorId = quickVendorContactVendorId?.value || '';
+            const nombre = (quickVendorContactNombre?.value || '').trim();
+            const rol = (quickVendorContactRol?.value || '').trim();
+            const email = (quickVendorContactEmail?.value || '').trim();
+            const telefono = (quickVendorContactTelefono?.value || '').trim();
+            const notas = (quickVendorContactNotas?.value || '').trim();
+
+            if (!vendorId) {
+                if (quickVendorContactAlert) {
+                    quickVendorContactAlert.className = 'alert alert-danger small';
+                    quickVendorContactAlert.innerText = 'Debe seleccionar un Fabricante / Vendor válido.';
+                    quickVendorContactAlert.classList.remove('d-none');
+                }
+                return;
+            }
+
+            if (!nombre) {
+                if (quickVendorContactAlert) {
+                    quickVendorContactAlert.className = 'alert alert-danger small';
+                    quickVendorContactAlert.innerText = 'El nombre del contacto es obligatorio.';
+                    quickVendorContactAlert.classList.remove('d-none');
+                }
+                quickVendorContactNombre?.focus();
+                return;
+            }
+
+            if (quickVendorContactAlert) quickVendorContactAlert.classList.add('d-none');
+            if (btnSubmitQuickVendorContact) btnSubmitQuickVendorContact.disabled = true;
+            if (spinnerQuickVendorContact) spinnerQuickVendorContact.classList.remove('d-none');
+
+            try {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                const formData = new URLSearchParams();
+                formData.append('__RequestVerificationToken', token);
+                formData.append('vendorId', vendorId);
+                formData.append('nombreContacto', nombre);
+                if (rol) formData.append('rol', rol);
+                if (email) formData.append('email', email);
+                if (telefono) formData.append('telefono', telefono);
+                if (notas) formData.append('notas', notas);
+
+                const res = await fetch('@Url.Action("QuickCreateVendorContact", "AdoptionProcess")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString()
+                });
+
+                if (!res.ok) throw new Error('Error al registrar el contacto de vendor.');
+                const data = await res.json();
+                if (!data.succeeded) {
+                    if (quickVendorContactAlert) {
+                        quickVendorContactAlert.className = 'alert alert-danger small';
+                        quickVendorContactAlert.innerText = data.message || 'Error al guardar el contacto.';
+                        quickVendorContactAlert.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                // Add to active row contact select and select it
+                if (activeVendorContactIndex !== null) {
+                    const selectContact = document.querySelector(`.select-vendor-contact[data-index="${activeVendorContactIndex}"]`);
+                    const hiddenContactName = document.querySelector(`.input-vendor-contact-name[data-index="${activeVendorContactIndex}"]`);
+                    if (selectContact) {
+                        const label = data.nombre + (data.rol ? ` (${data.rol})` : '') + (data.email ? ` - ${data.email}` : '');
+                        let opt = selectContact.querySelector(`option[value="${data.id}"]`);
+                        if (!opt) {
+                            opt = document.createElement('option');
+                            opt.value = data.id;
+                            selectContact.appendChild(opt);
+                        }
+                        opt.dataset.name = data.nombre;
+                        opt.text = label;
+                        selectContact.value = data.id;
+                    }
+                    if (hiddenContactName) {
+                        hiddenContactName.value = data.nombre;
+                    }
+                }
+
+                modalQuickVendorContact?.hide();
+            } catch (err) {
+                if (quickVendorContactAlert) {
+                    quickVendorContactAlert.className = 'alert alert-danger small';
+                    quickVendorContactAlert.innerText = err.message || 'Error de conexión.';
+                    quickVendorContactAlert.classList.remove('d-none');
+                }
+            } finally {
+                if (btnSubmitQuickVendorContact) btnSubmitQuickVendorContact.disabled = false;
+                if (spinnerQuickVendorContact) spinnerQuickVendorContact.classList.add('d-none');
+            }
+        }
+
+        if (btnSubmitQuickVendorContact) btnSubmitQuickVendorContact.addEventListener('click', handleQuickCreateVendorContact);
+        if (quickVendorContactNombre) {
+            quickVendorContactNombre.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreateVendorContact();
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // CARGA DINÁMICA DE CONTACTOS DE PARTNER Y QUICK CREATE
+        // ----------------------------------------------------
+        let activePartnerContactIndex = null;
+        const modalQuickPartnerContactEl = document.getElementById('modalQuickPartnerContact');
+        const modalQuickPartnerContact = modalQuickPartnerContactEl ? bootstrap.Modal.getOrCreateInstance(modalQuickPartnerContactEl) : null;
+        const quickPartnerContactAlert = document.getElementById('quickPartnerContactAlert');
+        const quickPartnerContactPartnerNombre = document.getElementById('quickPartnerContactPartnerNombre');
+        const quickPartnerContactPartnerId = document.getElementById('quickPartnerContactPartnerId');
+        const quickPartnerContactNombre = document.getElementById('quickPartnerContactNombre');
+        const quickPartnerContactRol = document.getElementById('quickPartnerContactRol');
+        const quickPartnerContactEmail = document.getElementById('quickPartnerContactEmail');
+        const quickPartnerContactTelefono = document.getElementById('quickPartnerContactTelefono');
+        const quickPartnerContactNotas = document.getElementById('quickPartnerContactNotas');
+        const btnSubmitQuickPartnerContact = document.getElementById('btnSubmitQuickPartnerContact');
+        const spinnerQuickPartnerContact = document.getElementById('spinnerQuickPartnerContact');
+
+        async function loadPartnerContacts(partnerId, targetSelect, selectedId = null) {
+            if (!targetSelect) return;
+            targetSelect.innerHTML = '<option value="">-- Seleccionar Contacto --</option>';
+            if (!partnerId) return;
+
+            try {
+                const res = await fetch(`@Url.Action("GetPartnerContacts", "AdoptionProcess")?partnerId=${partnerId}`);
+                if (!res.ok) return;
+                const contacts = await res.json();
+                if (Array.isArray(contacts) && contacts.length > 0) {
+                    contacts.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.dataset.name = c.nombre;
+                        opt.text = c.nombre + (c.rol ? ` (${c.rol})` : '') + (c.email ? ` - ${c.email}` : '');
+                        if (selectedId && String(selectedId) === String(c.id)) {
+                            opt.selected = true;
+                        }
+                        targetSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('Error al cargar contactos de partner:', e);
+            }
+        }
+
+        document.querySelectorAll('.btn-quick-partner-contact').forEach(btn => {
+            btn.addEventListener('click', function () {
+                activePartnerContactIndex = this.getAttribute('data-index');
+                const rowPartnerSelect = document.querySelector(`.select-partner[data-index="${activePartnerContactIndex}"]`);
+                const partnerId = rowPartnerSelect?.value;
+                const partnerNombre = rowPartnerSelect?.selectedIndex > 0 ? rowPartnerSelect.options[rowPartnerSelect.selectedIndex].text : '';
+
+                if (!partnerId) {
+                    alert('Por favor, seleccione primero un Partner / Integrador en esta fila para poder asociar un contacto.');
+                    rowPartnerSelect?.focus();
+                    return;
+                }
+
+                if (quickPartnerContactPartnerNombre) quickPartnerContactPartnerNombre.value = partnerNombre;
+                if (quickPartnerContactPartnerId) quickPartnerContactPartnerId.value = partnerId;
+                if (quickPartnerContactNombre) quickPartnerContactNombre.value = '';
+                if (quickPartnerContactRol) quickPartnerContactRol.value = '';
+                if (quickPartnerContactEmail) quickPartnerContactEmail.value = '';
+                if (quickPartnerContactTelefono) quickPartnerContactTelefono.value = '';
+                if (quickPartnerContactNotas) quickPartnerContactNotas.value = '';
+                if (quickPartnerContactAlert) {
+                    quickPartnerContactAlert.classList.add('d-none');
+                    quickPartnerContactAlert.innerText = '';
+                }
+
+                modalQuickPartnerContact?.show();
+                setTimeout(() => quickPartnerContactNombre?.focus(), 200);
+            });
+        });
+
+        async function handleQuickCreatePartnerContact() {
+            const partnerId = quickPartnerContactPartnerId?.value || '';
+            const nombre = (quickPartnerContactNombre?.value || '').trim();
+            const rol = (quickPartnerContactRol?.value || '').trim();
+            const email = (quickPartnerContactEmail?.value || '').trim();
+            const telefono = (quickPartnerContactTelefono?.value || '').trim();
+            const notas = (quickPartnerContactNotas?.value || '').trim();
+
+            if (!partnerId) {
+                if (quickPartnerContactAlert) {
+                    quickPartnerContactAlert.className = 'alert alert-danger small';
+                    quickPartnerContactAlert.innerText = 'Debe seleccionar un Partner / Integrador válido.';
+                    quickPartnerContactAlert.classList.remove('d-none');
+                }
+                return;
+            }
+
+            if (!nombre) {
+                if (quickPartnerContactAlert) {
+                    quickPartnerContactAlert.className = 'alert alert-danger small';
+                    quickPartnerContactAlert.innerText = 'El nombre del contacto es obligatorio.';
+                    quickPartnerContactAlert.classList.remove('d-none');
+                }
+                quickPartnerContactNombre?.focus();
+                return;
+            }
+
+            if (quickPartnerContactAlert) quickPartnerContactAlert.classList.add('d-none');
+            if (btnSubmitQuickPartnerContact) btnSubmitQuickPartnerContact.disabled = true;
+            if (spinnerQuickPartnerContact) spinnerQuickPartnerContact.classList.remove('d-none');
+
+            try {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                const formData = new URLSearchParams();
+                formData.append('__RequestVerificationToken', token);
+                formData.append('partnerId', partnerId);
+                formData.append('nombreContacto', nombre);
+                if (rol) formData.append('rol', rol);
+                if (email) formData.append('email', email);
+                if (telefono) formData.append('telefono', telefono);
+                if (notas) formData.append('notas', notas);
+
+                const res = await fetch('@Url.Action("QuickCreatePartnerContact", "AdoptionProcess")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString()
+                });
+
+                if (!res.ok) throw new Error('Error al registrar el contacto de partner.');
+                const data = await res.json();
+                if (!data.succeeded) {
+                    if (quickPartnerContactAlert) {
+                        quickPartnerContactAlert.className = 'alert alert-danger small';
+                        quickPartnerContactAlert.innerText = data.message || 'Error al guardar el contacto.';
+                        quickPartnerContactAlert.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                // Add to active row contact select and select it
+                if (activePartnerContactIndex !== null) {
+                    const selectContact = document.querySelector(`.select-partner-contact[data-index="${activePartnerContactIndex}"]`);
+                    const hiddenContactName = document.querySelector(`.input-partner-contact-name[data-index="${activePartnerContactIndex}"]`);
+                    if (selectContact) {
+                        const label = data.nombre + (data.rol ? ` (${data.rol})` : '') + (data.email ? ` - ${data.email}` : '');
+                        let opt = selectContact.querySelector(`option[value="${data.id}"]`);
+                        if (!opt) {
+                            opt = document.createElement('option');
+                            opt.value = data.id;
+                            selectContact.appendChild(opt);
+                        }
+                        opt.dataset.name = data.nombre;
+                        opt.text = label;
+                        selectContact.value = data.id;
+                    }
+                    if (hiddenContactName) {
+                        hiddenContactName.value = data.nombre;
+                    }
+                }
+
+                modalQuickPartnerContact?.hide();
+            } catch (err) {
+                if (quickPartnerContactAlert) {
+                    quickPartnerContactAlert.className = 'alert alert-danger small';
+                    quickPartnerContactAlert.innerText = err.message || 'Error de conexión.';
+                    quickPartnerContactAlert.classList.remove('d-none');
+                }
+            } finally {
+                if (btnSubmitQuickPartnerContact) btnSubmitQuickPartnerContact.disabled = false;
+                if (spinnerQuickPartnerContact) spinnerQuickPartnerContact.classList.add('d-none');
+            }
+        }
+
+        if (btnSubmitQuickPartnerContact) btnSubmitQuickPartnerContact.addEventListener('click', handleQuickCreatePartnerContact);
+        if (quickPartnerContactNombre) {
+            quickPartnerContactNombre.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickCreatePartnerContact();
+                }
+            });
+        }
+
+        // Sincronizar y cargar cascada para Vendor y Partner
         document.querySelectorAll('.select-vendor').forEach(sel => {
             sel.addEventListener('change', function () {
                 const idx = this.getAttribute('data-index');
                 const hidden = document.querySelector(`.input-vendor-name[data-index="${idx}"]`);
                 if (hidden) {
                     hidden.value = this.selectedIndex > 0 ? this.options[this.selectedIndex].text : '';
+                }
+                const contactSelect = document.querySelector(`.select-vendor-contact[data-index="${idx}"]`);
+                const contactHidden = document.querySelector(`.input-vendor-contact-name[data-index="${idx}"]`);
+                if (contactHidden) contactHidden.value = '';
+                loadVendorContacts(this.value, contactSelect);
+            });
+        });
+
+        document.querySelectorAll('.select-vendor-contact').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = this.getAttribute('data-index');
+                const hidden = document.querySelector(`.input-vendor-contact-name[data-index="${idx}"]`);
+                if (hidden) {
+                    if (this.selectedIndex > 0) {
+                        const opt = this.options[this.selectedIndex];
+                        hidden.value = opt.dataset.name || opt.text;
+                    } else {
+                        hidden.value = '';
+                    }
                 }
             });
         });
@@ -1944,6 +2454,25 @@
                 const hidden = document.querySelector(`.input-partner-name[data-index="${idx}"]`);
                 if (hidden) {
                     hidden.value = this.selectedIndex > 0 ? this.options[this.selectedIndex].text : '';
+                }
+                const contactSelect = document.querySelector(`.select-partner-contact[data-index="${idx}"]`);
+                const contactHidden = document.querySelector(`.input-partner-contact-name[data-index="${idx}"]`);
+                if (contactHidden) contactHidden.value = '';
+                loadPartnerContacts(this.value, contactSelect);
+            });
+        });
+
+        document.querySelectorAll('.select-partner-contact').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = this.getAttribute('data-index');
+                const hidden = document.querySelector(`.input-partner-contact-name[data-index="${idx}"]`);
+                if (hidden) {
+                    if (this.selectedIndex > 0) {
+                        const opt = this.options[this.selectedIndex];
+                        hidden.value = opt.dataset.name || opt.text;
+                    } else {
+                        hidden.value = '';
+                    }
                 }
             });
         });
@@ -1987,6 +2516,22 @@
             renderTechResults('');
             setStandardMode('pending');
             refreshAllSubsidiaryParticipation();
+
+            // Cargar contactos iniciales si ya tienen un valor seleccionado
+            document.querySelectorAll('.select-vendor').forEach(sel => {
+                if (sel.value) {
+                    const idx = sel.getAttribute('data-index');
+                    const contactSelect = document.querySelector(`.select-vendor-contact[data-index="${idx}"]`);
+                    loadVendorContacts(sel.value, contactSelect);
+                }
+            });
+            document.querySelectorAll('.select-partner').forEach(sel => {
+                if (sel.value) {
+                    const idx = sel.getAttribute('data-index');
+                    const contactSelect = document.querySelector(`.select-partner-contact[data-index="${idx}"]`);
+                    loadPartnerContacts(sel.value, contactSelect);
+                }
+            });
         } catch (e) {
             console.warn('Initialization error in CreateEvaluation:', e);
         }

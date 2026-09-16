@@ -129,9 +129,11 @@ public sealed class SubsidiaryAsIsInputModel
     public string? VersionDesplegada { get; set; }
     public int? VendorId { get; set; }
     public string? VendorNombre { get; set; }
+    public int? VendorContactoId { get; set; }
     public string? VendorContacto { get; set; }
     public int? PartnerId { get; set; }
     public string? PartnerNombre { get; set; }
+    public int? PartnerContactoId { get; set; }
     public string? PartnerContacto { get; set; }
     public string? NumeroContrato { get; set; }
     public bool EsPayg { get; set; }

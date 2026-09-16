@@ -794,9 +794,23 @@ public sealed class AdoptionProcessController(
                 }
                 if (string.IsNullOrWhiteSpace(asIs.PartnerNombre) && asIs.PartnerId.HasValue && asIs.PartnerId.Value > 0)
                 {
-                    asIs.PartnerNombre = await dbContext.PartnerContacts.AsNoTracking()
+                    asIs.PartnerNombre = await dbContext.Partners.AsNoTracking()
                         .Where(p => p.Id == asIs.PartnerId.Value)
-                        .Select(p => p.NombreContactoPartner)
+                        .Select(p => p.NombrePartner)
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+                if (string.IsNullOrWhiteSpace(asIs.VendorContacto) && asIs.VendorContactoId.HasValue && asIs.VendorContactoId.Value > 0)
+                {
+                    asIs.VendorContacto = await dbContext.VendorContacts.AsNoTracking()
+                        .Where(c => c.Id == asIs.VendorContactoId.Value)
+                        .Select(c => c.NombreContactoVendor)
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+                if (string.IsNullOrWhiteSpace(asIs.PartnerContacto) && asIs.PartnerContactoId.HasValue && asIs.PartnerContactoId.Value > 0)
+                {
+                    asIs.PartnerContacto = await dbContext.PartnerContacts.AsNoTracking()
+                        .Where(c => c.Id == asIs.PartnerContactoId.Value)
+                        .Select(c => c.NombreContactoPartner)
                         .FirstOrDefaultAsync(cancellationToken);
                 }
 
@@ -821,6 +835,11 @@ public sealed class AdoptionProcessController(
                         var effectiveMonto = asIs.MontoTrianual ?? asIs.MontoAnual ?? asIs.MontoContratado;
                         var numContrato = !string.IsNullOrWhiteSpace(asIs.NumeroContrato) ? asIs.NumeroContrato : $"CT-{asIs.EmpresaId}-{procesoId}";
 
+                        var vendorDesc = asIs.VendorNombre ?? "-";
+                        if (!string.IsNullOrWhiteSpace(asIs.VendorContacto)) vendorDesc += $" (Contacto: {asIs.VendorContacto})";
+                        var partnerDesc = asIs.PartnerNombre ?? "Directo";
+                        if (!string.IsNullOrWhiteSpace(asIs.PartnerContacto)) partnerDesc += $" (Contacto: {asIs.PartnerContacto})";
+
                         await adoptionService.SaveContractAsync(new SaveContractCommand(
                             TecnologiaImplementadaId: implId,
                             NumeroContrato: numContrato,
@@ -832,7 +851,7 @@ public sealed class AdoptionProcessController(
                             RutaDocumento: null,
                             Monto: effectiveMonto,
                             Moneda: string.IsNullOrWhiteSpace(asIs.MonedaContrato) ? "USD" : asIs.MonedaContrato,
-                            Observaciones: $"Vendor: {asIs.VendorNombre ?? "-"} / Partner: {asIs.PartnerNombre ?? "Directo"}",
+                            Observaciones: $"Vendor: {vendorDesc} / Partner: {partnerDesc}",
                             ActorUserId: actor.Value,
                             CorrelationId: HttpContext.TraceIdentifier,
                             EsPayg: asIs.EsPayg,
@@ -1095,10 +1114,10 @@ public sealed class AdoptionProcessController(
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        model.Partners = await dbContext.PartnerContacts.AsNoTracking()
-            .Where(p => !string.IsNullOrWhiteSpace(p.NombreContactoPartner))
-            .OrderBy(p => p.NombreContactoPartner)
-            .Select(p => new CatalogOption(p.Id, p.NombreContactoPartner!))
+        model.Partners = await dbContext.Partners.AsNoTracking()
+            .Where(p => !string.IsNullOrWhiteSpace(p.NombrePartner))
+            .OrderBy(p => p.NombrePartner)
+            .Select(p => new CatalogOption(p.Id, p.NombrePartner!))
             .Distinct()
             .ToListAsync(cancellationToken);
 
@@ -1301,7 +1320,7 @@ public sealed class AdoptionProcessController(
     [HttpPost("/AdoptionProcess/QuickCreatePartner")]
     [Authorize(Policy = Permissions.CatalogEdit)]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> QuickCreatePartner([FromForm] string nombrePartner, [FromForm] int? vendorId, [FromForm] string? email, [FromForm] string? telefono, CancellationToken cancellationToken)
+    public async Task<IActionResult> QuickCreatePartner([FromForm] string nombrePartner, [FromForm] int? vendorId, [FromForm] string? descripcion, CancellationToken cancellationToken)
     {
         var actor = ActorId();
         if (actor is null) return Forbid();
@@ -1312,8 +1331,152 @@ public sealed class AdoptionProcessController(
         }
 
         var trimmed = nombrePartner.Trim();
+        var existing = await dbContext.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.NombrePartner == trimmed, cancellationToken);
+
+        if (existing is not null)
+        {
+            return Json(new
+            {
+                succeeded = true,
+                alreadyExisted = true,
+                id = existing.Id,
+                nombre = existing.NombrePartner,
+                message = $"El Partner '{trimmed}' ya existía en el catálogo y ha sido seleccionado."
+            });
+        }
+
+        var newPartner = new TPartner
+        {
+            NombrePartner = trimmed,
+            DescripcionPartner = string.IsNullOrWhiteSpace(descripcion) ? null : descripcion.Trim(),
+            IdVendor = (vendorId.HasValue && vendorId.Value > 0) ? vendorId.Value : null
+        };
+
+        dbContext.Partners.Add(newPartner);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            succeeded = true,
+            alreadyExisted = false,
+            id = newPartner.Id,
+            nombre = newPartner.NombrePartner,
+            message = $"Partner '{trimmed}' registrado exitosamente."
+        });
+    }
+
+    [HttpPost("QuickCreateVendorContact")]
+    [HttpPost("/AdoptionProcess/QuickCreateVendorContact")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickCreateVendorContact(
+        [FromForm] int vendorId,
+        [FromForm] string nombreContacto,
+        [FromForm] string? rol,
+        [FromForm] string? email,
+        [FromForm] string? telefono,
+        [FromForm] string? notas,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (vendorId <= 0)
+        {
+            return Json(new { succeeded = false, message = "Debe seleccionar un Vendor válido." });
+        }
+
+        if (string.IsNullOrWhiteSpace(nombreContacto))
+        {
+            return Json(new { succeeded = false, message = "El nombre del contacto de vendor es obligatorio." });
+        }
+
+        var trimmedNombre = nombreContacto.Trim();
+        var trimmedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        var trimmedTelefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim();
+        var trimmedRol = string.IsNullOrWhiteSpace(rol) ? null : rol.Trim();
+        var trimmedNotas = string.IsNullOrWhiteSpace(notas) ? null : notas.Trim();
+
+        var existing = await dbContext.VendorContacts.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.IdVendor == vendorId && c.NombreContactoVendor == trimmedNombre, cancellationToken);
+
+        if (existing is not null)
+        {
+            return Json(new
+            {
+                succeeded = true,
+                alreadyExisted = true,
+                id = existing.Id,
+                nombre = existing.NombreContactoVendor,
+                email = existing.Email,
+                telefono = existing.Telefono,
+                rol = existing.Rol,
+                message = $"El contacto '{trimmedNombre}' ya existía y ha sido seleccionado."
+            });
+        }
+
+        var newContact = new TContactoVendor
+        {
+            IdVendor = vendorId,
+            NombreContactoVendor = trimmedNombre,
+            Rol = trimmedRol,
+            Email = trimmedEmail,
+            Telefono = trimmedTelefono,
+            Notas = trimmedNotas
+        };
+
+        dbContext.VendorContacts.Add(newContact);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            succeeded = true,
+            alreadyExisted = false,
+            id = newContact.Id,
+            nombre = newContact.NombreContactoVendor,
+            email = newContact.Email,
+            telefono = newContact.Telefono,
+            rol = newContact.Rol,
+            message = $"Contacto '{trimmedNombre}' registrado exitosamente."
+        });
+    }
+
+    [HttpPost("QuickCreatePartnerContact")]
+    [HttpPost("/AdoptionProcess/QuickCreatePartnerContact")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickCreatePartnerContact(
+        [FromForm] int partnerId,
+        [FromForm] int? vendorId,
+        [FromForm] string nombreContacto,
+        [FromForm] string? rol,
+        [FromForm] string? email,
+        [FromForm] string? telefono,
+        [FromForm] string? notas,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        if (partnerId <= 0)
+        {
+            return Json(new { succeeded = false, message = "Debe seleccionar un Partner válido." });
+        }
+
+        if (string.IsNullOrWhiteSpace(nombreContacto))
+        {
+            return Json(new { succeeded = false, message = "El nombre del contacto de partner es obligatorio." });
+        }
+
+        var trimmedNombre = nombreContacto.Trim();
+        var trimmedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        var trimmedTelefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim();
+        var trimmedRol = string.IsNullOrWhiteSpace(rol) ? null : rol.Trim();
+        var trimmedNotas = string.IsNullOrWhiteSpace(notas) ? null : notas.Trim();
+
         var existing = await dbContext.PartnerContacts.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.NombreContactoPartner == trimmed, cancellationToken);
+            .FirstOrDefaultAsync(c => c.IdPartner == partnerId && c.NombreContactoPartner == trimmedNombre, cancellationToken);
 
         if (existing is not null)
         {
@@ -1323,28 +1486,37 @@ public sealed class AdoptionProcessController(
                 alreadyExisted = true,
                 id = existing.Id,
                 nombre = existing.NombreContactoPartner,
-                message = $"El Partner '{trimmed}' ya existía en el catálogo y ha sido seleccionado."
+                email = existing.Email,
+                telefono = existing.Telefono,
+                rol = existing.Rol,
+                message = $"El contacto '{trimmedNombre}' ya existía y ha sido seleccionado."
             });
         }
 
-        var newPartner = new TContactoPartner
+        var newContact = new TContactoPartner
         {
-            NombreContactoPartner = trimmed,
+            IdPartner = partnerId,
             IdVendor = (vendorId.HasValue && vendorId.Value > 0) ? vendorId.Value : null,
-            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
-            Telefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim()
+            NombreContactoPartner = trimmedNombre,
+            Rol = trimmedRol,
+            Email = trimmedEmail,
+            Telefono = trimmedTelefono,
+            Notas = trimmedNotas
         };
 
-        dbContext.PartnerContacts.Add(newPartner);
+        dbContext.PartnerContacts.Add(newContact);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Json(new
         {
             succeeded = true,
             alreadyExisted = false,
-            id = newPartner.Id,
-            nombre = newPartner.NombreContactoPartner,
-            message = $"Partner '{trimmed}' registrado exitosamente."
+            id = newContact.Id,
+            nombre = newContact.NombreContactoPartner,
+            email = newContact.Email,
+            telefono = newContact.Telefono,
+            rol = newContact.Rol,
+            message = $"Contacto '{trimmedNombre}' registrado exitosamente."
         });
     }
 
@@ -1368,21 +1540,63 @@ public sealed class AdoptionProcessController(
         return Json(list);
     }
 
+    [HttpGet("GetVendorContacts")]
+    [HttpGet("/AdoptionProcess/GetVendorContacts")]
+    public async Task<IActionResult> GetVendorContacts(int vendorId, CancellationToken cancellationToken)
+    {
+        if (vendorId <= 0) return Json(Array.Empty<object>());
+        var list = await dbContext.VendorContacts.AsNoTracking()
+            .Where(c => c.IdVendor == vendorId && !string.IsNullOrWhiteSpace(c.NombreContactoVendor))
+            .OrderBy(c => c.NombreContactoVendor)
+            .Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoVendor,
+                email = c.Email,
+                telefono = c.Telefono,
+                rol = c.Rol
+            })
+            .ToListAsync(cancellationToken);
+
+        return Json(list);
+    }
+
     [HttpGet("GetPartners")]
     [HttpGet("/AdoptionProcess/GetPartners")]
     public async Task<IActionResult> GetPartners(int? vendorId, CancellationToken cancellationToken)
     {
-        var query = dbContext.PartnerContacts.AsNoTracking();
+        var query = dbContext.Partners.AsNoTracking();
         if (vendorId.HasValue && vendorId.Value > 0)
         {
             query = query.Where(p => p.IdVendor == vendorId.Value || p.IdVendor == null);
         }
 
         var list = await query
-            .Where(p => !string.IsNullOrWhiteSpace(p.NombreContactoPartner))
-            .OrderBy(p => p.NombreContactoPartner)
-            .Select(p => new { id = p.Id, nombre = p.NombreContactoPartner })
+            .Where(p => !string.IsNullOrWhiteSpace(p.NombrePartner))
+            .OrderBy(p => p.NombrePartner)
+            .Select(p => new { id = p.Id, nombre = p.NombrePartner })
             .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return Json(list);
+    }
+
+    [HttpGet("GetPartnerContacts")]
+    [HttpGet("/AdoptionProcess/GetPartnerContacts")]
+    public async Task<IActionResult> GetPartnerContacts(int partnerId, CancellationToken cancellationToken)
+    {
+        if (partnerId <= 0) return Json(Array.Empty<object>());
+        var list = await dbContext.PartnerContacts.AsNoTracking()
+            .Where(c => c.IdPartner == partnerId && !string.IsNullOrWhiteSpace(c.NombreContactoPartner))
+            .OrderBy(c => c.NombreContactoPartner)
+            .Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoPartner,
+                email = c.Email,
+                telefono = c.Telefono,
+                rol = c.Rol
+            })
             .ToListAsync(cancellationToken);
 
         return Json(list);
