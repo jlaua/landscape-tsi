@@ -12,6 +12,10 @@ public interface ICatalogManagementService
     Task<bool> UpdateAsync(MasterCatalogDefinition definition, int id, IReadOnlyDictionary<string, string?> values, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<int, int>> GetVendorTechnologyCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<VendorTechnologyDto>> GetVendorTechnologiesAsync(int vendorId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, int>> GetVendorContactCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
+    Task<IReadOnlyDictionary<int, int>> GetPartnerContactCountsAsync(IEnumerable<int> partnerIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
 }
 
 public sealed record CatalogRelationBucket(int ParentId, string ParentName, int Total);

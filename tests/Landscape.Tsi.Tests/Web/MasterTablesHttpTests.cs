@@ -6,8 +6,10 @@ using System.Text.RegularExpressions;
 
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Infrastructure.Identity;
 using Landscape.Tsi.Web.Models;
+using Microsoft.EntityFrameworkCore;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -651,14 +653,170 @@ public sealed class MasterTablesHttpTests
         Assert.Contains("Partner", indexHtml);
     }
 
+    [Fact]
+    public async Task VendorCatalog_RendersContactsHeaderAndModalTrigger()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/vendor");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var rawHtml = await response.Content.ReadAsStringAsync();
+        var html = WebUtility.HtmlDecode(rawHtml);
+
+        Assert.Contains("Contactos", html);
+        Assert.Contains("data-bs-target=\"#contacts-modal\"", html);
+        Assert.Contains("data-entity-type=\"vendor\"", html);
+        Assert.Contains("id=\"contacts-modal\"", html);
+        Assert.Contains("vendor-partner-contacts-admin.js", html);
+    }
+
+    [Fact]
+    public async Task PartnerCatalog_RendersContactsHeaderAndModalTrigger()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/partner");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var rawHtml = await response.Content.ReadAsStringAsync();
+        var html = WebUtility.HtmlDecode(rawHtml);
+
+        Assert.Contains("Contactos", html);
+        Assert.Contains("data-bs-target=\"#contacts-modal\"", html);
+        Assert.Contains("data-entity-type=\"partner\"", html);
+        Assert.Contains("id=\"contacts-modal\"", html);
+        Assert.Contains("vendor-partner-contacts-admin.js", html);
+    }
+
+    [Fact]
+    public async Task VendorContactsEndpoint_ReturnsJsonWithContacts()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/vendor/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, json.GetProperty("entityId").GetInt32());
+        Assert.Equal("vendor", json.GetProperty("entityType").GetString());
+        Assert.True(json.TryGetProperty("items", out var items));
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, items.ValueKind);
+    }
+
+    [Fact]
+    public async Task PartnerContactsEndpoint_ReturnsJsonWithContacts()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/partner/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, json.GetProperty("entityId").GetInt32());
+        Assert.Equal("partner", json.GetProperty("entityType").GetString());
+        Assert.True(json.TryGetProperty("items", out var items));
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, items.ValueKind);
+    }
+
+    [Fact]
+    public async Task VendorContacts_CreateEditDelete_ApiWorkflow()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Create a contact for Vendor 1
+        var createDto = new SaveMasterContactDto
+        {
+            Nombre = "Contacto Test Vendor",
+            Rol = "Especialista TSI",
+            Email = "test@vendor.com",
+            Telefono = "999888777",
+            Notas = "Nota de prueba"
+        };
+        var createResponse = await client.PostAsJsonAsync("/Administration/MasterTables/vendor/1/contacts", createDto);
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var createResult = await createResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(createResult.GetProperty("success").GetBoolean());
+        var contactId = createResult.GetProperty("id").GetInt32();
+
+        // 2. Query contacts list
+        var listResponse = await client.GetAsync("/Administration/MasterTables/vendor/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var listJson = await listResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var items = listJson.GetProperty("items").EnumerateArray().ToList();
+        Assert.Contains(items, item => item.GetProperty("nombre").GetString() == "Contacto Test Vendor");
+
+        // 3. Edit contact
+        var editDto = new SaveMasterContactDto
+        {
+            Nombre = "Contacto Actualizado",
+            Rol = "Senior TSI Lead",
+            Email = "lead@vendor.com"
+        };
+        var editResponse = await client.PostAsJsonAsync($"/Administration/MasterTables/vendor/1/contacts/{contactId}/edit", editDto);
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        // 4. Delete contact
+        var deleteResponse = await client.PostAsync($"/Administration/MasterTables/vendor/1/contacts/{contactId}/delete", null);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PartnerContacts_CreateEditDelete_ApiWorkflow()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Create contact for Partner 1
+        var createDto = new SaveMasterContactDto
+        {
+            Nombre = "Contacto Test Partner",
+            Rol = "Account Manager",
+            Email = "partner@canal.com",
+            Telefono = "123456789"
+        };
+        var createResponse = await client.PostAsJsonAsync("/Administration/MasterTables/partner/1/contacts", createDto);
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var createResult = await createResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(createResult.GetProperty("success").GetBoolean());
+        var contactId = createResult.GetProperty("id").GetInt32();
+
+        // 2. Query contacts list
+        var listResponse = await client.GetAsync("/Administration/MasterTables/partner/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var listJson = await listResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var items = listJson.GetProperty("items").EnumerateArray().ToList();
+        Assert.Contains(items, item => item.GetProperty("nombre").GetString() == "Contacto Test Partner");
+
+        // 3. Edit contact
+        var editDto = new SaveMasterContactDto
+        {
+            Nombre = "Partner Lead Actualizado",
+            Rol = "Director"
+        };
+        var editResponse = await client.PostAsJsonAsync($"/Administration/MasterTables/partner/1/contacts/{contactId}/edit", editDto);
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        // 4. Delete contact
+        var deleteResponse = await client.PostAsync($"/Administration/MasterTables/partner/1/contacts/{contactId}/delete", null);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+    }
+
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
         builder.UseEnvironment("Development");
-        // These MVC authorization tests use service doubles and must not connect to any SQL server.
         builder.UseSetting("ConnectionStrings:LandscapeTsiDb", string.Empty);
+        var inMemoryDbName = $"catalog-http-test-{Guid.NewGuid():N}";
         builder.ConfigureTestServices(services =>
         {
+            services.RemoveAll<CatalogDbContext>();
+            services.AddDbContext<CatalogDbContext>(opt => opt.UseInMemoryDatabase(inMemoryDbName));
             services.RemoveAll<ICatalogManagementService>();
             services.AddSingleton<ICatalogManagementService, StubCatalogService>();
             services.RemoveAll<IDominioService>();
@@ -746,6 +904,16 @@ public sealed class MasterTablesHttpTests
                 new(2, "Fortinet FortiGate", "Fortinet FW", "Firewall", "Transición", "Perpetuo", "On-Premise")
             ];
             return Task.FromResult(list);
+        }
+        public Task<IReadOnlyDictionary<int, int>> GetVendorContactCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default)
+        {
+            var dict = vendorIds.ToDictionary(id => id, _ => 3);
+            return Task.FromResult<IReadOnlyDictionary<int, int>>(dict);
+        }
+        public Task<IReadOnlyDictionary<int, int>> GetPartnerContactCountsAsync(IEnumerable<int> partnerIds, CancellationToken cancellationToken = default)
+        {
+            var dict = partnerIds.ToDictionary(id => id, _ => 4);
+            return Task.FromResult<IReadOnlyDictionary<int, int>>(dict);
         }
     }
 

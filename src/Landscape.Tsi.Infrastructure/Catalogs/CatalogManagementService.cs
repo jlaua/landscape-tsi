@@ -299,6 +299,136 @@ ORDER BY COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre cor
         finally { await CloseConnectionAsync(); }
     }
 
+    public async Task<IReadOnlyDictionary<int, int>> GetVendorContactCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default)
+    {
+        var idList = vendorIds.Distinct().ToList();
+        var result = new Dictionary<int, int>();
+        if (idList.Count == 0) return result;
+        foreach (var id in idList) result[id] = 0;
+
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var paramNames = new List<string>();
+            for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+
+            var sql = $@"
+SELECT v.idVendor, COUNT(DISTINCT cv.idContactoVendor) AS ContactCount
+FROM [dbo].[TVendor] v
+LEFT JOIN [dbo].[TVendor] v2 ON (v2.idVendor = v.idVendor OR (v2.nombreVendor = v.nombreVendor AND v.nombreVendor IS NOT NULL AND v.nombreVendor <> ''))
+LEFT JOIN [dbo].[TContactoVendor] cv ON cv.idVendor = v2.idVendor
+WHERE v.idVendor IN ({string.Join(", ", paramNames)})
+GROUP BY v.idVendor";
+
+            await using var command = CreateCommand(sql);
+            for (var i = 0; i < idList.Count; i++)
+            {
+                AddParameter(command, paramNames[i], idList[i]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetInt32(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+        catch
+        {
+            try
+            {
+                var paramNames = new List<string>();
+                for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+                var fallbackSql = $@"
+SELECT v.idVendor, COUNT(DISTINCT cv.idContactoVendor) AS ContactCount
+FROM [dbo].[TVendor] v
+LEFT JOIN [dbo].[TContactoVendor] cv ON cv.idVendor = v.idVendor
+WHERE v.idVendor IN ({string.Join(", ", paramNames)})
+GROUP BY v.idVendor";
+
+                await using var fallbackCmd = CreateCommand(fallbackSql);
+                for (var i = 0; i < idList.Count; i++) AddParameter(fallbackCmd, paramNames[i], idList[i]);
+                await using var fallbackReader = await fallbackCmd.ExecuteReaderAsync(cancellationToken);
+                while (await fallbackReader.ReadAsync(cancellationToken))
+                {
+                    result[fallbackReader.GetInt32(0)] = fallbackReader.GetInt32(1);
+                }
+                return result;
+            }
+            catch
+            {
+                return result;
+            }
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task<IReadOnlyDictionary<int, int>> GetPartnerContactCountsAsync(IEnumerable<int> partnerIds, CancellationToken cancellationToken = default)
+    {
+        var idList = partnerIds.Distinct().ToList();
+        var result = new Dictionary<int, int>();
+        if (idList.Count == 0) return result;
+        foreach (var id in idList) result[id] = 0;
+
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var paramNames = new List<string>();
+            for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+
+            var sql = $@"
+SELECT p.idPartner, COUNT(DISTINCT cp.idContactoPartner) AS ContactCount
+FROM [dbo].[TPartner] p
+LEFT JOIN [dbo].[TPartner] p2 ON (p2.idPartner = p.idPartner OR (p2.nombrePartner = p.nombrePartner AND p.nombrePartner IS NOT NULL AND p.nombrePartner <> ''))
+LEFT JOIN [dbo].[TContactoPartner] cp ON cp.idPartner = p2.idPartner
+WHERE p.idPartner IN ({string.Join(", ", paramNames)})
+GROUP BY p.idPartner";
+
+            await using var command = CreateCommand(sql);
+            for (var i = 0; i < idList.Count; i++)
+            {
+                AddParameter(command, paramNames[i], idList[i]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetInt32(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+        catch
+        {
+            try
+            {
+                var paramNames = new List<string>();
+                for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+                var fallbackSql = $@"
+SELECT p.idPartner, COUNT(DISTINCT cp.idContactoPartner) AS ContactCount
+FROM [dbo].[TPartner] p
+LEFT JOIN [dbo].[TContactoPartner] cp ON cp.idPartner = p.idPartner
+WHERE p.idPartner IN ({string.Join(", ", paramNames)})
+GROUP BY p.idPartner";
+
+                await using var fallbackCmd = CreateCommand(fallbackSql);
+                for (var i = 0; i < idList.Count; i++) AddParameter(fallbackCmd, paramNames[i], idList[i]);
+                await using var fallbackReader = await fallbackCmd.ExecuteReaderAsync(cancellationToken);
+                while (await fallbackReader.ReadAsync(cancellationToken))
+                {
+                    result[fallbackReader.GetInt32(0)] = fallbackReader.GetInt32(1);
+                }
+                return result;
+            }
+            catch
+            {
+                return result;
+            }
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
     public async Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default)
     {
         EnsureWhitelisted(definition);

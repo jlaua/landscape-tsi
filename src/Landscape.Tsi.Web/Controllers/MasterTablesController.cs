@@ -3,10 +3,13 @@ using System.Security.Claims;
 using Landscape.Tsi.Application.Adoption;
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Domain.Catalogs;
+using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Web.Models;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Web.Controllers;
 
@@ -22,8 +25,11 @@ public sealed class MasterTablesController(
     IAssociationImpactService associationImpactService,
     IAssignmentService assignmentService,
     IEffectiveAccessService effectiveAccessService,
-    ILogger<MasterTablesController> logger) : Controller
+    ILogger<MasterTablesController> logger,
+    CatalogDbContext? catalogDbContext = null) : Controller
 {
+    private CatalogDbContext DbContext => catalogDbContext ?? HttpContext.RequestServices.GetRequiredService<CatalogDbContext>();
+
     [HttpGet("")]
     public IActionResult Index() => View(MasterCatalogRegistry.EntityMetadata.Where(entity => entity.IsAdministrable).ToArray());
 
@@ -227,9 +233,17 @@ public sealed class MasterTablesController(
             : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken, sortColumn, sortDirection);
 
         IReadOnlyDictionary<int, int>? vendorTechCounts = null;
+        IReadOnlyDictionary<int, int>? contactCounts = null;
         if (definition.Code == "vendor" && result.Items.Count > 0)
         {
-            vendorTechCounts = await catalogService.GetVendorTechnologyCountsAsync(result.Items.Select(x => x.Id), cancellationToken);
+            var ids = result.Items.Select(x => x.Id).ToList();
+            vendorTechCounts = await catalogService.GetVendorTechnologyCountsAsync(ids, cancellationToken);
+            contactCounts = await catalogService.GetVendorContactCountsAsync(ids, cancellationToken);
+        }
+        else if (definition.Code == "partner" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            contactCounts = await catalogService.GetPartnerContactCountsAsync(ids, cancellationToken);
         }
 
         return View(new CatalogPageViewModel
@@ -240,7 +254,8 @@ public sealed class MasterTablesController(
             SortColumn = sortColumn,
             SortDirection = sortDirection,
             Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
-            VendorTechnologyCounts = vendorTechCounts
+            VendorTechnologyCounts = vendorTechCounts,
+            ContactCounts = contactCounts
         });
     }
 
@@ -272,6 +287,243 @@ public sealed class MasterTablesController(
                 entorno = t.Entorno ?? "—",
                 detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "tecnologia-tsi", id = t.Id })
             })
+        });
+    }
+
+    [HttpGet("vendor/{id:int}/contacts")]
+    public async Task<IActionResult> GetVendorContacts(int id, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        var vendorName = vendor.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{id}";
+        var relatedVendorIds = await DbContext.Vendors.AsNoTracking()
+            .Where(v => v.Id == id || (!string.IsNullOrEmpty(vendorName) && v.NombreVendor == vendorName))
+            .Select(v => v.Id)
+            .ToListAsync(cancellationToken);
+
+        var contacts = await DbContext.VendorContacts.AsNoTracking()
+            .Where(c => c.IdVendor == id || (c.IdVendor.HasValue && relatedVendorIds.Contains(c.IdVendor.Value)))
+            .OrderBy(c => c.NombreContactoVendor)
+            .ToListAsync(cancellationToken);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = vendorName,
+            entityType = "vendor",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoVendor ?? "—",
+                rol = c.Rol ?? "—",
+                email = c.Email ?? "—",
+                telefono = c.Telefono ?? "—",
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreateVendorContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var contact = new TContactoVendor
+        {
+            IdVendor = id,
+            NombreContactoVendor = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.VendorContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditVendorContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.VendorContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoVendor = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeleteVendorContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.VendorContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.VendorContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
+    }
+
+    [HttpGet("partner/{id:int}/contacts")]
+    public async Task<IActionResult> GetPartnerContacts(int id, CancellationToken cancellationToken)
+    {
+        var partnerDefinition = MasterCatalogRegistry.GetByCode("partner");
+        if (partnerDefinition is null) return NotFound();
+
+        var partner = await catalogService.GetAsync(partnerDefinition, id, cancellationToken);
+        if (partner is null) return NotFound();
+
+        var partnerName = partner.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{id}";
+        var relatedPartnerIds = await DbContext.Partners.AsNoTracking()
+            .Where(p => p.Id == id || (!string.IsNullOrEmpty(partnerName) && p.NombrePartner == partnerName))
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        var contacts = await DbContext.PartnerContacts.AsNoTracking()
+            .Where(c => c.IdPartner == id || (c.IdPartner.HasValue && relatedPartnerIds.Contains(c.IdPartner.Value)))
+            .OrderBy(c => c.NombreContactoPartner)
+            .ToListAsync(cancellationToken);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = partnerName,
+            entityType = "partner",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoPartner ?? "—",
+                rol = c.Rol ?? "—",
+                email = c.Email ?? "—",
+                telefono = c.Telefono ?? "—",
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreatePartnerContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var partner = await DbContext.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        var contact = new TContactoPartner
+        {
+            IdPartner = id,
+            IdVendor = partner?.IdVendor,
+            NombreContactoPartner = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.PartnerContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditPartnerContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.PartnerContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoPartner = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeletePartnerContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.PartnerContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.PartnerContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
         });
     }
 

@@ -6,6 +6,7 @@
     var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Options = Model.Options };
     var isImplementedTech = Model.Definition.Route == "tecnologia-tsi-implementada";
     var isVendor = Model.Definition.Route == "vendor";
+    var isPartner = Model.Definition.Route == "partner";
     var canDelete = Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete);
 }
 <nav aria-label="Ruta de navegación">
@@ -101,6 +102,10 @@
                                 </a>
                             </th>
                         }
+                        @if (isVendor || isPartner)
+                        {
+                            <th scope="col">Contactos</th>
+                        }
                         <th><span class="visually-hidden">Acciones</span></th>
                     </tr>
                 </thead>
@@ -156,6 +161,32 @@
                                 {
                                     <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td>
                                 }
+                            }
+                            @if (isVendor || isPartner)
+                            {
+                                var contactCount = 0;
+                                if (Model.ContactCounts != null && Model.ContactCounts.TryGetValue(row.Id, out var cc))
+                                {
+                                    contactCount = cc;
+                                }
+                                var entityName = isVendor
+                                    ? (row.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{row.Id}")
+                                    : (row.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{row.Id}");
+                                <td data-label="Contactos">
+                                    <button type="button"
+                                            class="md-button md-button-chip entity-contact-count-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#contacts-modal"
+                                            data-entity-type="@(isVendor ? "vendor" : "partner")"
+                                            data-entity-id="@row.Id"
+                                            data-entity-name="@entityName"
+                                            data-contact-count="@contactCount"
+                                            title="Ver los @contactCount contactos de @entityName"
+                                            aria-label="Ver @contactCount contactos de @entityName">
+                                        <span class="badge rounded-pill @(contactCount > 0 ? "bg-success text-white" : "bg-secondary text-white") me-1" id="contact-badge-row-@row.Id">@contactCount</span>
+                                        <span id="contact-label-row-@row.Id">@(contactCount == 1 ? "contacto" : "contactos")</span>
+                                    </button>
+                                </td>
                             }
                             <td data-label="Acciones" class="table-actions">
                                 @if (canDelete)
@@ -388,6 +419,124 @@
     </div>
 }
 
+@if (isVendor || isPartner)
+{
+    <div class="modal fade" id="contacts-modal" tabindex="-1" aria-labelledby="contacts-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow" id="contacts-modal-eyebrow">CONTACTOS DE LA ENTIDAD</p>
+                        <h2 class="modal-title" id="contacts-modal-title">Contactos Registrados</h2>
+                        <p class="supporting-text small mb-0"><span id="contacts-modal-entity-type-label">Fabricante</span>: <span id="contacts-modal-entity-name" class="fw-semibold">—</span></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Alertas de estado dentro del modal -->
+                    <div id="contacts-modal-alert" class="app-alert mb-3" style="display: none;" role="alert"></div>
+
+                    <!-- Barra de herramientas: Búsqueda en tiempo real, contador y botón de nuevo contacto -->
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 450px;">
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0" id="contacts-search-addon">🔍</span>
+                                <input type="search" id="contacts-modal-search" class="form-control border-start-0" placeholder="Buscar por nombre, cargo, email, teléfono..." aria-label="Buscar contactos" aria-describedby="contacts-search-addon" />
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="contacts-modal-badge-count">0 contactos</span>
+                            <button type="button" class="md-button md-button-filled" id="contacts-modal-toggle-form-btn">
+                                + Nuevo Contacto
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Formulario desplegable para Registro / Edición -->
+                    <div id="contacts-form-card" class="card border mb-3 shadow-sm" style="display: none; border-radius: 8px;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                            <strong id="contacts-form-title">Registrar Nuevo Contacto</strong>
+                            <button type="button" class="btn-close" id="contacts-form-close-btn" aria-label="Cerrar formulario"></button>
+                        </div>
+                        <div class="card-body">
+                            <form id="contact-edit-form" autocomplete="off">
+                                <input type="hidden" id="contact-field-id" value="" />
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="contact-field-nombre" class="form-label fw-semibold">Nombre Completo <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="contact-field-nombre" required placeholder="Ej. Juan Pérez" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-rol" class="form-label fw-semibold">Rol / Cargo</label>
+                                        <input type="text" class="form-control" id="contact-field-rol" placeholder="Ej. Territory Manager / Especialista" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-email" class="form-label fw-semibold">Correo Electrónico</label>
+                                        <input type="email" class="form-control" id="contact-field-email" placeholder="ejemplo@empresa.com" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-telefono" class="form-label fw-semibold">Teléfono</label>
+                                        <input type="tel" class="form-control" id="contact-field-telefono" placeholder="+51 999 888 777" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-otro" class="form-label fw-semibold">Otro / Contacto Adicional</label>
+                                        <input type="text" class="form-control" id="contact-field-otro" placeholder="Detalle adicional" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-notas" class="form-label fw-semibold">Notas / Observaciones</label>
+                                        <input type="text" class="form-control" id="contact-field-notas" placeholder="Anotaciones relevantes" />
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2 mt-3">
+                                    <button type="button" class="md-button md-button-text" id="contact-form-cancel-btn">Cancelar</button>
+                                    <button type="submit" class="md-button md-button-filled" id="contact-form-submit-btn">Guardar Contacto</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Indicador de carga -->
+                    <div id="contacts-modal-loading" class="text-center py-4" hidden>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando contactos...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Consultando contactos de la entidad...</p>
+                    </div>
+
+                    <!-- Grilla de contactos -->
+                    <div id="contacts-modal-content">
+                        <div class="responsive-table" tabindex="0">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" style="width: 25%;">Nombre Contacto</th>
+                                        <th scope="col" style="width: 18%;">Rol / Cargo</th>
+                                        <th scope="col" style="width: 22%;">Correo Electrónico</th>
+                                        <th scope="col" style="width: 14%;">Teléfono</th>
+                                        <th scope="col" style="width: 11%;">Notas</th>
+                                        <th scope="col" style="text-align: right; width: 10%;"><span class="visually-hidden">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contacts-modal-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="empty-state text-center py-4 my-2" id="contacts-modal-empty" hidden>
+                            No existen contactos registrados para esta entidad.
+                        </p>
+                        <p class="empty-state text-center py-4 my-2" id="contacts-modal-no-search" hidden>
+                            No se encontraron contactos que coincidan con el criterio de búsqueda.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     @if (canDelete)
     {
@@ -401,5 +550,9 @@
     @if (isVendor)
     {
         <script src="~/js/vendor-admin.js" asp-append-version="true"></script>
+    }
+    @if (isVendor || isPartner)
+    {
+        <script src="~/js/vendor-partner-contacts-admin.js" asp-append-version="true"></script>
     }
 }
