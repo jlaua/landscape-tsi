@@ -78,6 +78,46 @@ public sealed class CatalogCommandValidatorTests
         }
     }
 
+    [Fact]
+    public void Normalize_ValidatesContactoVendorAndPartner()
+    {
+        var vendorDef = GetDefinition("contacto-vendor");
+        var partnerDef = GetDefinition("contacto-partner");
+
+        var validVendorPayload = new Dictionary<string, string?>
+        {
+            ["vendor"] = "10",
+            ["nombreContactoVendor"] = "Juan Perez",
+            ["rol"] = "Account Manager",
+            ["email"] = "juan@vendor.com",
+            ["telefono"] = "+51999999999",
+            ["notas"] = "Contacto principal"
+        };
+        var normVendor = CatalogCommandValidator.Normalize(vendorDef, validVendorPayload);
+        Assert.Equal(10, normVendor["vendor"]);
+        Assert.Equal("Juan Perez", normVendor["nombreContactoVendor"]);
+
+        var validPartnerPayload = new Dictionary<string, string?>
+        {
+            ["partner"] = "5",
+            ["vendor"] = "10",
+            ["nombreContactoPartner"] = "Maria Lopez",
+            ["rol"] = "Lead Architect",
+            ["email"] = "maria@partner.com",
+            ["telefono"] = "+51988888888",
+            ["notas"] = "Contacto técnico"
+        };
+        var normPartner = CatalogCommandValidator.Normalize(partnerDef, validPartnerPayload);
+        Assert.Equal(5, normPartner["partner"]);
+        Assert.Equal("Maria Lopez", normPartner["nombreContactoPartner"]);
+
+        // Missing required
+        Assert.Throws<CatalogValidationException>(() =>
+            CatalogCommandValidator.Normalize(vendorDef, new Dictionary<string, string?> { ["vendor"] = "10" }));
+        Assert.Throws<CatalogValidationException>(() =>
+            CatalogCommandValidator.Normalize(partnerDef, new Dictionary<string, string?> { ["partner"] = "5" }));
+    }
+
     private static MasterCatalogDefinition GetDefinition(string code) =>
         MasterCatalogRegistry.GetByCode(code) ?? throw new InvalidOperationException($"Missing catalog {code}.");
 

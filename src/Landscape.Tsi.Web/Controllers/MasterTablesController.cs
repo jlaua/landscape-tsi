@@ -282,9 +282,11 @@ public sealed class MasterTablesController(
         string? capabilitySearch,
         string? functionalitySearch,
         string? technologySearch,
+        string? contactSearch,
         int capabilityPage = 1,
         int functionalityPage = 1,
         int technologyPage = 1,
+        int contactPage = 1,
         int relatedPageSize = 10,
         string? functionalitySortBy = null,
         string? functionalitySortDirection = null,
@@ -436,6 +438,32 @@ public sealed class MasterTablesController(
             vendorTechnologies = await catalogService.GetVendorTechnologiesAsync(id, cancellationToken);
         }
 
+        CatalogPageResult? relatedContacts = null;
+        if (definition.Code == "vendor")
+        {
+            var contactoVendorDef = MasterCatalogRegistry.GetByCode("contacto-vendor");
+            if (contactoVendorDef is not null)
+            {
+                var fk = contactoVendorDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "vendor");
+                if (fk is not null)
+                {
+                    relatedContacts = await catalogService.ListRelatedAsync(contactoVendorDef, fk, id, contactSearch, contactPage, 50, cancellationToken);
+                }
+            }
+        }
+        else if (definition.Code == "partner")
+        {
+            var contactoPartnerDef = MasterCatalogRegistry.GetByCode("contacto-partner");
+            if (contactoPartnerDef is not null)
+            {
+                var fk = contactoPartnerDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "partner");
+                if (fk is not null)
+                {
+                    relatedContacts = await catalogService.ListRelatedAsync(contactoPartnerDef, fk, id, contactSearch, contactPage, 50, cancellationToken);
+                }
+            }
+        }
+
         return View(new CatalogDetailViewModel
         {
             Definition = definition,
@@ -458,7 +486,10 @@ public sealed class MasterTablesController(
             ProcessCompanies = processCompanies,
             ProcessStandards = processStandards,
             ProcessServices = processServices,
-            VendorTechnologies = vendorTechnologies
+            VendorTechnologies = vendorTechnologies,
+            RelatedContacts = relatedContacts,
+            ContactSearch = contactSearch,
+            ContactPage = contactPage
         });
     }
 

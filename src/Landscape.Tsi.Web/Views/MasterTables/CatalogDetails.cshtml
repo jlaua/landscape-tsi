@@ -992,12 +992,180 @@
         }
     </section>
 }
+
+@if (Model.Definition.Route is "vendor" or "partner")
+{
+    var isVendorRoute = Model.Definition.Route == "vendor";
+    var contactCatalogRoute = isVendorRoute ? "contacto-vendor" : "contacto-partner";
+    var contactEntityName = isVendorRoute ? "Contacto de Vendor" : "Contacto de Partner";
+    var contacts = Model.RelatedContacts;
+    var totalContacts = contacts?.TotalCount ?? 0;
+    var contactItems = contacts?.Items ?? [];
+
+    <section class="report-card related-entities-card mt-4" aria-labelledby="related-contacts-card-title">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">DIRECTORIO DE CONTACTOS</p>
+                <h2 id="related-contacts-card-title" class="h4 mb-0">Contactos Registrados <span class="result-count">(@totalContacts)</span></h2>
+                <p class="supporting-text small mb-0">Personas de contacto técnico, comercial y operativo asociadas a este @(isVendorRoute ? "vendor" : "partner").</p>
+            </div>
+            <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-filled"
+                       asp-action="CatalogCreateForm"
+                       asp-route-catalogRoute="@contactCatalogRoute"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       asp-route-initialKey="@(isVendorRoute ? "vendor" : "partner")"
+                       asp-route-initialValue="@Model.Record.Id.ToString()">
+                        + Agregar contacto
+                    </a>
+                }
+                <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@contactCatalogRoute">
+                    Ver todos los contactos
+                </a>
+            </div>
+        </div>
+
+        <form class="filter-bar mb-3" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <div class="md-field" style="flex: 1; min-width: 240px;">
+                <label for="contact-search-input">Buscar por contacto o cargo</label>
+                <input id="contact-search-input" name="contactSearch" value="@Model.ContactSearch" type="search" class="form-control" placeholder="Buscar por nombre, cargo, email…" />
+            </div>
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.ContactSearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">Limpiar</a>
+            }
+        </form>
+
+        @if (totalContacts == 0)
+        {
+            <div class="empty-state p-4 text-center">
+                <div class="empty-state-icon" aria-hidden="true">👤</div>
+                <h3 class="h5 mt-2">Sin contactos registrados</h3>
+                <p class="supporting-text mb-3">No se han registrado contactos comerciales o técnicos asociados a este @(isVendorRoute ? "vendor" : "partner").</p>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="CatalogCreateForm"
+                       asp-route-catalogRoute="@contactCatalogRoute"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       asp-route-initialKey="@(isVendorRoute ? "vendor" : "partner")"
+                       asp-route-initialValue="@Model.Record.Id.ToString()">
+                        + Agregar el primer contacto
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="responsive-table" role="region" aria-label="Contactos asociados" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Nombre del Contacto</th>
+                            <th scope="col">Rol / Cargo</th>
+                            <th scope="col">Correo Electrónico</th>
+                            <th scope="col">Teléfono</th>
+                            <th scope="col">Notas</th>
+                            <th scope="col" style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in contactItems)
+                        {
+                            var contactName = isVendorRoute
+                                ? (c.DisplayValues.GetValueOrDefault("nombreContactoVendor") ?? $"Contacto #{c.Id}")
+                                : (c.DisplayValues.GetValueOrDefault("nombreContactoPartner") ?? $"Contacto #{c.Id}");
+                            var rol = c.DisplayValues.GetValueOrDefault("rol") ?? "—";
+                            var email = c.DisplayValues.GetValueOrDefault("email");
+                            var telefono = c.DisplayValues.GetValueOrDefault("telefono");
+                            var notas = c.DisplayValues.GetValueOrDefault("notas") ?? "—";
+
+                            <tr>
+                                <td data-label="Nombre">
+                                    <strong>@contactName</strong>
+                                </td>
+                                <td data-label="Rol / Cargo">@rol</td>
+                                <td data-label="Correo">
+                                    @if (!string.IsNullOrWhiteSpace(email) && email != "—")
+                                    {
+                                        <a href="mailto:@email" class="text-primary text-decoration-underline">@email</a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td data-label="Teléfono">
+                                    @if (!string.IsNullOrWhiteSpace(telefono) && telefono != "—")
+                                    {
+                                        <a href="tel:@telefono" class="text-body text-decoration-none">@telefono</a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td data-label="Notas" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@notas">
+                                    @notas
+                                </td>
+                                <td data-label="Acciones" class="table-actions">
+                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@contactCatalogRoute" asp-route-id="@c.Id">Ver</a>
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                    {
+                                        <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="@contactCatalogRoute" asp-route-id="@c.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                    }
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                    {
+                                        <button class="md-button md-button-danger" type="button"
+                                                data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                                                data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = contactCatalogRoute, id = c.Id })"
+                                                data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = contactCatalogRoute, id = c.Id })"
+                                                data-delete-row-name="@contactName">
+                                            Eliminar
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (contacts != null && contacts.TotalPages > 1)
+            {
+                <nav class="pagination-shell mt-3" aria-label="Paginación de contactos">
+                    <span>Página @contacts.Page de @contacts.TotalPages</span>
+                    <div>
+                        @if (contacts.Page > 1)
+                        {
+                            <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-contactSearch="@Model.ContactSearch" asp-route-contactPage="@(contacts.Page - 1)">Anterior</a>
+                        }
+                        @if (contacts.Page < contacts.TotalPages)
+                        {
+                            <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-contactSearch="@Model.ContactSearch" asp-route-contactPage="@(contacts.Page + 1)">Siguiente</a>
+                        }
+                    </div>
+                </nav>
+            }
+        }
+    </section>
+}
 @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
 {
     <div class="modal fade" id="delete-catalog-modal" tabindex="-1" aria-labelledby="delete-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
         <div class="modal-header"><div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-catalog-title">Eliminar registro</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body" data-delete-impact-panel><p data-delete-impact-status role="status">Analizando dependencias…</p><div data-delete-impact-content hidden><p>Está a punto de eliminar:</p><p class="impact-root"><strong>@Model.Definition.Name:</strong> <span data-delete-root-name>@Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</span></p><h3>Dependencias afectadas</h3><p class="empty-state" data-delete-empty-dependents hidden>No existen registros dependientes en otras tablas.</p><ul class="deletion-impact-tree" data-delete-impact-tree></ul><p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p><p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p><p class="app-alert app-alert-warning" data-delete-blocking hidden></p><label class="md-field" data-delete-confirmation-field hidden><span>Escriba <strong>ELIMINAR</strong> para confirmar</span><input class="form-control" name="confirmation" form="delete-catalog-form" autocomplete="off" data-delete-confirmation /></label></div></div>
-        <div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><form id="delete-catalog-form" method="post" action="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })">@Html.AntiForgeryToken()<button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button></form></div>
+        <div class="modal-footer">
+            <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+            <form id="delete-catalog-form" method="post" action="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+            </form>
+        </div>
     </div></div></div>
 }
 @if (Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))

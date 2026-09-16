@@ -33,7 +33,7 @@ public static class CatalogCommandValidator
             ["tarifario-operacion"] = ["servicio", "nivelSoporte"],
             ["vendor"] = ["nombreVendor"],
             ["contacto-vendor"] = ["vendor", "nombreContactoVendor"],
-            ["contacto-partner"] = ["vendor", "nombreContactoPartner"]
+            ["contacto-partner"] = ["partner", "nombreContactoPartner"]
         };
 
     public static Dictionary<string, object?> Normalize(

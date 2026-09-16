@@ -28,4 +28,7 @@ public sealed class CatalogDetailViewModel
     public CatalogPageResult? ProcessServices { get; init; }
 
     public IReadOnlyList<VendorTechnologyDto>? VendorTechnologies { get; init; }
+    public CatalogPageResult? RelatedContacts { get; init; }
+    public string? ContactSearch { get; init; }
+    public int ContactPage { get; init; } = 1;
 }

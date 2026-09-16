@@ -210,8 +210,8 @@ SELECT DISTINCT
     t.[nombreTecnologiaAlternativa2-Local] AS NombreLocal,
     f.nombreFamilia AS Familia,
     ea.nombreEstadoAdopcionTSI AS EstadoAdopcion,
-    t.licenciamiento AS Licenciamiento,
-    t.entorno AS Entorno
+    t.[modeloEsquemaLicenciamientoSubscripcion] AS Licenciamiento,
+    t.[entornoImplementacion] AS Entorno
 FROM [dbo].[TTecnologiaTSI] t
 LEFT JOIN [dbo].[TMFamilia] f ON f.idFamilia = t.idFamilia
 LEFT JOIN [dbo].[TMEstadoAdopcionTSI] ea ON ea.idEstadoAdopcionTSI = t.idEstadoAdopcionTSI
@@ -260,10 +260,10 @@ SELECT DISTINCT
     t.[nombreTecnologiaAlternativa2-Local] AS NombreLocal,
     f.nombreFamilia AS Familia,
     ea.nombreEstadoAdopcionTSI AS EstadoAdopcion,
-    t.licenciamiento AS Licenciamiento,
-    t.entorno AS Entorno
+    t.[modeloEsquemaLicenciamientoSubscripcion] AS Licenciamiento,
+    t.[entornoImplementacion] AS Entorno
 FROM [dbo].[TTecnologiaTSI] t
-LEFT JOIN [dbo].[TMFamilia f ON f.idFamilia = t.idFamilia
+LEFT JOIN [dbo].[TMFamilia] f ON f.idFamilia = t.idFamilia
 LEFT JOIN [dbo].[TMEstadoAdopcionTSI] ea ON ea.idEstadoAdopcionTSI = t.idEstadoAdopcionTSI
 WHERE t.idTecnologiaTSI IN (
     SELECT v2.idTecnologiaTSI
