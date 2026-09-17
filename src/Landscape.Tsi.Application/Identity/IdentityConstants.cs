@@ -44,6 +44,9 @@ public static class Permissions
     public const string UsersResetPassword = "Usuarios.RestablecerPassword";
     public const string UsersAssignRoles = "Usuarios.AsignarRoles";
     public const string UsersAuditView = "Usuarios.VerAuditoria";
+    public const string CatalogExport = "Catalogos.ExportarExcel";
+    public const string AdoptionExport = "ProcesosTsi.ExportarExcel";
+    public const string SensitiveDataView = "DatosSensibles.Ver";
 
     public static readonly IReadOnlyDictionary<string, string> AdministratorPermissions =
         new Dictionary<string, string>(StringComparer.Ordinal)
@@ -53,28 +56,21 @@ public static class Permissions
             [CatalogEdit] = "Editar registros en catálogos autorizados",
             [CatalogDelete] = "Eliminar registros con análisis de dependencias",
             [CatalogDeactivate] = "Desactivar registros cuando exista una estrategia aprobada",
+            [CatalogExport] = "Exportar catálogos maestros a Excel",
+            [AdoptionExport] = "Exportar evaluaciones y procesos de adopción a Excel",
+            [SensitiveDataView] = "Visualizar datos de contacto sensibles (PII)",
             [UserManage] = "Administrar usuarios",
             [RoleManage] = "Administrar roles y permisos",
-            [AuditView] = "Consultar auditoría autorizada"
-            ,
-            [AuditoriaVer] = "Consultar trazabilidad de operaciones"
-            ,
-            [AuditoriaRestaurar] = "Restaurar eliminaciones auditadas"
-            ,
-            [UsersView] = "Consultar usuarios locales"
-            ,
-            [UsersCreate] = "Crear usuarios locales"
-            ,
-            [UsersEdit] = "Editar usuarios locales"
-            ,
-            [UsersActivate] = "Activar usuarios locales"
-            ,
-            [UsersDeactivate] = "Desactivar usuarios locales"
-            ,
-            [UsersResetPassword] = "Restablecer contraseñas locales"
-            ,
-            [UsersAssignRoles] = "Asignar roles a usuarios locales"
-            ,
+            [AuditView] = "Consultar auditoría autorizada",
+            [AuditoriaVer] = "Consultar trazabilidad de operaciones",
+            [AuditoriaRestaurar] = "Restaurar eliminaciones auditadas",
+            [UsersView] = "Consultar usuarios locales",
+            [UsersCreate] = "Crear usuarios locales",
+            [UsersEdit] = "Editar usuarios locales",
+            [UsersActivate] = "Activar usuarios locales",
+            [UsersDeactivate] = "Desactivar usuarios locales",
+            [UsersResetPassword] = "Restablecer contraseñas locales",
+            [UsersAssignRoles] = "Asignar roles a usuarios locales",
             [UsersAuditView] = "Consultar auditoría de usuarios locales"
         };
 
@@ -83,10 +79,25 @@ public static class Permissions
         {
             CatalogView,
             CatalogCreate,
-            CatalogEdit
-            ,CatalogDelete
-            ,AuditoriaVer
-            ,AuditoriaRestaurar
+            CatalogEdit,
+            CatalogDelete,
+            AdoptionExport,
+            AuditoriaVer,
+            AuditoriaRestaurar
+        };
+
+    public static readonly IReadOnlySet<string> GovernmentSpocPermissions =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            CatalogView,
+            AdoptionExport,
+            AuditoriaVer
+        };
+
+    public static readonly IReadOnlySet<string> TsiEngineerPermissions =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            CatalogView
         };
 }
 

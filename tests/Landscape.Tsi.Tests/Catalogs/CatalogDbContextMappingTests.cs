@@ -50,7 +50,10 @@ public sealed class CatalogDbContextMappingTests
             [typeof(TVendor)] = "TVendor",
             [typeof(TPartner)] = "TPartner",
             [typeof(TContactoPartner)] = "TContactoPartner",
-            [typeof(TContactoVendor)] = "TContactoVendor"
+            [typeof(TContactoVendor)] = "TContactoVendor",
+            [typeof(TContactoEmpresaSubsidiaria)] = "TContactoEmpresaSubsidiaria",
+            [typeof(TMVersionDesplegada)] = "TMVersionDesplegada",
+            [typeof(TProcesoEmpresaCapacidad)] = "TProcesoEmpresaCapacidad"
         };
 
         Assert.Equal(expected.Count, context.Model.GetEntityTypes().Count());
@@ -62,6 +65,7 @@ public sealed class CatalogDbContextMappingTests
         }
 
         // Verificaciones de propiedades específicas
+        Assert.Equal("idFamilia", context.Model.FindEntityType(typeof(TmDominio))!.FindProperty(nameof(TmDominio.IdFamilia))!.GetColumnName());
         Assert.Equal("nombreEmpresa", context.Model.FindEntityType(typeof(TEmpresaSubsidiaria))!.FindProperty(nameof(TEmpresaSubsidiaria.Nombre))!.GetColumnName());
         Assert.Equal("fechaCompromisoEvaluacionCorporativo", context.Model.FindEntityType(typeof(TTecnologiaTSI))!.FindProperty(nameof(TTecnologiaTSI.FechaEvaluacion))!.GetColumnName());
         Assert.Equal("idFamilia", context.Model.FindEntityType(typeof(TBuildingBlock))!.FindProperty(nameof(TBuildingBlock.IdFamilia))!.GetColumnName());

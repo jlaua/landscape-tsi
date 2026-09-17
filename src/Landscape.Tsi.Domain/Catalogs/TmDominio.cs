@@ -9,4 +9,5 @@ public sealed class TmDominio : MasterCatalogEntity
     public string? HomologacionDimensionSegunLineamiento { get; set; }
     public string? SubDominioCvt { get; set; }
     public string? Ejemplos { get; set; }
+    public int? IdFamilia { get; set; }
 }

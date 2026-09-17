@@ -32,4 +32,8 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> FinalizeEvaluationWithStandardAsync(FinalizeEvaluationWithStandardCommand command, CancellationToken cancellationToken = default);
 
     Task<EvaluationReportsDto?> GetEvaluationReportsAsync(int procesoId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateCompanyCapabilityStateAsync(int procesoId, int empresaId, int capacidadId, string estadoCodigo, string? comentario, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateCompanyCapabilityCommentAsync(int procesoId, int empresaId, string? comentario, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateCompanyDriverVolumeAsync(int procesoId, int empresaId, string driverKey, decimal cantidad, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> SaveVencimientoReportDriversAsync(int procesoId, IEnumerable<string> drivers, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
 }

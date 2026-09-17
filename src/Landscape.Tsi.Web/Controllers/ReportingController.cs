@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Application.Reporting;
+using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Web.Models;
 
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,26 @@ namespace Landscape.Tsi.Web.Controllers;
 
 [Authorize(Policy = Permissions.CatalogView)]
 [Route("reporteria")]
-public sealed class ReportingController(IReportingService reporting) : Controller
+public sealed class ReportingController(
+    IReportingService reporting,
+    CatalogDbContext catalogDbContext) : Controller
 {
     [HttpGet("")]
-    public IActionResult Index() => View();
+    [HttpGet("distribucion-dominios")]
+    public async Task<IActionResult> Index([FromQuery] string? tab, CancellationToken cancellationToken = default)
+    {
+        var model = await CatalogTreemapBuilder.BuildAsync(catalogDbContext, cancellationToken);
+        model.ActiveTab = string.Equals(tab, "catalogos", StringComparison.OrdinalIgnoreCase) ? "catalogos" : "dominios";
+        return View("Index", model);
+    }
+
+    [HttpGet("catalogos")]
+    public Task<IActionResult> Catalogs(CancellationToken cancellationToken = default)
+        => Index("catalogos", cancellationToken);
+
+    [HttpGet("distribucion-dominios-vista")]
+    public Task<IActionResult> DomainDistribution(CancellationToken cancellationToken = default)
+        => Index("dominios", cancellationToken);
 
     [HttpGet("empresas-ciso")]
     public async Task<IActionResult> CompaniesAndCiso(

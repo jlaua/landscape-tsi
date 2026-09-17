@@ -299,8 +299,15 @@
         currentEntityName = triggerBtn.getAttribute('data-entity-name') || '';
 
         const isVendor = currentEntityType === 'vendor';
-        if (eyebrowEl) eyebrowEl.textContent = isVendor ? 'CONTACTOS DEL FABRICANTE' : 'CONTACTOS DEL PARTNER';
-        if (entityTypeLabelEl) entityTypeLabelEl.textContent = isVendor ? 'Fabricante' : 'Partner';
+        const isPartner = currentEntityType === 'partner';
+        const isEmpresa = currentEntityType === 'empresa-subsidiaria';
+
+        if (eyebrowEl) {
+            eyebrowEl.textContent = isVendor ? 'CONTACTOS DEL FABRICANTE' : (isPartner ? 'CONTACTOS DEL PARTNER' : 'CONTACTOS DE LA EMPRESA / SUBSIDIARIA');
+        }
+        if (entityTypeLabelEl) {
+            entityTypeLabelEl.textContent = isVendor ? 'Fabricante' : (isPartner ? 'Partner' : 'Empresa Subsidiaria');
+        }
         if (entityNameEl) entityNameEl.textContent = currentEntityName || '—';
 
         if (searchInputEl) searchInputEl.value = '';

@@ -13,6 +13,10 @@ public sealed class CatalogDetailViewModel
     public TechnologyRelationResult? TechnologyRelations { get; init; }
     public string? FunctionalitySortBy { get; init; }
     public string? FunctionalitySortDirection { get; init; }
+    public string? CapabilitySortBy { get; init; }
+    public string? CapabilitySortDirection { get; init; }
+    public int FunctionalityPageSize { get; init; } = 10;
+    public int CapabilityPageSize { get; init; } = 10;
     public string? FunctionalitySearch { get; init; }
     public string? CapabilitySearch { get; init; }
     public string? TechnologySearch { get; init; }

@@ -5,6 +5,7 @@ using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Catalogs;
+using Landscape.Tsi.Infrastructure.Reporting;
 using Landscape.Tsi.Web.Models;
 
 using Microsoft.AspNetCore.Authorization;
@@ -32,6 +33,90 @@ public sealed class MasterTablesController(
 
     [HttpGet("")]
     public IActionResult Index() => View(MasterCatalogRegistry.EntityMetadata.Where(entity => entity.IsAdministrable).ToArray());
+
+    [HttpGet("Map")]
+    public IActionResult Map() => View(new CatalogMapViewModel
+    {
+        Entities = MasterCatalogRegistry.EntityMetadata,
+        Relationships = MasterCatalogRegistry.LogicalRelationships
+    });
+
+    [HttpGet("DomainDistribution")]
+    public IActionResult DomainDistribution() => RedirectToAction("Index", "Reporting");
+
+    [HttpGet("DomainColors")]
+    [HttpGet("colores-dominios")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> DomainColors(CancellationToken cancellationToken)
+    {
+        var domains = await DbContext.Domains.AsNoTracking().OrderBy(d => d.Dominio).ToListAsync(cancellationToken);
+        var bbs = await DbContext.BuildingBlocks.AsNoTracking().ToListAsync(cancellationToken);
+        var bbCountByDomain = bbs.GroupBy(b => b.IdDominio ?? 0).ToDictionary(g => g.Key, g => g.Count());
+        var customColors = CatalogDomainColorPalette.GetAllCustomColors();
+
+        var domainItems = domains.Select(d =>
+        {
+            var color = CatalogDomainColorPalette.GetColorForDomain(d.Dominio, d.Id);
+            var isCustom = customColors.ContainsKey(d.Id);
+            bbCountByDomain.TryGetValue(d.Id, out var bbCount);
+            return new DomainColorItemViewModel(
+                d.Id,
+                d.Dominio ?? $"Dominio #{d.Id}",
+                d.DescripcionDominio,
+                bbCount,
+                color.PastelHex,
+                color.BorderHex,
+                color.TextHex,
+                isCustom
+            );
+        }).ToList();
+
+        return View(new DomainColorsConfigViewModel
+        {
+            Domains = domainItems,
+            SuccessMessage = TempData["SuccessMessage"] as string,
+            ErrorMessage = TempData["ErrorMessage"] as string
+        });
+    }
+
+    [HttpPost("DomainColors/Save")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult SaveDomainColor([FromForm] int domainId, [FromForm] string pastelHex, [FromForm] string? borderHex, [FromForm] string? textHex)
+    {
+        if (domainId <= 0 || string.IsNullOrWhiteSpace(pastelHex))
+        {
+            TempData["ErrorMessage"] = "Debe proporcionar un identificador de dominio y un color válido.";
+            return RedirectToAction(nameof(DomainColors));
+        }
+
+        CatalogDomainColorPalette.SetCustomColor(domainId, pastelHex, borderHex, textHex);
+        TempData["SuccessMessage"] = "Color de dominio actualizado correctamente.";
+        return RedirectToAction(nameof(DomainColors));
+    }
+
+    [HttpPost("DomainColors/Reset")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResetDomainColor([FromForm] int domainId)
+    {
+        if (domainId > 0)
+        {
+            CatalogDomainColorPalette.ResetCustomColor(domainId);
+            TempData["SuccessMessage"] = "Color del dominio restablecido a la paleta institucional estándar.";
+        }
+        return RedirectToAction(nameof(DomainColors));
+    }
+
+    [HttpPost("DomainColors/ResetAll")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResetAllDomainColors()
+    {
+        CatalogDomainColorPalette.ResetAllCustomColors();
+        TempData["SuccessMessage"] = "Todos los colores de dominio han sido restablecidos a la paleta institucional estándar.";
+        return RedirectToAction(nameof(DomainColors));
+    }
 
     [HttpGet("Domain")]
     public async Task<IActionResult> Domain(
@@ -245,6 +330,11 @@ public sealed class MasterTablesController(
             var ids = result.Items.Select(x => x.Id).ToList();
             contactCounts = await catalogService.GetPartnerContactCountsAsync(ids, cancellationToken);
         }
+        else if (definition.Code == "empresa-subsidiaria" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            contactCounts = await catalogService.GetCompanyContactCountsAsync(ids, cancellationToken);
+        }
 
         return View(new CatalogPageViewModel
         {
@@ -257,6 +347,160 @@ public sealed class MasterTablesController(
             VendorTechnologyCounts = vendorTechCounts,
             ContactCounts = contactCounts
         });
+    }
+
+    [HttpGet("{catalogRoute}/export-excel")]
+    [Authorize(Policy = Permissions.CatalogExport)]
+    public async Task<IActionResult> ExportToExcel(
+        string catalogRoute,
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null)
+        {
+            return NotFound();
+        }
+
+        // Obtener la totalidad de registros que coincidan con la búsqueda (hasta 100,000)
+        var result = await catalogService.ListAsync(definition, search, 1, 100000, cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        var workbook = new SimpleExcelWorkbook();
+        var sheet = workbook.CreateSheet(definition.Name);
+
+        // Cabeceras: Código y etiquetas de columnas
+        var headers = new List<string?> { "ID" };
+        headers.AddRange(definition.Columns.Select(c => c.Label));
+        sheet.AddHeader(headers);
+
+        // Filas de datos
+        foreach (var row in result.Items)
+        {
+            var cells = new List<object?> { row.Id };
+            foreach (var col in definition.Columns)
+            {
+                var displayVal = row.DisplayValues.GetValueOrDefault(col.Code);
+                var protectedVal = CatalogDisplayPrivacy.Protect(definition, col.Code, displayVal, canViewSensitive);
+                cells.Add(protectedVal ?? string.Empty);
+            }
+            sheet.AddRow(cells);
+        }
+
+        var fileBytes = workbook.Build();
+        var safeFileName = $"{definition.Route}_{DateTime.UtcNow:yyyyMMdd_HHmm}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", safeFileName);
+    }
+
+    [HttpGet("building-block/{id:int}/export-grid")]
+    [Authorize(Policy = Permissions.CatalogExport)]
+    public async Task<IActionResult> ExportBuildingBlockGrid(
+        int id,
+        string? grid = "all",
+        CancellationToken cancellationToken = default)
+    {
+        var bb = await DbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (bb is null) return NotFound();
+
+        var bbName = bb.Nombre ?? $"BB #{bb.Id}";
+        var safeBbName = string.Join("", bbName.Where(char.IsLetterOrDigit));
+        var workbook = new SimpleExcelWorkbook();
+
+        var exportAll = string.IsNullOrWhiteSpace(grid) || string.Equals(grid, "all", StringComparison.OrdinalIgnoreCase);
+        var exportCaps = exportAll || string.Equals(grid, "capacidades", StringComparison.OrdinalIgnoreCase);
+        var exportFuncs = exportAll || string.Equals(grid, "funcionalidades", StringComparison.OrdinalIgnoreCase);
+        var exportTechs = exportAll || string.Equals(grid, "tecnologias", StringComparison.OrdinalIgnoreCase);
+
+        // Capacidades
+        var caps = await DbContext.Capabilities.AsNoTracking()
+            .Where(c => c.IdBuildingBlock == id)
+            .OrderBy(c => c.Nombre)
+            .ToListAsync(cancellationToken);
+        var capStates = await DbContext.CapabilityStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+
+        if (exportCaps)
+        {
+            var sheetCaps = workbook.CreateSheet("Capacidades");
+            sheetCaps.AddHeader("Building Block:", bbName);
+            sheetCaps.AddHeader("Total Capacidades:", caps.Count.ToString());
+            sheetCaps.AddRow(string.Empty);
+            sheetCaps.AddHeader("ID", "Capacidad de Seguridad", "Estado", "Descripción");
+
+            foreach (var c in caps)
+            {
+                var stateName = c.IdEstado.HasValue && capStates.TryGetValue(c.IdEstado.Value, out var sn) ? sn : "—";
+                sheetCaps.AddRow(c.Id, c.Nombre ?? "—", stateName, c.Descripcion ?? "—");
+            }
+        }
+
+        // Funcionalidades
+        if (exportFuncs)
+        {
+            var capIds = caps.Select(c => c.Id).ToList();
+            var funcs = await DbContext.Functionalities.AsNoTracking()
+                .Where(f => f.IdCapacidad.HasValue && capIds.Contains(f.IdCapacidad.Value))
+                .OrderBy(f => f.Nombre)
+                .ToListAsync(cancellationToken);
+            var funcStates = await DbContext.FunctionalityStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+            var capMap = caps.ToDictionary(c => c.Id, c => c.Nombre ?? "—");
+
+            var sheetFuncs = workbook.CreateSheet("Funcionalidades");
+            sheetFuncs.AddHeader("Building Block:", bbName);
+            sheetFuncs.AddHeader("Total Funcionalidades:", funcs.Count.ToString());
+            sheetFuncs.AddRow(string.Empty);
+            sheetFuncs.AddHeader("ID", "Capacidad de Seguridad", "Funcionalidad", "Estado", "Descripción");
+
+            foreach (var f in funcs)
+            {
+                var cName = f.IdCapacidad.HasValue && capMap.TryGetValue(f.IdCapacidad.Value, out var cn) ? cn : "—";
+                var stateName = f.IdEstado.HasValue && funcStates.TryGetValue(f.IdEstado.Value, out var sn) ? sn : "—";
+                sheetFuncs.AddRow(f.Id, cName, f.Nombre ?? "—", stateName, f.Descripcion ?? "—");
+            }
+        }
+
+        // Tecnologías TSI Relacionadas
+        if (exportTechs)
+        {
+            var techMapping = await technologyMappingService.GetBuildingBlockRelationsAsync(id, null, null, cancellationToken);
+            var techIds = techMapping?.Technologies.Select(t => t.Id).ToList() ?? [];
+            var techs = await DbContext.Technologies.AsNoTracking()
+                .Where(t => techIds.Contains(t.Id))
+                .OrderBy(t => t.NombreCorporativo ?? t.NombreLocal)
+                .ToListAsync(cancellationToken);
+            var families = await DbContext.Families.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.Nombre ?? "—", cancellationToken);
+            var adoptionStates = await DbContext.TechnologyAdoptionStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+            var roadmapPostures = await DbContext.RoadmapPostures.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nombre ?? "—", cancellationToken);
+
+            var sheetTechs = workbook.CreateSheet("Tecnologias TSI");
+            sheetTechs.AddHeader("Building Block:", bbName);
+            sheetTechs.AddHeader("Total Tecnologías Relacionadas:", techs.Count.ToString());
+            sheetTechs.AddRow(string.Empty);
+            sheetTechs.AddHeader("ID", "Tecnología Corporativa", "Tecnología Local", "Familia", "Estado Adopción", "Postura Roadmap", "Licenciamiento", "Entorno");
+
+            foreach (var t in techs)
+            {
+                var famName = t.IdFamilia.HasValue && families.TryGetValue(t.IdFamilia.Value, out var fn) ? fn : "—";
+                var adoptName = t.IdEstadoAdopcion.HasValue && adoptionStates.TryGetValue(t.IdEstadoAdopcion.Value, out var an) ? an : "—";
+                var postName = t.IdPostura.HasValue && roadmapPostures.TryGetValue(t.IdPostura.Value, out var pn) ? pn : "—";
+
+                sheetTechs.AddRow(
+                    t.Id,
+                    t.NombreCorporativo ?? "—",
+                    t.NombreLocal ?? "—",
+                    famName,
+                    adoptName,
+                    postName,
+                    t.Licenciamiento ?? "—",
+                    t.Entorno ?? "—");
+            }
+        }
+
+        var fileName = exportAll
+            ? $"BB_{id}_{safeBbName}_FichaCompleta.xlsx"
+            : $"BB_{id}_{safeBbName}_{grid}.xlsx";
+
+        return File(workbook.Build(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     [HttpGet("vendor/{id:int}/technologies")]
@@ -310,6 +554,8 @@ public sealed class MasterTablesController(
             .OrderBy(c => c.NombreContactoVendor)
             .ToListAsync(cancellationToken);
 
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
         return Json(new
         {
             entityId = id,
@@ -321,8 +567,8 @@ public sealed class MasterTablesController(
                 id = c.Id,
                 nombre = c.NombreContactoVendor ?? "—",
                 rol = c.Rol ?? "—",
-                email = c.Email ?? "—",
-                telefono = c.Telefono ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
                 otro = c.Otro ?? "—",
                 notas = c.Notas ?? "—"
             })
@@ -427,6 +673,8 @@ public sealed class MasterTablesController(
             .OrderBy(c => c.NombreContactoPartner)
             .ToListAsync(cancellationToken);
 
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
         return Json(new
         {
             entityId = id,
@@ -438,8 +686,8 @@ public sealed class MasterTablesController(
                 id = c.Id,
                 nombre = c.NombreContactoPartner ?? "—",
                 rol = c.Rol ?? "—",
-                email = c.Email ?? "—",
-                telefono = c.Telefono ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
                 otro = c.Otro ?? "—",
                 notas = c.Notas ?? "—"
             })
@@ -527,6 +775,170 @@ public sealed class MasterTablesController(
         });
     }
 
+    [HttpGet("empresa-subsidiaria/{id:int}/contacts")]
+    [HttpGet("/MasterTables/empresa-subsidiaria/{id:int}/contacts")]
+    public async Task<IActionResult> GetCompanyContacts(int id, CancellationToken cancellationToken)
+    {
+        var companyDefinition = MasterCatalogRegistry.GetByCode("empresa-subsidiaria");
+        string companyName = $"Empresa #{id}";
+
+        if (companyDefinition is not null)
+        {
+            var company = await catalogService.GetAsync(companyDefinition, id, cancellationToken);
+            if (company is not null)
+            {
+                companyName = company.DisplayValues.GetValueOrDefault("nombreEmpresa") ?? companyName;
+            }
+            else
+            {
+                var fallbackCompany = await DbContext.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+                if (fallbackCompany is not null)
+                {
+                    companyName = fallbackCompany.Nombre ?? companyName;
+                }
+            }
+        }
+
+        var contacts = await DbContext.CompanyContacts.AsNoTracking()
+            .Where(c => c.IdEmpresaSubsidiaria == id)
+            .OrderBy(c => c.NombreContactoEmpresaSubsidiaria)
+            .ToListAsync(cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = companyName,
+            entityType = "empresa-subsidiaria",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoEmpresaSubsidiaria ?? "—",
+                rol = c.Rol ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreateCompanyContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var contact = new TContactoEmpresaSubsidiaria
+        {
+            IdEmpresaSubsidiaria = id,
+            NombreContactoEmpresaSubsidiaria = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.CompanyContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts/{contactId:int}/edit")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditCompanyContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoEmpresaSubsidiaria = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts/{contactId:int}/delete")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeleteCompanyContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.CompanyContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
+    }
+
+    [HttpPost("building-block/{id:int}/reorder-capabilities")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> ReorderCapabilities(int id, [FromBody] ReorderCapabilitiesDto model, CancellationToken cancellationToken)
+    {
+        if (model?.CapabilityIds is null || model.CapabilityIds.Count == 0)
+        {
+            return BadRequest(new { message = "La lista de capacidades está vacía." });
+        }
+
+        var capabilities = await DbContext.Capabilities
+            .Where(c => c.IdBuildingBlock == id)
+            .ToListAsync(cancellationToken);
+
+        var capMap = capabilities.ToDictionary(c => c.Id);
+
+        for (var i = 0; i < model.CapabilityIds.Count; i++)
+        {
+            var capId = model.CapabilityIds[i];
+            if (capMap.TryGetValue(capId, out var cap))
+            {
+                cap.OrdenVisualizacion = i + 1;
+            }
+        }
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Orden de capacidades guardado exitosamente."
+        });
+    }
+
     [HttpGet("{catalogRoute}/details/{id:int}")]
     public async Task<IActionResult> CatalogDetails(
         string catalogRoute,
@@ -542,6 +954,10 @@ public sealed class MasterTablesController(
         int relatedPageSize = 10,
         string? functionalitySortBy = null,
         string? functionalitySortDirection = null,
+        string? capabilitySortBy = null,
+        string? capabilitySortDirection = null,
+        int capabilityPageSize = 10,
+        int functionalityPageSize = 10,
         CancellationToken cancellationToken = default)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
@@ -552,7 +968,13 @@ public sealed class MasterTablesController(
         var record = await catalogService.GetAsync(definition, id, cancellationToken);
         if (record is null) return NotFound();
         var related = definition.Code == "building-block"
-            ? await buildingBlockRelatedService.GetAsync(id, capabilitySearch, functionalitySearch, technologySearch, capabilityPage, functionalityPage, technologyPage, relatedPageSize, functionalitySortBy, functionalitySortDirection, cancellationToken)
+            ? await buildingBlockRelatedService.GetAsync(
+                id, capabilitySearch, functionalitySearch, technologySearch,
+                capabilityPage, functionalityPage, technologyPage,
+                relatedPageSize, functionalitySortBy, functionalitySortDirection,
+                capabilitySortBy, capabilitySortDirection,
+                functionalityPageSize, capabilityPageSize,
+                cancellationToken)
             : null;
         var technologyMapping = definition.Code == "building-block"
             ? await technologyMappingService.GetBuildingBlockRelationsAsync(id, technologySearch, null, cancellationToken)
@@ -727,6 +1149,10 @@ public sealed class MasterTablesController(
             TechnologyRelations = technologyRelations,
             FunctionalitySortBy = functionalitySortBy,
             FunctionalitySortDirection = functionalitySortDirection,
+            CapabilitySortBy = capabilitySortBy,
+            CapabilitySortDirection = capabilitySortDirection,
+            CapabilityPageSize = capabilityPageSize,
+            FunctionalityPageSize = functionalityPageSize,
             FunctionalitySearch = functionalitySearch,
             CapabilitySearch = capabilitySearch,
             TechnologySearch = technologySearch,
@@ -1261,6 +1687,7 @@ public sealed class MasterTablesController(
         int id,
         [FromForm] string? faseAdopcion,
         [FromForm] string? rutaEntregable,
+        [FromForm] string? familia,
         CancellationToken cancellationToken)
     {
         var definition = MasterCatalogRegistry.GetByCode("building-block")!;
@@ -1277,6 +1704,7 @@ public sealed class MasterTablesController(
         }
         values["faseAdopcion"] = faseAdopcion;
         values["rutaEntregable"] = rutaEntregable;
+        values["familia"] = familia;
 
         try
         {

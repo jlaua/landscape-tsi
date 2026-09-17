@@ -6,6 +6,7 @@ using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Catalogs;
+using Landscape.Tsi.Infrastructure.Reporting;
 using Landscape.Tsi.Web.Models;
 
 using Microsoft.AspNetCore.Authorization;
@@ -253,6 +254,327 @@ public sealed class AdoptionProcessController(
             TempData["ErrorMessage"] = result.Message;
 
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost("{id:int}/empresa/{empresaId:int}/assign-focal")]
+    [HttpPost("/AdoptionProcess/{id:int}/empresa/{empresaId:int}/assign-focal")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> AssignFocal(int id, int empresaId, [FromBody] AssignFocalDto? model, CancellationToken cancellationToken)
+    {
+        var procEmp = await dbContext.AdoptionProcessCompanies
+            .FirstOrDefaultAsync(cp => cp.IdProcesoAdopcionTSI == id && cp.IdEmpresaSubsidiaria == empresaId, cancellationToken);
+
+        if (procEmp is null)
+        {
+            return NotFound(new { message = "La empresa no se encuentra convocada en este proceso." });
+        }
+
+        procEmp.IdContactoEmpresaSubsidiaria = model?.ContactoFocalId > 0 ? model.ContactoFocalId : null;
+        procEmp.FechaModificacion = DateTime.UtcNow;
+        procEmp.UsuarioModificacion = User.Identity?.Name ?? "SYSTEM";
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        string? contactName = null;
+        string? contactEmail = null;
+        if (procEmp.IdContactoEmpresaSubsidiaria.HasValue)
+        {
+            var c = await dbContext.CompanyContacts.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == procEmp.IdContactoEmpresaSubsidiaria.Value, cancellationToken);
+            contactName = c?.NombreContactoEmpresaSubsidiaria;
+            contactEmail = c?.Email;
+        }
+
+        return Ok(new
+        {
+            success = true,
+            focalId = procEmp.IdContactoEmpresaSubsidiaria,
+            focalName = contactName ?? "Sin asignar",
+            focalEmail = contactEmail,
+            message = "Contacto focal actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("{id:int}/empresa/{empresaId:int}/capability-state")]
+    [HttpPost("/AdoptionProcess/{id:int}/empresa/{empresaId:int}/capability-state")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateCompanyCapabilityState(
+        int id,
+        int empresaId,
+        [FromBody] UpdateCapabilityStateDto? model,
+        CancellationToken cancellationToken)
+    {
+        if (model is null || model.CapacidadId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Datos de capacidad inválidos." });
+        }
+
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        var result = await adoptionService.UpdateCompanyCapabilityStateAsync(
+            id,
+            empresaId,
+            model.CapacidadId,
+            model.EstadoCodigo,
+            model.Comentario,
+            actorId,
+            HttpContext.TraceIdentifier,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            capacidadId = model.CapacidadId,
+            estadoCodigo = model.EstadoCodigo?.Trim().ToUpperInvariant(),
+            comentario = model.Comentario,
+            message = result.Message
+        });
+    }
+
+    [HttpPost("{id:int}/empresa/{empresaId:int}/capability-comment")]
+    [HttpPost("/AdoptionProcess/{id:int}/empresa/{empresaId:int}/capability-comment")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateCompanyCapabilityComment(
+        int id,
+        int empresaId,
+        [FromBody] UpdateCapabilityCommentDto? model,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        var result = await adoptionService.UpdateCompanyCapabilityCommentAsync(
+            id,
+            empresaId,
+            model?.Comentario,
+            actorId,
+            HttpContext.TraceIdentifier,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            comentario = model?.Comentario,
+            message = result.Message
+        });
+    }
+
+    [HttpPost("{id:int}/empresa/{empresaId:int}/driver-volume")]
+    [HttpPost("/AdoptionProcess/{id:int}/empresa/{empresaId:int}/driver-volume")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateCompanyDriverVolume(
+        int id,
+        int empresaId,
+        [FromBody] UpdateDriverVolumeDto? model,
+        CancellationToken cancellationToken)
+    {
+        if (model is null || string.IsNullOrWhiteSpace(model.DriverKey))
+        {
+            return BadRequest(new { success = false, message = "Identificador de driver no especificado." });
+        }
+
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        var result = await adoptionService.UpdateCompanyDriverVolumeAsync(
+            id,
+            empresaId,
+            model.DriverKey,
+            model.Cantidad,
+            actorId,
+            HttpContext.TraceIdentifier,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            driverKey = model.DriverKey,
+            cantidad = model.Cantidad,
+            driverId = result.EntityId,
+            message = result.Message
+        });
+    }
+
+    public sealed record UpdateVencimientosDriversDto(IReadOnlyList<string>? Drivers);
+
+    [HttpPost("{id:int}/update-vencimientos-drivers")]
+    [HttpPost("/AdoptionProcess/{id:int}/update-vencimientos-drivers")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateVencimientosDrivers(
+        int id,
+        [FromBody] UpdateVencimientosDriversDto? model,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        var result = await adoptionService.SaveVencimientoReportDriversAsync(
+            id,
+            model?.Drivers ?? [],
+            actorId,
+            HttpContext.TraceIdentifier,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = result.Message
+        });
+    }
+
+    [HttpGet("empresa/{empresaId:int}/contacts-lookup")]
+    [HttpGet("/AdoptionProcess/empresa/{empresaId:int}/contacts-lookup")]
+    public async Task<IActionResult> GetCompanyContactsLookup(int empresaId, CancellationToken cancellationToken)
+    {
+        var contacts = await dbContext.CompanyContacts.AsNoTracking()
+            .Where(c => c.IdEmpresaSubsidiaria == empresaId)
+            .OrderBy(c => c.NombreContactoEmpresaSubsidiaria)
+            .Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoEmpresaSubsidiaria,
+                rol = c.Rol,
+                email = c.Email,
+                telefono = c.Telefono
+            })
+            .ToListAsync(cancellationToken);
+
+        return Json(contacts);
+    }
+
+    [HttpGet("empresa/{empresaId:int}/contacts")]
+    [HttpGet("/AdoptionProcess/empresa/{empresaId:int}/contacts")]
+    public async Task<IActionResult> GetCompanyContacts(int empresaId, CancellationToken cancellationToken)
+    {
+        var company = await dbContext.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == empresaId, cancellationToken);
+        var companyName = company?.Nombre ?? $"Empresa #{empresaId}";
+
+        var contacts = await dbContext.CompanyContacts.AsNoTracking()
+            .Where(c => c.IdEmpresaSubsidiaria == empresaId)
+            .OrderBy(c => c.NombreContactoEmpresaSubsidiaria)
+            .ToListAsync(cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        return Json(new
+        {
+            entityId = empresaId,
+            entityName = companyName,
+            entityType = "empresa-subsidiaria",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoEmpresaSubsidiaria ?? "—",
+                rol = c.Rol ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("empresa/{empresaId:int}/contacts")]
+    [HttpPost("/AdoptionProcess/empresa/{empresaId:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> CreateCompanyContact(int empresaId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var contact = new TContactoEmpresaSubsidiaria
+        {
+            IdEmpresaSubsidiaria = empresaId,
+            NombreContactoEmpresaSubsidiaria = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        dbContext.CompanyContacts.Add(contact);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa/{empresaId:int}/contacts/{contactId:int}/edit")]
+    [HttpPost("/AdoptionProcess/empresa/{empresaId:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditCompanyContact(int empresaId, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await dbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoEmpresaSubsidiaria = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa/{empresaId:int}/contacts/{contactId:int}/delete")]
+    [HttpPost("/AdoptionProcess/empresa/{empresaId:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> DeleteCompanyContact(int empresaId, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await dbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        dbContext.CompanyContacts.Remove(contact);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
     }
 
     [HttpPost("{id:int}/Technology")]
@@ -741,12 +1063,12 @@ public sealed class AdoptionProcessController(
         var procesoId = procResult.EntityId.Value;
 
         var selectedCompanies = model.Subsidiaries
-            .Where(s => s.Selected || !string.IsNullOrWhiteSpace(s.JustificacionNoAplica))
+            .Where(s => s.Selected)
             .Select(s => new ConveneCompanyInput(
                 s.EmpresaId,
                 s.ContactoFocalId,
-                s.Selected,
-                s.Selected ? null : s.JustificacionNoAplica?.Trim()))
+                true,
+                null))
             .ToList();
 
         if (selectedCompanies.Count > 0)
@@ -792,25 +1114,73 @@ public sealed class AdoptionProcessController(
                         .Select(v => v.NombreVendor)
                         .FirstOrDefaultAsync(cancellationToken);
                 }
-                if (string.IsNullOrWhiteSpace(asIs.PartnerNombre) && asIs.PartnerId.HasValue && asIs.PartnerId.Value > 0)
+                // Múltiples partners o partner directo
+                var partnerDescs = new List<string>();
+                if (asIs.Partners != null && asIs.Partners.Count > 0)
                 {
-                    asIs.PartnerNombre = await dbContext.Partners.AsNoTracking()
-                        .Where(p => p.Id == asIs.PartnerId.Value)
-                        .Select(p => p.NombrePartner)
-                        .FirstOrDefaultAsync(cancellationToken);
+                    foreach (var pt in asIs.Partners)
+                    {
+                        var pName = pt.PartnerNombre;
+                        if (string.IsNullOrWhiteSpace(pName) && pt.PartnerId.HasValue && pt.PartnerId.Value > 0)
+                        {
+                            pName = await dbContext.Partners.AsNoTracking()
+                                .Where(p => p.Id == pt.PartnerId.Value)
+                                .Select(p => p.NombrePartner)
+                                .FirstOrDefaultAsync(cancellationToken);
+                        }
+                        var pContact = pt.PartnerContacto;
+                        if (string.IsNullOrWhiteSpace(pContact) && pt.PartnerContactoId.HasValue && pt.PartnerContactoId.Value > 0)
+                        {
+                            pContact = await dbContext.PartnerContacts.AsNoTracking()
+                                .Where(c => c.Id == pt.PartnerContactoId.Value)
+                                .Select(c => c.NombreContactoPartner)
+                                .FirstOrDefaultAsync(cancellationToken);
+                        }
+                        if (!string.IsNullOrWhiteSpace(pName))
+                        {
+                            var entry = pName;
+                            if (!string.IsNullOrWhiteSpace(pContact)) entry += $" (Contacto: {pContact})";
+                            partnerDescs.Add(entry);
+                        }
+                    }
+
+                    if (asIs.Partners.Count > 0 && asIs.Partners[0].PartnerId.HasValue)
+                    {
+                        asIs.PartnerId = asIs.Partners[0].PartnerId;
+                        asIs.PartnerNombre = asIs.Partners[0].PartnerNombre;
+                        asIs.PartnerContactoId = asIs.Partners[0].PartnerContactoId;
+                        asIs.PartnerContacto = asIs.Partners[0].PartnerContacto;
+                    }
                 }
+
+                if (partnerDescs.Count == 0)
+                {
+                    if (string.IsNullOrWhiteSpace(asIs.PartnerNombre) && asIs.PartnerId.HasValue && asIs.PartnerId.Value > 0)
+                    {
+                        asIs.PartnerNombre = await dbContext.Partners.AsNoTracking()
+                            .Where(p => p.Id == asIs.PartnerId.Value)
+                            .Select(p => p.NombrePartner)
+                            .FirstOrDefaultAsync(cancellationToken);
+                    }
+                    if (string.IsNullOrWhiteSpace(asIs.PartnerContacto) && asIs.PartnerContactoId.HasValue && asIs.PartnerContactoId.Value > 0)
+                    {
+                        asIs.PartnerContacto = await dbContext.PartnerContacts.AsNoTracking()
+                            .Where(c => c.Id == asIs.PartnerContactoId.Value)
+                            .Select(c => c.NombreContactoPartner)
+                            .FirstOrDefaultAsync(cancellationToken);
+                    }
+                    var pDesc = asIs.PartnerNombre ?? "Directo";
+                    if (!string.IsNullOrWhiteSpace(asIs.PartnerContacto)) pDesc += $" (Contacto: {asIs.PartnerContacto})";
+                    partnerDescs.Add(pDesc);
+                }
+
+                var partnerSummary = string.Join(", ", partnerDescs);
+
                 if (string.IsNullOrWhiteSpace(asIs.VendorContacto) && asIs.VendorContactoId.HasValue && asIs.VendorContactoId.Value > 0)
                 {
                     asIs.VendorContacto = await dbContext.VendorContacts.AsNoTracking()
                         .Where(c => c.Id == asIs.VendorContactoId.Value)
                         .Select(c => c.NombreContactoVendor)
-                        .FirstOrDefaultAsync(cancellationToken);
-                }
-                if (string.IsNullOrWhiteSpace(asIs.PartnerContacto) && asIs.PartnerContactoId.HasValue && asIs.PartnerContactoId.Value > 0)
-                {
-                    asIs.PartnerContacto = await dbContext.PartnerContacts.AsNoTracking()
-                        .Where(c => c.Id == asIs.PartnerContactoId.Value)
-                        .Select(c => c.NombreContactoPartner)
                         .FirstOrDefaultAsync(cancellationToken);
                 }
 
@@ -837,8 +1207,6 @@ public sealed class AdoptionProcessController(
 
                         var vendorDesc = asIs.VendorNombre ?? "-";
                         if (!string.IsNullOrWhiteSpace(asIs.VendorContacto)) vendorDesc += $" (Contacto: {asIs.VendorContacto})";
-                        var partnerDesc = asIs.PartnerNombre ?? "Directo";
-                        if (!string.IsNullOrWhiteSpace(asIs.PartnerContacto)) partnerDesc += $" (Contacto: {asIs.PartnerContacto})";
 
                         await adoptionService.SaveContractAsync(new SaveContractCommand(
                             TecnologiaImplementadaId: implId,
@@ -851,7 +1219,7 @@ public sealed class AdoptionProcessController(
                             RutaDocumento: null,
                             Monto: effectiveMonto,
                             Moneda: string.IsNullOrWhiteSpace(asIs.MonedaContrato) ? "USD" : asIs.MonedaContrato,
-                            Observaciones: $"Vendor: {vendorDesc} / Partner: {partnerDesc}",
+                            Observaciones: $"Vendor: {vendorDesc} / Partner(s): {partnerSummary}",
                             ActorUserId: actor.Value,
                             CorrelationId: HttpContext.TraceIdentifier,
                             EsPayg: asIs.EsPayg,
@@ -875,12 +1243,12 @@ public sealed class AdoptionProcessController(
                         }
                     }
 
-                    if (asIs.TipoOperacionId.HasValue && asIs.ModalidadLaboralId.HasValue)
+                    if (asIs.TipoOperacionId.HasValue || asIs.ModalidadLaboralId.HasValue)
                     {
                         await adoptionService.SaveOperationModelAsync(new SaveOperationModelCommand(
                             TecnologiaImplementadaId: implId,
-                            TipoOperacionId: asIs.TipoOperacionId.Value,
-                            ModalidadLaboralId: asIs.ModalidadLaboralId.Value,
+                            TipoOperacionId: asIs.TipoOperacionId,
+                            ModalidadLaboralId: asIs.ModalidadLaboralId,
                             ActorUserId: actor.Value,
                             CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
                     }
@@ -1119,6 +1487,13 @@ public sealed class AdoptionProcessController(
             .OrderBy(p => p.NombrePartner)
             .Select(p => new CatalogOption(p.Id, p.NombrePartner!))
             .Distinct()
+            .ToListAsync(cancellationToken);
+
+        model.VersionesDesplegadas = await dbContext.DeploymentVersions.AsNoTracking()
+            .Where(v => v.EsActivo)
+            .OrderBy(v => v.Orden)
+            .ThenBy(v => v.Nombre)
+            .Select(v => new CatalogOption(v.Id, v.Nombre ?? $"Versión #{v.Id}"))
             .ToListAsync(cancellationToken);
 
         var contactsMap = await LoadContactsPerCompanyAsync(cancellationToken);
@@ -1861,6 +2236,290 @@ public sealed class AdoptionProcessController(
         }
 
         return View(reportData);
+    }
+
+    [HttpGet("{id:int}/export-excel")]
+    [HttpGet("Evaluations/{id:int}/export-excel")]
+    [Authorize(Policy = Permissions.AdoptionExport)]
+    public async Task<IActionResult> ExportEvaluationExcel(int id, [FromQuery] string? section, CancellationToken cancellationToken)
+    {
+        var report = await adoptionService.GetEvaluationReportsAsync(id, cancellationToken);
+        if (report is null)
+        {
+            return NotFound();
+        }
+
+        var workbook = new SimpleExcelWorkbook();
+        var sec = (section ?? "all").ToLowerInvariant();
+
+        // 1. Diagnóstico AS-IS y Contratos
+        if (sec is "all" or "as-is" or "alcance")
+        {
+            var sheet = workbook.CreateSheet("Diagnostico_AS_IS");
+            sheet.AddHeader("Empresa", "País", "Fecha Vencimiento", report.EsWaap ? "WAF AS-IS" : "Tecnología AS-IS", "Tipo Contrato", "Fabricante / Vendor", "Partner / Integrador", "Operación");
+            foreach (var r in report.AlcanceReport)
+            {
+                sheet.AddRow(
+                    r.EmpresaNombre,
+                    r.Pais ?? "—",
+                    r.FechaVencimientoContrato.HasValue ? r.FechaVencimientoContrato.Value.ToString("yyyy-MM-dd") : "PAYG / Sin Vencimiento",
+                    r.TecnologiaAsIs ?? "—",
+                    r.TipoContrato ?? "—",
+                    r.Vendor ?? "—",
+                    r.Partner ?? "—",
+                    r.TipoOperacion ?? "—"
+                );
+            }
+        }
+
+        // 2. Vencimiento de Contratos & Proyección
+        if (sec is "all" or "vencimientos" or "timeline")
+        {
+            var sheet = workbook.CreateSheet("Vencimiento_Contratos");
+            var headers = report.EsWaap
+                ? new List<string?> { "#", "Empresa", "Producto AS-IS", "Throughput (GB/m)", "Apps FQDN", "WAF Req (M/m)", "Fecha Vencimiento" }
+                : new List<string?> { "#", "Empresa", "Tecnología AS-IS", "Tipo Contrato", "Operación", "Drivers Registrados", "Fecha Vencimiento" };
+
+            foreach (var m in report.VencimientoContratosReport.PeriodosHito)
+            {
+                headers.Add(m.PeriodoLabel);
+            }
+            sheet.AddHeader(headers);
+
+            foreach (var r in report.VencimientoContratosReport.Filas)
+            {
+                var rowCells = report.EsWaap
+                    ? new List<object?>
+                    {
+                        r.Secuencia,
+                        r.EmpresaNombre,
+                        r.ProductoActual ?? "—",
+                        r.ThroughputGbMes,
+                        r.CantidadAppFqdn,
+                        r.RequestWafMillonesMes,
+                        r.FechaVencimiento.HasValue ? r.FechaVencimiento.Value.ToString("yyyy-MM-dd") : (r.VencimientoLabel ?? "—")
+                    }
+                    : new List<object?>
+                    {
+                        r.Secuencia,
+                        r.EmpresaNombre,
+                        r.ProductoActual ?? "—",
+                        r.TipoContrato ?? "—",
+                        r.TipoOperacion ?? "—",
+                        r.CantidadDrivers > 0 ? $"{r.CantidadDrivers} driver(s)" : "—",
+                        r.FechaVencimiento.HasValue ? r.FechaVencimiento.Value.ToString("yyyy-MM-dd") : (r.VencimientoLabel ?? "—")
+                    };
+
+                foreach (var m in report.VencimientoContratosReport.PeriodosHito)
+                {
+                    var isExpired = r.HitoExpiracionPorPeriodo.TryGetValue(m.PeriodoLabel, out var exp) && exp;
+                    rowCells.Add(isExpired ? "X" : string.Empty);
+                }
+                sheet.AddRow(rowCells);
+            }
+
+            // Fila de Totales
+            var totalCells = report.EsWaap
+                ? new List<object?>
+                {
+                    string.Empty,
+                    "TOTAL CONSOLIDADO",
+                    string.Empty,
+                    report.VencimientoContratosReport.TotalThroughputGbMes,
+                    report.VencimientoContratosReport.TotalAppsFqdn,
+                    report.VencimientoContratosReport.TotalRequestWafMillonesMes,
+                    string.Empty
+                }
+                : new List<object?>
+                {
+                    string.Empty,
+                    "TOTAL CONSOLIDADO",
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    $"{report.VolumetriaReport.TotalCantidadDrivers} driver(s)",
+                    string.Empty
+                };
+
+            foreach (var m in report.VencimientoContratosReport.PeriodosHito)
+            {
+                totalCells.Add(string.Empty);
+            }
+            sheet.AddRow(totalCells);
+        }
+
+        // 3. Volumetría por Empresa / Drivers
+        if (sec is "all" or "volumetria" or "volumen" or "drivers")
+        {
+            var sheet = workbook.CreateSheet("Volumetria_Empresas");
+
+            if (report.EsWaap)
+            {
+                sheet.AddHeader(
+                    "Empresa", "Tecnología AS-IS", "Throughput (Gbps)", "Ancho Banda (Gbps)",
+                    "Dominio", "Sub Dominios", "Apps FQDN", "Apps FQDN (API Sec)", "API Protection (M req/m)",
+                    "Antibot (M req/m)", "WAF (M req/m)", "Total Antibot+WAF (M req/m)", "Data Transfer (TB/m)",
+                    "Request Size (KB/GB)", "Response Size (KB/GB/TB)"
+                );
+
+                foreach (var r in report.VolumetriaReport.Filas)
+                {
+                    sheet.AddRow(
+                        r.EmpresaNombre,
+                        r.TecnologiaAsIs ?? "—",
+                        r.ThroughputMensualGbps,
+                        r.AnchoBandaMensualGbps,
+                        r.Dominio,
+                        r.SubDominios,
+                        r.CantidadAppsFqdn,
+                        r.CantidadAppsFqdnApiSecurity,
+                        r.ApiProtectionRequestMillonesMes,
+                        r.MillonesRequestAntibot,
+                        r.MillonesRequestWaf,
+                        r.MillonesRequestAntibotWaf,
+                        r.DataTransferTbMensual,
+                        r.RequestSize ?? "—",
+                        r.ResponseSize ?? "—"
+                    );
+                }
+
+                // Fila de Totales
+                sheet.AddRow(
+                    "TOTAL GENERAL",
+                    string.Empty,
+                    report.VolumetriaReport.TotalThroughputMensualGbps,
+                    report.VolumetriaReport.TotalAnchoBandaMensualGbps,
+                    report.VolumetriaReport.TotalDominio,
+                    report.VolumetriaReport.TotalSubDominios,
+                    report.VolumetriaReport.TotalAppsFqdn,
+                    report.VolumetriaReport.TotalAppsFqdnApiSecurity,
+                    report.VolumetriaReport.TotalApiProtectionRequestMillonesMes,
+                    report.VolumetriaReport.TotalMillonesRequestAntibot,
+                    report.VolumetriaReport.TotalMillonesRequestWaf,
+                    report.VolumetriaReport.TotalMillonesRequestAntibotWaf,
+                    report.VolumetriaReport.TotalDataTransferTbMensual,
+                    string.Empty,
+                    string.Empty
+                );
+            }
+            {
+                var matriz = report.VolumetriaReport.MatrizDrivers;
+                if (matriz != null && matriz.ColumnasDrivers.Count > 0)
+                {
+                    var volHeaders = new List<string?> { "Empresa", "Tecnología AS-IS" };
+                    volHeaders.AddRange(matriz.ColumnasDrivers);
+                    sheet.AddHeader(volHeaders);
+
+                    foreach (var fila in matriz.Filas)
+                    {
+                        var rowVals = new List<object?>
+                        {
+                            fila.EmpresaNombre,
+                            fila.TecnologiaAsIs ?? "—"
+                        };
+                        foreach (var col in matriz.ColumnasDrivers)
+                        {
+                            var cant = fila.ValoresPorColumnaDriver.TryGetValue(col, out var val) ? val : 0m;
+                            rowVals.Add(cant);
+                        }
+                        sheet.AddRow(rowVals);
+                    }
+
+                    // Fila de Totales Consolidados por Columna
+                    var totalRowVals = new List<object?>
+                    {
+                        "TOTALES CONSOLIDADOS",
+                        string.Empty
+                    };
+                    foreach (var col in matriz.ColumnasDrivers)
+                    {
+                        var tot = matriz.TotalesPorColumna.TryGetValue(col, out var totVal) ? totVal : 0m;
+                        totalRowVals.Add(tot);
+                    }
+                    sheet.AddRow(totalRowVals);
+                }
+                else
+                {
+                    sheet.AddHeader("Empresa", "Tecnología AS-IS", "Driver de Consumo", "Cantidad Operativa");
+                    foreach (var r in report.AlcanceReport)
+                    {
+                        sheet.AddRow(r.EmpresaNombre, r.TecnologiaAsIs ?? "—", "Sin drivers registrados", 0m);
+                    }
+                }
+            }
+        }
+
+        // 5. Proyección de Costos AS-IS (Valorizado)
+        if (sec is "all" or "costos" or "costos-as-is" or "costo")
+        {
+            var sheet = workbook.CreateSheet("Costos_AS_IS");
+            sheet.AddHeader(
+                "Empresa", "Tecnología AS-IS", "Descripción del Driver", "Unidad de Medida",
+                "Cantidad", "Precio Unitario", "Moneda", "Costo Total Proyectado"
+            );
+
+            if (report.CostosAsIsReport != null && report.CostosAsIsReport.Filas.Count > 0)
+            {
+                foreach (var drv in report.CostosAsIsReport.Filas)
+                {
+                    sheet.AddRow(
+                        drv.EmpresaNombre,
+                        drv.TecnologiaAsIs ?? "—",
+                        drv.DescripcionDriver,
+                        drv.UnidadMedida,
+                        drv.DriverId > 0 ? drv.Cantidad : 0m,
+                        drv.DriverId > 0 ? drv.PrecioUnitario : 0m,
+                        drv.Moneda,
+                        drv.DriverId > 0 ? drv.CostoTotal : 0m
+                    );
+                }
+
+                // Fila de Totales
+                sheet.AddRow(
+                    "TOTAL GENERAL",
+                    string.Empty,
+                    $"{report.CostosAsIsReport.TotalItemsConCosto} driver(s)",
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    "USD",
+                    report.CostosAsIsReport.TotalInversionGeneral
+                );
+            }
+        }
+
+        // 4. Matriz de Cobertura de Capacidades
+        if (sec is "all" or "capacidades" or "matrix")
+        {
+            var sheet = workbook.CreateSheet("Capacidades_Seguridad");
+            var headers = new List<string?> { "Empresa", "Tecnología AS-IS" };
+            headers.AddRange(report.CapacidadesMatrixReport.ColumnasCapacidades);
+            headers.Add("Comentario / Situación");
+            sheet.AddHeader(headers);
+
+            foreach (var r in report.CapacidadesMatrixReport.Filas)
+            {
+                var rowCells = new List<object?>
+                {
+                    r.EmpresaNombre,
+                    r.TecnologiaAsIs ?? "—"
+                };
+
+                foreach (var capCol in report.CapacidadesMatrixReport.ColumnasCapacidades)
+                {
+                    var estado = r.Capacidades.TryGetValue(capCol, out var cell) ? cell.EstadoCodigo : "NA";
+                    rowCells.Add(estado);
+                }
+
+                rowCells.Add(r.ComentarioSubsidiaria ?? "—");
+                sheet.AddRow(rowCells);
+            }
+        }
+
+        var fileBytes = workbook.Build();
+        var fileNamePrefix = sec == "all" ? "Evaluacion_Consolidada" : $"Evaluacion_{sec}";
+        var fileName = $"{fileNamePrefix}_{report.CodigoProceso}_{DateTime.UtcNow:yyyyMMdd_HHmm}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     private Guid? ActorId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;

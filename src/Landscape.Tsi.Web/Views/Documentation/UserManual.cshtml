@@ -1,0 +1,568 @@
+@{
+    ViewData["Title"] = "Manual de Usuario";
+}
+
+<section class="home-hero mb-4" aria-labelledby="manual-title">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <p class="eyebrow">GUÍA FUNCIONAL Y OPERATIVA</p>
+            <h1 id="manual-title" class="display-6 fw-bold">Manual de Usuario - Landscape TSI</h1>
+            <p class="text-muted mb-0">Guía integral para la gestión de tablas maestras, flujo de adopción tecnológica, reportería y controles de seguridad.</p>
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-primary d-inline-flex align-items-center gap-2 shadow-sm">
+                <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                <span>Imprimir / Guardar PDF</span>
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- Índice de Contenido Rápido -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <a href="#tablas-maestras" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary">1</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Tablas Maestras</h6>
+                </div>
+                <small class="text-muted">Jerarquía Dominio -> Building Block -> Capacidades -> Funcionalidades y diccionario de datos.</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <a href="#flujo-adopcion" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-info text-dark">2</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Flujo de Evaluaciones</h6>
+                </div>
+                <small class="text-muted">Ciclo completo: Convocatoria, Diagnóstico AS-IS, Contratos vigentes y Volumetría.</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <a href="#cierre-evaluacion" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-success">3</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Nuevo Estándar vs Descarte</h6>
+                </div>
+                <small class="text-muted">Qué ocurre al adjudicar un nuevo estándar corporativo o si la evaluación no es exitosa.</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <a href="#reporteria-seguridad" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-danger">4</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Reportería & Seguridad</h6>
+                </div>
+                <small class="text-muted">Las 5 vistas operacionales (Costos AS-IS, Treemap de Dominios) y controles técnicos (PBAC, safety).</small>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- SECCIÓN 1: TABLAS MAESTRAS -->
+<div class="card border-0 shadow-sm mb-4" id="tablas-maestras">
+    <div class="card-header bg-white border-bottom py-3">
+        <h2 class="h5 mb-0 fw-bold text-primary">1. Gestión de Tablas Maestras y Diccionario de Datos</h2>
+        <small class="text-muted">Módulo accesible en Administración > Tablas Maestras para gobernar el ecosistema tecnológico.</small>
+    </div>
+    <div class="card-body">
+        <h5 class="fw-bold text-dark mb-3">1.1. Arquitectura de Jerarquía de Catálogos de Seguridad</h5>
+        <p class="text-muted">El modelo estructural de Landscape TSI descompone los requerimientos técnicos en 4 niveles jerárquicos estrictos:</p>
+        
+        <div class="p-3 bg-light rounded border mb-4">
+            <div class="row text-center g-2 align-items-center">
+                <div class="col-md-3">
+                    <div class="p-2 bg-white rounded border shadow-sm">
+                        <span class="badge bg-dark mb-1">Nivel 1</span>
+                        <div class="fw-bold text-primary">TMDominio</div>
+                        <small class="text-muted">Área macro (ej. Application Security)</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-2 bg-white rounded border shadow-sm">
+                        <span class="badge bg-primary mb-1">Nivel 2</span>
+                        <div class="fw-bold text-primary">TBuildingBlock</div>
+                        <small class="text-muted">Componente (ej. WAAP, EDR, PAM)</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-2 bg-white rounded border shadow-sm">
+                        <span class="badge bg-info text-dark mb-1">Nivel 3</span>
+                        <div class="fw-bold text-primary">TCapacidadDeSeguridad</div>
+                        <small class="text-muted">Aptitud de defensa (ej. WAF, Anti-DDoS)</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-2 bg-white rounded border shadow-sm">
+                        <span class="badge bg-success mb-1">Nivel 4</span>
+                        <div class="fw-bold text-primary">TFuncionalidad</div>
+                        <small class="text-muted">Prueba técnica (ej. Reglas OWASP)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="fw-bold text-dark mb-3">1.2. Diccionario de Tablas Maestras y Transaccionales</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th style="min-width: 200px;">Tabla en Base de Datos</th>
+                        <th style="min-width: 170px;">Nombre Funcional</th>
+                        <th style="width: 120px;">Clasificación</th>
+                        <th>Objetivo y Significado Funcional</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>TMDominio</code></td>
+                        <td class="fw-bold">Dominio TSI</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Clasifica los dominios corporativos de seguridad de la información, alineados a lineamientos CIBER y CVT.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TBuildingBlock</code></td>
+                        <td class="fw-bold">Building Block</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Bloques constructivos reutilizables que brindan soluciones de seguridad compartidas a las subsidiarias.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TCapacidadDeSeguridad</code></td>
+                        <td class="fw-bold">Capacidad de Seguridad</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Aptitudes o mecanismos de protección específicos que el Building Block debe cubrir y evaluar.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TMEstadoCapacidad</code></td>
+                        <td class="fw-bold">Estado de Capacidad</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Clasificador de cobertura de la capacidad (ej. <em>Cubierto</em>, <em>Parcialmente</em>, <em>No Cubierto</em>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TFuncionalidad</code></td>
+                        <td class="fw-bold">Funcionalidad</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Requerimientos técnicos y casos de prueba detallados para evaluar en pruebas de concepto (PoC).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TTecnologiaTSI</code></td>
+                        <td class="fw-bold">Tecnología TSI</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Catálogo corporativo de soluciones de mercado (proveedores evaluados, vigentes o históricos).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TMFamilia</code></td>
+                        <td class="fw-bold">Familia Tecnológica</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Agrupador funcional de alto nivel aplicable a dominios, building blocks y tecnologías.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TMVersionDesplegada</code></td>
+                        <td class="fw-bold">Versión Desplegada</td>
+                        <td><span class="badge bg-secondary">Maestro</span></td>
+                        <td>Modalidades de entrega arquitectural (ej. <em>SaaS</em>, <em>PaaS</em>, <em>IaaS</em>, <em>On-Premises</em>, <em>Híbrido</em>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TEmpresaSubsidiaria</code></td>
+                        <td class="fw-bold">Empresa Subsidiaria</td>
+                        <td><span class="badge bg-info text-dark">Organización</span></td>
+                        <td>Directorio de entidades corporativas participantes (bancos, financieras, fintechs, aseguradoras).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TModalidadLaboral</code></td>
+                        <td class="fw-bold">Modalidad Laboral</td>
+                        <td><span class="badge bg-warning text-dark">Operación</span></td>
+                        <td>Modelo de dotación técnica para operar la tecnología (ej. <em>Propio / In-House</em>, <em>Tercerizado</em>, <em>Híbrido</em>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TTipoOperacion</code></td>
+                        <td class="fw-bold">Tipo de Operación</td>
+                        <td><span class="badge bg-warning text-dark">Operación</span></td>
+                        <td>Modelo de administración operativa (ej. <em>Autogestionado</em>, <em>Servicio Gestionado 24x7</em>, <em>SaaS Operado</em>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TVendor</code> / <code>TPartner</code></td>
+                        <td class="fw-bold">Fabricante y Canal Partner</td>
+                        <td><span class="badge bg-info text-dark">Organización</span></td>
+                        <td>Fabricantes directos de la tecnología y sus canales locales integradores autorizados en cada país.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TProcesoAdopcionTSI</code></td>
+                        <td class="fw-bold">Proceso de Adopción TSI</td>
+                        <td><span class="badge bg-primary">Transaccional</span></td>
+                        <td>Expediente maestro que orquesta la evaluación técnica corporativa de un Building Block.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TProcesoAdopcionEmpresa</code></td>
+                        <td class="fw-bold">Empresa en Convocatoria</td>
+                        <td><span class="badge bg-primary">Transaccional</span></td>
+                        <td>Control de convocatoria de cada subsidiaria (indica si <code>Aplica = true</code> o justificación de excepción).</td>
+                    </tr>
+                    <tr>
+                        <td><code>TTecnologiaTSIimplementadaSubsidiaria</code></td>
+                        <td class="fw-bold">Tecnología Implementada</td>
+                        <td><span class="badge bg-primary">Transaccional</span></td>
+                        <td>Diagnóstico actual (AS-IS) de las tecnologías desplegadas en producción por cada empresa.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TContratoTecnologia</code></td>
+                        <td class="fw-bold">Contrato de Tecnología</td>
+                        <td><span class="badge bg-primary">Transaccional</span></td>
+                        <td>Contratos vigentes, fechas de inicio/fin, montos económicos pactados y contratos flexibles PAYG.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TModeloDeOperacion</code></td>
+                        <td class="fw-bold">Modelo de Operación AS-IS</td>
+                        <td><span class="badge bg-primary">Transaccional</span></td>
+                        <td>Vinculación operativa entre la tecnología implementada, su tipo de operación y su modalidad laboral.</td>
+                    </tr>
+                    <tr>
+                        <td><code>TEstandarTecnologiaHistorico</code></td>
+                        <td class="fw-bold">Histórico de Estándares</td>
+                        <td><span class="badge bg-dark">Auditoría / Corp</span></td>
+                        <td>Registro inmutable de adjudicación de estándares corporativos y su sustento de arquitectura formal.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h5 class="fw-bold text-dark mb-3 mt-4">1.3. Configuración de Colores de Dominios de Seguridad</h5>
+        <p class="text-muted">
+            Accesible desde <strong>Administración › Configuración de Colores de Dominios</strong>. Permite a los administradores del sistema gestionar la identidad cromática institucional de cada Dominio TSI, asegurando contraste legible y accesibilidad conforme a los estándares <strong>WCAG AA</strong>:
+        </p>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-primary mb-1">🎨 Paleta Pastel Armonizada</h6>
+                    <p class="small text-muted mb-0">Cada dominio cuenta con tonos de fondo pastel suaves predeterminados (Data Security, Application Security, IAM, Network, Endpoint, etc.) con bordes delimitadores y tipografía con contraste garantizado.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-dark mb-1">👁️ Previsualización en Tiempo Real</h6>
+                    <p class="small text-muted mb-0">La interfaz ofrece un selector interactivo <code>&lt;input type="color"&gt;</code> y código hexadecimal con actualización instantánea de la tarjeta de muestra antes de confirmar la persistencia.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-danger mb-1">↺ Restablecimiento Institucional</h6>
+                    <p class="small text-muted mb-0">Posibilidad de restablecer dominios individuales o la totalidad de catálogos a la paleta oficial por defecto con un solo clic.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 2: FLUJO DE ADOPCIÓN -->
+<div class="card border-0 shadow-sm mb-4" id="flujo-adopcion">
+    <div class="card-header bg-white border-bottom py-3">
+        <h2 class="h5 mb-0 fw-bold text-info">2. Flujo del Proceso de Adopción de Seguridad (Evaluaciones Técnicas)</h2>
+        <small class="text-muted">Procedimiento operativo para abrir, diagnosticar y ejecutar evaluaciones corporativas.</small>
+    </div>
+    <div class="card-body">
+        <div class="timeline-steps mb-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="card h-100 border-primary shadow-none bg-primary-subtle p-3">
+                        <span class="badge bg-primary w-fit mb-2">Paso 1</span>
+                        <h6 class="fw-bold text-dark">Definición y Convocatoria</h6>
+                        <ul class="small ps-3 mb-0 text-secondary">
+                            <li>Código de evaluación y fechas estimadas.</li>
+                            <li>Selección de Dominio y Building Block.</li>
+                            <li>Carga reactiva de capacidades y funcionalidades.</li>
+                            <li><strong>Selección de empresas participantes</strong>: Las empresas que no participen deben ser desmarcadas para que no aparezcan en la evaluación ni en reportería.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100 border-info shadow-none bg-info-subtle p-3">
+                        <span class="badge bg-info text-dark w-fit mb-2">Paso 2</span>
+                        <h6 class="fw-bold text-dark">Diagnóstico AS-IS</h6>
+                        <ul class="small ps-3 mb-0 text-secondary">
+                            <li>Tecnología actual en uso por subsidiaria.</li>
+                            <li>Versión Desplegada (SaaS, On-Prem, etc.).</li>
+                            <li><strong>Tipo de Operación</strong> (Autogestionado / Gestionado).</li>
+                            <li><strong>Modalidad Laboral</strong> (Propio / Tercero / Híbrido).</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100 border-warning shadow-none bg-warning-subtle p-3">
+                        <span class="badge bg-warning text-dark w-fit mb-2">Paso 3</span>
+                        <h6 class="fw-bold text-dark">Contratos y Partners</h6>
+                        <ul class="small ps-3 mb-0 text-secondary">
+                            <li>Contrato vigente a fecha fija o modalidad <strong>PAYG</strong>.</li>
+                            <li>Fechas de vigencia y monto contratado total.</li>
+                            <li>Selección de Fabricante (Vendor) y Partner local.</li>
+                            <li>Carga automática de contactos comerciales y soporte.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100 border-success shadow-none bg-success-subtle p-3">
+                        <span class="badge bg-success w-fit mb-2">Paso 4</span>
+                        <h6 class="fw-bold text-dark">Volumetría y PoC</h6>
+                        <ul class="small ps-3 mb-0 text-secondary">
+                            <li>Throughput proyectado (Gbps).</li>
+                            <li>Apps FQDN y millones de requests (WAF, Bot, API).</li>
+                            <li>Evaluación técnica de funcionalidades.</li>
+                            <li>Auditoría y matrices de cobertura.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 3: CIERRE DE EVALUACIÓN -->
+<div class="card border-0 shadow-sm mb-4" id="cierre-evaluacion">
+    <div class="card-header bg-white border-bottom py-3">
+        <h2 class="h5 mb-0 fw-bold text-success">3. Definición de un Nuevo Estándar vs. Evaluación No Exitosa</h2>
+        <small class="text-muted">Resolución formal de la evaluación técnica tras concluir las pruebas de concepto (PoC).</small>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <!-- CASO ÉXITO -->
+            <div class="col-md-6">
+                <div class="card h-100 border-success border-2 shadow-sm">
+                    <div class="card-header bg-success text-white py-2 fw-bold d-flex align-items-center justify-content-between">
+                        <span>Escenario A: Adjudicación de Nuevo Estándar Corporativo</span>
+                        <span class="badge bg-white text-success">Éxito Técnico</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2">Se produce cuando una tecnología evaluada supera las pruebas técnicas, funcionales y de costo-eficiencia corporativa.</p>
+                        <h6 class="fw-bold text-dark small mb-1">Impactos y Acciones en el Sistema:</h6>
+                        <ol class="small ps-3 mb-3 text-secondary">
+                            <li><strong>Designación de Tecnología</strong>: Se selecciona la solución ganadora de <code>TTecnologiaTSI</code> y se define su rol (<em>Estándar Primario</em> o <em>Secundario</em>).</li>
+                            <li><strong>Registro Histórico Inmutable</strong>: Se almacena en <code>TEstandarTecnologiaHistorico</code> con fecha de inicio de vigencia, número de proceso y el <strong>Sustento de Arquitectura</strong> formal obligatorio.</li>
+                            <li><strong>Alineación Inmediata de Subsidiarias</strong>: Las empresas que adoptan la solución actualizan sus tecnologías implementadas con <code>EsInstanciaCorporativa = true</code> y <code>EsTecnologiaPrimaria = true</code>.</li>
+                            <li><strong>Contrato Corporativo Centralizado</strong>: Se registra el contrato marco negociado (monto, vigencia, moneda, drivers de volumen).</li>
+                            <li><strong>Cierre de Proceso</strong>: El expediente de evaluación pasa formalmente a estado <strong><code>ESTANDARIZADO</code> / <code>CERRADO</code></strong>.</li>
+                        </ol>
+                        <div class="alert alert-success py-2 px-3 small mb-0">
+                            <strong>Resultado:</strong> Estandarización oficial para nuevas contrataciones y roadmap de migración para las subsidiarias.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CASO NO EXITOSA -->
+            <div class="col-md-6">
+                <div class="card h-100 border-danger border-2 shadow-sm">
+                    <div class="card-header bg-danger text-white py-2 fw-bold d-flex align-items-center justify-content-between">
+                        <span>Escenario B: Evaluación No Exitosa o Desierta</span>
+                        <span class="badge bg-white text-danger">Sin Adopción</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2">Ocurre cuando las alternativas probadas no alcanzan el umbral de seguridad, fallan en compatibilidad o resultan económicamente inviables.</p>
+                        <h6 class="fw-bold text-dark small mb-1">Impactos y Acciones en el Sistema:</h6>
+                        <ol class="small ps-3 mb-3 text-secondary">
+                            <li><strong>Cierre sin Adjudicación</strong>: Se invoca la finalización sin selección de estándar corporativo.</li>
+                            <li><strong>Registro Obligatorio de Sustento / Motivo</strong>: El líder técnico documenta los hallazgos desfavorables (incompatibilidades, vulnerabilidades en PoC, costos excedidos).</li>
+                            <li><strong>Sin Impacto en Estándares</strong>: La tabla <code>TEstandarTecnologiaHistorico</code> no sufre alteraciones; el estándar corporativo previo (si existía) continúa vigente.</li>
+                            <li><strong>Preservación del Ecosistema AS-IS</strong>: Las subsidiarias conservan sus herramientas locales y contratos vigentes sin cambios operacionales forzados.</li>
+                            <li><strong>Trazabilidad y Lecciones Aprendidas</strong>: El proceso queda registrado con estado <strong><code>NO EXITOSA</code> / <code>CERRADA SIN ADOPCIÓN</code></strong>, preservando reportes y mediciones como histórico para futuras convocatorias.</li>
+                        </ol>
+                        <div class="alert alert-danger py-2 px-3 small mb-0">
+                            <strong>Resultado:</strong> Registro histórico transparente que previene volver a evaluar alternativas inviables a corto plazo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 4: REPORTERÍA & VISUALIZACIÓN EJECUTIVA -->
+<div class="card border-0 shadow-sm mb-4" id="reporteria-seguridad">
+    <div class="card-header bg-white border-bottom py-3">
+        <h2 class="h5 mb-0 fw-bold text-primary">4. Reportería, Visualización Ejecutiva y Mapas del Catálogo</h2>
+        <small class="text-muted">Estructura de navegación ejecutiva y módulos analíticos de Landscape TSI.</small>
+    </div>
+    <div class="card-body">
+        <!-- 4.1 PORTADA: MAPA LANDSCAPE TSI -->
+        <h5 class="fw-bold text-dark mb-2">4.1. Portada del Sistema: Mapa Landscape TSI (Treemap Proporcional)</h5>
+        <p class="text-muted mb-3">
+            La página de inicio principal (<code>/</code>) presenta el <strong>Mapa Landscape TSI</strong> como un mosaico treemap interactivo donde la superficie y peso de cada rectángulo es directamente proporcional a la cantidad de Building Blocks asignados respecto al total del catálogo:
+        </p>
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-primary mb-1">📊 Indicadores Ejecutivos (KPIs)</h6>
+                    <p class="small text-muted mb-0">Presenta el recuento consolidado de <em>Dominios Activos</em>, <em>Total de Building Blocks</em> y el <em>Dominio Dominante</em> con su porcentaje exacto de representatividad.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-dark mb-1">📐 Superficie Proporcional & Chips</h6>
+                    <p class="small text-muted mb-0">Cada tarjeta de dominio despliega su porcentaje, conteo de componentes y chips con los Building Blocks más representativos (sin visualización innecesaria de códigos hexadecimales).</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-success mb-1">🔍 Desglose Dinámico & Exportación</h6>
+                    <p class="small text-muted mb-0">Al hacer clic en cualquier dominio, se despliega una grilla interactiva con ordenamiento en cabeceras (#, Building Block, Pilar ZT, Fase, Funcionalidades, Subsidiarias) y descarga en CSV para administradores.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4.2 REPORTERÍA: DISTRIBUCIÓN DE DOMINIOS -->
+        <h5 class="fw-bold text-dark mb-2">4.2. Módulo de Reportería: Distribución de Dominios & Ficha Interactiva</h5>
+        <p class="text-muted mb-3">
+            Ubicado en <strong>Reportería › Distribución de Dominios</strong> (opción 1 del menú y pestaña por defecto al entrar a <code>/reporteria</code>). Ofrece la vista detallada de todos los bloques constructivos:
+        </p>
+        <div class="p-3 bg-light rounded border mb-4">
+            <ul class="small text-secondary ps-3 mb-0">
+                <li class="mb-2"><strong>Mosaico por Dominio</strong>: Organizado por tarjetas con los colores de identidad institucional WCAG AA, conteniendo las fichas individuales de cada Building Block con sus etiquetas de Pilar Zero Trust, definición, conteo de funcionalidades y subsidiarias con tecnología desplegada.</li>
+                <li class="mb-2"><strong>Ficha Técnica Interactiva con Capacidad de Seguridad</strong>: Al hacer clic en un Building Block, se abre el panel inferior con la pestaña <em>"Funcionalidades y Capacidades de Seguridad"</em>, incorporando la columna <strong>"Capacidad de Seguridad"</strong> inmediatamente al lado de la columna <strong>"Funcionalidad"</strong>.</li>
+                <li class="mb-2"><strong>Filtro por Capacidad de Seguridad</strong>: Selector desplegable que permite aislar las funcionalidades correspondientes a una capacidad específica.</li>
+                <li class="mb-2"><strong>Cabeceras con Ordenamiento Dinámico</strong>: Clic en cualquiera de las cabeceras (<code>#</code>, <code>Capacidad de Seguridad</code>, <code>Funcionalidad</code>, <code>Descripción</code>, <code>Estado</code>, así como en las columnas de subsidiarias) para ordenar al instante de forma ascendente y descendente (indicadores <code>▲</code>/<code>▼</code>).</li>
+                <li><strong>Capacidad de Descarga para Administradores</strong>: Botón <strong>"📥 Descargar Información"</strong> con descarga en <strong>Excel nativo (.xlsx)</strong> con dos hojas estructuradas (Funcionalidades y Subsidiarias) o en formato <strong>CSV (.csv)</strong> para usuarios autorizados con el permiso <code>Catalogos.ExportarExcel</code>.</li>
+            </ul>
+        </div>
+
+        <!-- 4.3 REPORTERÍA OPERACIONAL DE EVALUACIONES -->
+        <h5 class="fw-bold text-dark mb-3">4.3. Resumen de Reportería Operacional y de Seguimiento de Evaluaciones</h5>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-primary d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">a</span> Reporte de Alcance del Proceso
+                    </h6>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Transparentar el perímetro de aplicación y las empresas activamente involucradas.</p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li>Lista de subsidiarias participantes convocadas.</li>
+                        <li>Tecnología actual en producción (AS-IS) y país.</li>
+                        <li>Fecha de fin de contrato vigente y partner local.</li>
+                        <li>Modelo de operación (Autogestionado vs. Gestionado).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-info d-flex align-items-center gap-2">
+                        <span class="badge bg-info text-dark">b</span> Vencimiento de Contratos & Proyección
+                    </h6>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Planificar la ventana de migración corporativa sin incurrir en penalidades ni doble facturación.</p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li>Línea de tiempo mes a mes de vencimientos de contratos.</li>
+                        <li>Identificación de contratos tradicionales vs. modelos flexibles <strong>PAYG</strong>.</li>
+                        <li>Costo económico acumulado que se libera para renegociación corporativa.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-warning d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark">3</span> Volumetría por Empresa (Columnas de Consumo)
+                    </h6>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Sustentar cuantitativamente el dimensionamiento técnico y consumo real sin mezclar precios.</p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li><strong>Drivers Operativos en Columnas Dinámicas</strong>: Cada driver cargado por las subsidiarias en la evaluación genera su columna con formato <code>[Descripción Driver] / [Unidad de Medida]</code> (ej. <em>Licencias por Servidor / Unidad</em>, <em>Datastores / Datastores</em>).</li>
+                        <li><strong>Valor por Defecto</strong>: Si una empresa no registró el driver, se muestra <code>0.00</code>.</li>
+                        <li><strong>Cero Data Sintética</strong>: Se muestran únicamente los valores reales cargados en base de datos.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-success d-flex align-items-center gap-2">
+                        <span class="badge bg-success">4</span> Matriz de Cobertura de Capacidades
+                    </h6>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Análisis de brecha (Gap Analysis) de seguridad por cada subsidiaria.</p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li>Columnas alimentadas <strong>exclusivamente de las capacidades de seguridad registradas en la tabla maestra para el Building Block</strong>.</li>
+                        <li>Estado de cobertura: <strong>A (Activo)</strong> en producción, <strong>F (Futuro)</strong> planificado, <strong>NA (No Aplica)</strong>.</li>
+                        <li>Comentarios particulares y observaciones de arquitectura por empresa.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-12">
+                <div class="card h-100 border-0 bg-light p-3 border-start border-4 border-success">
+                    <h6 class="fw-bold text-dark d-flex align-items-center gap-2">
+                        <span class="badge bg-success">5</span> Proyección de Costos AS-IS (Valorización Financiera)
+                    </h6>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Consolidar el costo financiero total de la tecnología y contratos instalados en cada subsidiaria.</p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li>Detalle valorizado: <code>Empresa | Tecnología AS-IS | Driver de Costo | Unidad | Cantidad | Precio Unitario | Costo Total</code>.</li>
+                        <li>Fila de totales consolidados con la suma general de inversión en dólares (USD).</li>
+                        <li>Exportable a Excel de manera independiente o como parte del libro completo de evaluación.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 5: CONTROLES DE SEGURIDAD -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+        <h2 class="h5 mb-0 fw-bold text-danger">5. Controles de Seguridad de la Plataforma Landscape TSI</h2>
+        <small class="text-muted">Medidas de defensa técnica en profundidad implementadas para salvaguardar la confidencialidad e integridad del sistema.</small>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-dark mb-2">🔐 Gestión de Identidad y Acceso (IAM) & PBAC</h6>
+                    <ul class="small ps-3 mb-0 text-secondary">
+                        <li><strong>Autenticación Híbrida</strong>: Soporte para credenciales locales y federación corporativa <strong>OIDC</strong> (OpenID Connect).</li>
+                        <li><strong>Cookies de Sesión Blindadas</strong>:
+                            <ul class="ps-3 mt-1">
+                                <li>Prefijo <code>__Host-LandscapeTsi.Auth</code>.</li>
+                                <li><code>HttpOnly = true</code> (inmune a robo de token por XSS).</li>
+                                <li><code>SameSite = Lax</code> y <code>SecurePolicy = Always</code> (HTTPS forzado).</li>
+                                <li>Expiración deslizante automática de 30 minutos.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Autorización PBAC Granular</strong>: Políticas por permisos específicos:
+                            <ul class="ps-3 mt-1">
+                                <li><code>Catalogos.ExportarExcel</code>: Exclusivo del <strong>Administrador</strong> para exportación masiva de tablas maestras.</li>
+                                <li><code>ProcesosTsi.ExportarExcel</code>: Habilitado para Administrador, Arquitecto y <strong>SPOC / Gobierno</strong> para descargar reportes de adopción.</li>
+                                <li><code>DatosSensibles.Ver</code>: Enmascara correos y teléfonos salvo para Administradores.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Rol Gobierno / SPOC</strong>: Perfil de supervisión con acceso a catálogos, auditoría y exportación de reportes de evaluaciones TSI sin visualización de PII sin enmascarar.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-dark mb-2">🛡️ Protección Perimetral y Datos Sensibles (PII)</h6>
+                    <ul class="small ps-3 mb-0 text-secondary">
+                        <li><strong>Enmascaramiento Dinámico de Contactos</strong>: Correos (<code>a***o@dominio.com</code>) y teléfonos (<code>+51  ••• 99</code>) de CISOs, contactos de vendors y partners se protegen dinámicamente frente a accesos no autorizados.</li>
+                        <li><strong>Pantallas Amigables de Acceso Denegado</strong>: Interfaz explicativa con identificación de usuario y roles asignados ante denegación por PBAC.</li>
+                        <li><strong>Rate Limiter en Inicio de Sesión</strong>: Política de limitación que restringe a <strong>10 peticiones por minuto por IP</strong> en <code>/Account/Login</code>, previniendo ataques de fuerza bruta y credential stuffing.</li>
+                        <li><strong>Bloqueo Automático de Cuentas (Lockout)</strong>: Tras 5 intentos fallidos, la cuenta queda temporalmente bloqueada durante 15 minutos.</li>
+                        <li><strong>Mecanismo Break-Glass</strong>: Protocolo de acceso de emergencia para administradores con justificación obligatoria y auditoría reforzada.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-light p-3">
+                    <h6 class="fw-bold text-dark mb-2">🗄️ Seguridad en Base de Datos y Trazabilidad</h6>
+                    <ul class="small ps-3 mb-0 text-secondary">
+                        <li><strong>Database Safety Validator</strong>: Validación estricta en el inicio de la aplicación para comprobar que el catálogo de base de datos coincida con el nombre esperado, bloqueando conexiones a bases de datos equivocadas.</li>
+                        <li><strong>Pistas de Auditoría Inmutables</strong>: Registro de todas las transacciones de modificación, creación y borrado en <code>IamAuditoriaAcceso</code> con IP, actor y correlation ID.</li>
+                        <li><strong>Consultas Parametrizadas al 100%</strong>: Prevención integral contra ataques de inyección SQL (SQLi).</li>
+                        <li><strong>Exportación Nativa Segura a Excel (.xlsx)</strong>: Motor de generación en memoria OpenXML sin dependencias externas pesadas, respetando el control de acceso y enmascaramiento de datos.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

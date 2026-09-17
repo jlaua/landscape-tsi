@@ -110,6 +110,51 @@ public sealed class CompanyCisoHttpTests
         Assert.DoesNotContain("<option value=\"Operación\">", html);
     }
 
+    [Fact]
+    public async Task ReportingIndex_DefaultsToDomainDistribution()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/reporteria");
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Distribución de Dominios", html);
+        Assert.Contains("id=\"tab-dominios-btn\"", html);
+        Assert.Contains("class=\"nav-link active fw-bold px-3 py-2\" id=\"tab-dominios-btn\"", html);
+    }
+
+    [Fact]
+    public async Task HomeIndex_ReturnsLandscapeTsiTreemap()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Mapa Landscape TSI", html);
+        Assert.Contains("treemap-layout-container", html);
+    }
+
+    [Fact]
+    public async Task ReportingSubRoutes_ReturnSuccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var distResp = await client.GetAsync("/reporteria/distribucion-dominios");
+        Assert.Equal(HttpStatusCode.OK, distResp.StatusCode);
+
+        var catResp = await client.GetAsync("/reporteria/catalogos");
+        Assert.Equal(HttpStatusCode.OK, catResp.StatusCode);
+
+        var htmlCat = WebUtility.HtmlDecode(await catResp.Content.ReadAsStringAsync());
+        Assert.Contains("class=\"nav-link active fw-bold px-3 py-2\" id=\"tab-catalogos-btn\"", htmlCat);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

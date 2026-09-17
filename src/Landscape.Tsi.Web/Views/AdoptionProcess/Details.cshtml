@@ -24,6 +24,14 @@
             <a asp-action="Reports" asp-route-id="@p.Id" class="btn btn-outline-info text-dark btn-sm fw-semibold shadow-sm d-inline-flex align-items-center gap-1" title="Ver los 4 reportes de seguimiento de esta evaluación">
                 <span>📊 Reportería & Seguimiento</span>
             </a>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+            {
+                <a asp-action="ExportEvaluationExcel" asp-route-id="@p.Id" asp-route-section="all"
+                   class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                   title="Exportar evaluación completa con todas sus secciones a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Exportar Evaluación a Excel</span>
+                </a>
+            }
             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
             {
                 <button type="button" class="badge bg-primary fs-6 border-0 text-white d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#modal-change-status" title="Haga clic para cambiar el estado del proceso">
@@ -238,36 +246,50 @@
                         };
 
                         <div class="accordion-item mb-2 border rounded company-draggable-item" data-proceso-emp-id="@emp.ProcesoEmpresaId">
-                            <div class="d-flex align-items-center justify-content-between p-1 pe-2 bg-light border-bottom rounded-top">
-                                <span class="company-drag-handle px-2 py-2 text-secondary cursor-grab" title="Arrastrar para reordenar" style="cursor: grab; user-select: none;">
-                                    <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
-                                </span>
-                                <button class="accordion-button collapsed py-2 shadow-none bg-transparent flex-grow-1 border-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@emp.ProcesoEmpresaId" aria-expanded="false" aria-controls="collapse-@emp.ProcesoEmpresaId">
-                                    <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                        <div>
-                                            <strong>@emp.EmpresaNombre</strong>
-                                            <span class="text-muted ms-2 small">Focal: @(emp.ContactoFocalNombre ?? "Sin asignar") @(emp.ContactoFocalEmail is not null ? $"<{emp.ContactoFocalEmail}>" : "")</span>
-                                        </div>
-                                        <div>
+                            <div class="d-flex align-items-center justify-content-between p-1 pe-2 bg-light border-bottom rounded-top flex-wrap gap-2">
+                                <div class="d-flex align-items-center flex-grow-1 min-w-0">
+                                    <span class="company-drag-handle px-2 py-2 text-secondary cursor-grab" title="Arrastrar para reordenar" style="cursor: grab; user-select: none;">
+                                        <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                    </span>
+                                    <button class="accordion-button company-accordion-btn collapsed py-2 px-2 shadow-none bg-transparent flex-grow-1 border-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@emp.ProcesoEmpresaId" aria-expanded="false" aria-controls="collapse-@emp.ProcesoEmpresaId">
+                                        <span class="fw-bold text-dark text-truncate me-2">@emp.EmpresaNombre</span>
+                                        <span class="d-inline-flex align-items-center gap-1 ms-auto flex-shrink-0">
                                             @if (!emp.Aplica)
                                             {
-                                                <span class="badge bg-secondary me-2">NO APLICA</span>
+                                                <span class="badge bg-secondary">NO APLICA</span>
                                             }
                                             <span class="badge @badgeClass">@emp.EstadoAlineamiento</span>
-                                        </div>
-                                    </div>
-                                </button>
-                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
-                                {
-                                    <form method="post" asp-action="RemoveCompany" asp-route-id="@p.Id" class="d-inline ms-1" onsubmit="return confirm('¿Está seguro de que desea eliminar a @emp.EmpresaNombre de este proceso de evaluación?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="procesoEmpresaId" value="@emp.ProcesoEmpresaId" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 d-inline-flex align-items-center gap-1" title="Eliminar empresa del proceso">
-                                            <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            <span class="d-none d-sm-inline small">Eliminar</span>
-                                        </button>
-                                    </form>
-                                }
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 ms-auto">
+                                    <span class="badge bg-white text-dark border d-inline-flex align-items-center gap-1 py-1 px-2 small">
+                                        <span class="text-muted">Focal:</span>
+                                        <span id="focal-display-@emp.EmpresaId" class="fw-medium">@(emp.ContactoFocalNombre ?? "Sin asignar")</span>
+                                        <span id="focal-email-@emp.EmpresaId" class="text-muted small">@(emp.ContactoFocalEmail is not null ? $"<{emp.ContactoFocalEmail}>" : "")</span>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-decoration-none btn-assign-focal-modal"
+                                                    data-empresa-id="@emp.EmpresaId"
+                                                    data-empresa-name="@emp.EmpresaNombre"
+                                                    data-current-focal-id="@(emp.ContactoFocalId?.ToString() ?? "")"
+                                                    title="Asignar o cambiar especialista focal">
+                                                ✏️
+                                            </button>
+                                        }
+                                    </span>
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                    {
+                                        <form method="post" asp-action="RemoveCompany" asp-route-id="@p.Id" class="d-inline mb-0" onsubmit="return confirm('¿Está seguro de que desea eliminar a @emp.EmpresaNombre de este proceso de evaluación?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="procesoEmpresaId" value="@emp.ProcesoEmpresaId" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 d-inline-flex align-items-center gap-1" title="Eliminar empresa del proceso">
+                                                <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                <span class="d-none d-sm-inline small">Eliminar</span>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
                             </div>
                             <div id="collapse-@emp.ProcesoEmpresaId" class="accordion-collapse collapse" aria-labelledby="heading-@emp.ProcesoEmpresaId" data-bs-parent="#accordionEmpresas">
                                 <div class="accordion-body">
@@ -845,6 +867,95 @@
                                             </div>
                                         }
                                     }
+
+                                    <!-- CAPACIDADES DEL BUILDING BLOCK POR EMPRESA -->
+                                    <div class="mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                            <div>
+                                                <h5 class="h6 mb-0 text-dark fw-bold d-flex align-items-center gap-2">
+                                                    <span>🛡️ Cobertura de Capacidades para @emp.EmpresaNombre</span>
+                                                    <span class="badge bg-secondary-subtle text-dark border">@p.BuildingBlockNombre</span>
+                                                </h5>
+                                                <small class="text-muted">Defina el estado de adopción técnica por capacidad: <strong>[A] Activo</strong>, <strong>[F] Futuro</strong> o <strong>[NA] No aplica</strong>.</small>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">A: Activo</span>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">F: Futuro</span>
+                                                <span class="badge bg-secondary-subtle text-secondary border">NA: No Aplica</span>
+                                            </div>
+                                        </div>
+
+                                        @if (emp.Capacidades is null || emp.Capacidades.Count == 0)
+                                        {
+                                            <p class="text-muted small fst-italic mb-2">No se han registrado capacidades para el Building Block @p.BuildingBlockNombre.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive bg-white rounded border">
+                                                <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.85rem;">
+                                                    <thead class="table-light text-muted" style="font-size:0.75rem;">
+                                                        <tr>
+                                                            <th style="width: 40px;" class="text-center">#</th>
+                                                            <th style="min-width: 200px;">Capacidad del Building Block</th>
+                                                            <th style="width: 220px;" class="text-center">Estado de Cobertura</th>
+                                                            <th>Observación / Plan de Adopción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @for (int ci = 0; ci < emp.Capacidades.Count; ci++)
+                                                    {
+                                                        var cap = emp.Capacidades[ci];
+                                                        <tr data-empresa-id="@emp.EmpresaId" data-capacidad-id="@cap.CapacidadId" data-proceso-id="@p.Id">
+                                                            <td class="text-center text-muted small">@(ci + 1)</td>
+                                                            <td class="fw-semibold text-dark">@cap.CapacidadNombre</td>
+                                                            <td class="text-center">
+                                                                <div class="btn-group btn-group-sm w-100 capability-state-toggle" role="group">
+                                                                    <input type="radio" class="btn-check cap-radio-btn" name="cap_state_@(emp.EmpresaId)_@(cap.CapacidadId)" id="cap_a_@(emp.EmpresaId)_@(cap.CapacidadId)" value="A" @(cap.EstadoCodigo == "A" ? "checked" : "") data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" data-capacidad-id="@cap.CapacidadId" />
+                                                                    <label class="btn btn-outline-success py-0 px-2 fw-semibold" for="cap_a_@(emp.EmpresaId)_@(cap.CapacidadId)" title="Activo en producción">A</label>
+
+                                                                    <input type="radio" class="btn-check cap-radio-btn" name="cap_state_@(emp.EmpresaId)_@(cap.CapacidadId)" id="cap_f_@(emp.EmpresaId)_@(cap.CapacidadId)" value="F" @(cap.EstadoCodigo == "F" ? "checked" : "") data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" data-capacidad-id="@cap.CapacidadId" />
+                                                                    <label class="btn btn-outline-primary py-0 px-2 fw-semibold" for="cap_f_@(emp.EmpresaId)_@(cap.CapacidadId)" title="Funcionalidad futura planificada">F</label>
+
+                                                                    <input type="radio" class="btn-check cap-radio-btn" name="cap_state_@(emp.EmpresaId)_@(cap.CapacidadId)" id="cap_na_@(emp.EmpresaId)_@(cap.CapacidadId)" value="NA" @(cap.EstadoCodigo != "A" && cap.EstadoCodigo != "F" ? "checked" : "") data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" data-capacidad-id="@cap.CapacidadId" />
+                                                                    <label class="btn btn-outline-secondary py-0 px-2 fw-semibold" for="cap_na_@(emp.EmpresaId)_@(cap.CapacidadId)" title="No aplica para esta subsidiaria">NA</label>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" class="form-control form-control-sm cap-comment-input" 
+                                                                       placeholder="Observación técnica opcional..." 
+                                                                       value="@(cap.Comentario ?? "")"
+                                                                       data-original-val="@(cap.Comentario ?? "")"
+                                                                       data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" data-capacidad-id="@cap.CapacidadId" />
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+
+                                        <!-- Comentario general de la subsidiaria y Guardado Consolidado -->
+                                        <div class="mt-2 p-2 bg-light rounded border">
+                                            <div class="row g-2 align-items-center">
+                                                <div class="col-md-3">
+                                                    <label class="form-label small fw-bold mb-0 text-dark">Comentario General Subsidiaria:</label>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <input type="text" class="form-control form-control-sm company-caps-general-comment" 
+                                                           placeholder="Comentario general de capacidades para el reporte consolidado..." 
+                                                           value="@(emp.ComentarioCapacidades ?? "")"
+                                                           data-original-val="@(emp.ComentarioCapacidades ?? "")"
+                                                           data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" />
+                                                </div>
+                                                <div class="col-md-3 text-end">
+                                                    <button class="btn btn-primary btn-sm btn-save-all-company-caps w-100 fw-semibold d-inline-flex align-items-center justify-content-center gap-1 shadow-sm"
+                                                            type="button" data-proceso-id="@p.Id" data-empresa-id="@emp.EmpresaId" title="Guardar todos los cambios de cobertura y observaciones para @emp.EmpresaNombre">
+                                                        <span>💾 Guardar Cobertura</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2166,6 +2277,144 @@
     </div>
 </div>
 
+<!-- MODAL: ASIGNAR / CAMBIAR ESPECIALISTA FOCAL & GESTIÓN DE CONTACTOS -->
+<div class="modal fade" id="modal-assign-focal" tabindex="-1" aria-labelledby="modalAssignFocalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <p class="text-uppercase text-muted small fw-semibold mb-1">CONTACTOS DE LA EMPRESA / SUBSIDIARIA</p>
+                    <h4 class="modal-title fw-bold" id="modalAssignFocalTitle">Especialistas Registrados</h4>
+                    <p class="text-muted small mb-0">Empresa Subsidiaria: <span id="focalModalCompanyName" class="fw-semibold text-dark">—</span></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Alerta dentro del modal -->
+                <div id="focalModalAlert" class="alert d-none py-2 px-3 small mb-3" role="alert"></div>
+
+                <!-- Callout informativo -->
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Seleccione al especialista que actuará como <strong>punto focal</strong> para este proceso de evaluación, o gestione (registre/edite) los contactos de la subsidiaria.
+                    </div>
+                    <div id="focalCurrentAssignedBadge"></div>
+                </div>
+
+                <!-- Barra de herramientas: Búsqueda en tiempo real, contador y botón de nuevo contacto -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 450px;">
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0" id="focal-search-addon">🔍</span>
+                            <input type="search" id="focalModalSearch" class="form-control border-start-0" placeholder="Buscar por nombre, cargo, email, teléfono..." aria-label="Buscar especialistas" aria-describedby="focal-search-addon" />
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="focalModalBadgeCount">0 contactos</span>
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                        {
+                            <button type="button" class="btn btn-primary btn-sm fw-semibold" id="focalModalToggleFormBtn">
+                                + Nuevo Contacto
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Formulario desplegable para Registro / Edición de Contacto -->
+                <div id="focalFormCard" class="card border mb-3 shadow-sm" style="display: none; border-radius: 8px;">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                        <strong id="focalFormTitle">Registrar Nuevo Contacto</strong>
+                        <button type="button" class="btn-close" id="focalFormCloseBtn" aria-label="Cerrar formulario"></button>
+                    </div>
+                    <div class="card-body">
+                        <form id="focalContactForm" autocomplete="off">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" id="focal-field-id" value="" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="focal-field-nombre" class="form-label fw-semibold small">Nombre Completo <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="focal-field-nombre" required placeholder="Ej. Juan Pérez" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="focal-field-rol" class="form-label fw-semibold small">Rol / Cargo</label>
+                                    <input type="text" class="form-control form-control-sm" id="focal-field-rol" placeholder="Ej. Analista / Especialista" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="focal-field-email" class="form-label fw-semibold small">Correo Electrónico</label>
+                                    <input type="email" class="form-control form-control-sm" id="focal-field-email" placeholder="ejemplo@empresa.com" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="focal-field-telefono" class="form-label fw-semibold small">Teléfono</label>
+                                    <input type="tel" class="form-control form-control-sm" id="focal-field-telefono" placeholder="+51 999 888 777" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="focal-field-otro" class="form-label fw-semibold small">Otro / Contacto Adicional</label>
+                                    <input type="text" class="form-control form-control-sm" id="focal-field-otro" placeholder="Detalle adicional" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="focal-field-notas" class="form-label fw-semibold small">Notas / Observaciones</label>
+                                    <input type="text" class="form-control form-control-sm" id="focal-field-notas" placeholder="Anotaciones relevantes" />
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="focalFormCancelBtn">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-sm fw-semibold" id="focalFormSubmitBtn">Guardar Contacto</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Indicador de carga -->
+                <div id="focalModalLoading" class="text-center py-4" hidden>
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando contactos...</span>
+                    </div>
+                    <p class="text-muted mt-2 mb-0">Consultando especialistas de la empresa...</p>
+                </div>
+
+                <!-- Grilla de contactos -->
+                <div id="focalModalContent">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" style="width: 24%;">Nombre Contacto</th>
+                                    <th scope="col" style="width: 18%;">Rol / Cargo</th>
+                                    <th scope="col" style="width: 20%;">Correo Electrónico</th>
+                                    <th scope="col" style="width: 13%;">Teléfono</th>
+                                    <th scope="col" style="width: 10%;">Notas</th>
+                                    <th scope="col" style="width: 15%; text-align: right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="focalModalTbody"></tbody>
+                        </table>
+                    </div>
+                    <p class="text-center text-muted py-4 my-2 border rounded bg-light" id="focalModalEmpty" hidden>
+                        No existen contactos registrados para esta empresa subsidiaria. Haga clic en <strong>+ Nuevo Contacto</strong> para registrar uno.
+                    </p>
+                    <p class="text-center text-muted py-4 my-2 border rounded bg-light" id="focalModalNoSearch" hidden>
+                        No se encontraron contactos que coincidan con el criterio de búsqueda.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between bg-light py-2">
+                <div>
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                    {
+                        <button type="button" id="btnRemoveFocalAssignment" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" title="Quitar la designación de punto focal para esta empresa en esta evaluación">
+                            <span>✕ Quitar Focal (Dejar sin asignar)</span>
+                        </button>
+                    }
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -2896,10 +3145,762 @@
                     if (finContractAdj) finContractAdj.disabled = isPayg;
                 });
             }
+
+            // --- Modal Especialistas y Contactos / Asignación de Focal ---
+            let activeFocalEmpresaId = null;
+            let activeCurrentFocalId = null;
+            let activeCompanyName = '';
+            let focalContactsList = [];
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            const modalFocalEl = document.getElementById('modal-assign-focal');
+            const focalModalBs = modalFocalEl ? new bootstrap.Modal(modalFocalEl) : null;
+            const focalCompanyNameEl = document.getElementById('focalModalCompanyName');
+            const focalAlertEl = document.getElementById('focalModalAlert');
+            const focalLoadingEl = document.getElementById('focalModalLoading');
+            const focalContentEl = document.getElementById('focalModalContent');
+            const focalTbodyEl = document.getElementById('focalModalTbody');
+            const focalEmptyEl = document.getElementById('focalModalEmpty');
+            const focalNoSearchEl = document.getElementById('focalModalNoSearch');
+            const focalBadgeCountEl = document.getElementById('focalModalBadgeCount');
+            const focalSearchInputEl = document.getElementById('focalModalSearch');
+            const focalCurrentBadgeEl = document.getElementById('focalCurrentAssignedBadge');
+
+            const toggleFormBtn = document.getElementById('focalModalToggleFormBtn');
+            const formCardEl = document.getElementById('focalFormCard');
+            const formCloseBtn = document.getElementById('focalFormCloseBtn');
+            const formTitleEl = document.getElementById('focalFormTitle');
+            const contactForm = document.getElementById('focalContactForm');
+            const formCancelBtn = document.getElementById('focalFormCancelBtn');
+            const formSubmitBtn = document.getElementById('focalFormSubmitBtn');
+
+            const fieldId = document.getElementById('focal-field-id');
+            const fieldNombre = document.getElementById('focal-field-nombre');
+            const fieldRol = document.getElementById('focal-field-rol');
+            const fieldEmail = document.getElementById('focal-field-email');
+            const fieldTelefono = document.getElementById('focal-field-telefono');
+            const fieldOtro = document.getElementById('focal-field-otro');
+            const fieldNotas = document.getElementById('focal-field-notas');
+
+            const btnRemoveFocal = document.getElementById('btnRemoveFocalAssignment');
+
+            function showFocalAlert(message, type = 'success') {
+                if (!focalAlertEl) return;
+                focalAlertEl.className = `alert alert-${type} py-2 px-3 small mb-3`;
+                focalAlertEl.textContent = message;
+                focalAlertEl.classList.remove('d-none');
+                setTimeout(() => {
+                    if (focalAlertEl && !focalAlertEl.classList.contains('d-none')) {
+                        focalAlertEl.classList.add('d-none');
+                    }
+                }, 6000);
+            }
+
+            function hideFocalAlert() {
+                if (focalAlertEl) {
+                    focalAlertEl.classList.add('d-none');
+                    focalAlertEl.textContent = '';
+                }
+            }
+
+            function resetContactForm() {
+                if (fieldId) fieldId.value = '';
+                if (fieldNombre) fieldNombre.value = '';
+                if (fieldRol) fieldRol.value = '';
+                if (fieldEmail) fieldEmail.value = '';
+                if (fieldTelefono) fieldTelefono.value = '';
+                if (fieldOtro) fieldOtro.value = '';
+                if (fieldNotas) fieldNotas.value = '';
+                if (formTitleEl) formTitleEl.textContent = 'Registrar Nuevo Contacto';
+                if (formSubmitBtn) formSubmitBtn.textContent = 'Guardar Contacto';
+            }
+
+            function openCreateContactForm() {
+                resetContactForm();
+                if (formCardEl) formCardEl.style.display = 'block';
+                if (fieldNombre) fieldNombre.focus();
+            }
+
+            function closeContactForm() {
+                if (formCardEl) formCardEl.style.display = 'none';
+                resetContactForm();
+            }
+
+            function openEditContactForm(contact) {
+                if (fieldId) fieldId.value = contact.id;
+                if (fieldNombre) fieldNombre.value = (!contact.nombre || contact.nombre === '—') ? '' : contact.nombre;
+                if (fieldRol) fieldRol.value = (!contact.rol || contact.rol === '—') ? '' : contact.rol;
+                if (fieldEmail) fieldEmail.value = (!contact.email || contact.email === '—') ? '' : contact.email;
+                if (fieldTelefono) fieldTelefono.value = (!contact.telefono || contact.telefono === '—') ? '' : contact.telefono;
+                if (fieldOtro) fieldOtro.value = (!contact.otro || contact.otro === '—') ? '' : contact.otro;
+                if (fieldNotas) fieldNotas.value = (!contact.notas || contact.notas === '—') ? '' : contact.notas;
+                if (formTitleEl) formTitleEl.textContent = 'Editar Especialista / Contacto';
+                if (formSubmitBtn) formSubmitBtn.textContent = 'Actualizar Contacto';
+                if (formCardEl) formCardEl.style.display = 'block';
+                if (fieldNombre) fieldNombre.focus();
+            }
+
+            function renderContactsGrid(items) {
+                if (!focalTbodyEl) return;
+                focalTbodyEl.innerHTML = '';
+
+                if (focalContactsList.length === 0) {
+                    if (focalEmptyEl) focalEmptyEl.hidden = false;
+                    if (focalNoSearchEl) focalNoSearchEl.hidden = true;
+                    if (focalCurrentBadgeEl) {
+                        focalCurrentBadgeEl.innerHTML = '<span class="badge bg-secondary py-1 px-2">Focal Actual: Sin asignar</span>';
+                    }
+                    return;
+                }
+
+                if (items.length === 0) {
+                    if (focalEmptyEl) focalEmptyEl.hidden = true;
+                    if (focalNoSearchEl) focalNoSearchEl.hidden = false;
+                    return;
+                }
+
+                if (focalEmptyEl) focalEmptyEl.hidden = true;
+                if (focalNoSearchEl) focalNoSearchEl.hidden = true;
+
+                // Actualizar badge de focal actual en el callout
+                const currentFocalContact = focalContactsList.find(c => String(c.id) === String(activeCurrentFocalId));
+                if (focalCurrentBadgeEl) {
+                    if (currentFocalContact) {
+                        focalCurrentBadgeEl.innerHTML = `<span class="badge bg-success py-1 px-2">Focal Actual: ${escapeHtml(currentFocalContact.nombre)}</span>`;
+                    } else {
+                        focalCurrentBadgeEl.innerHTML = `<span class="badge bg-secondary py-1 px-2">Focal Actual: Sin asignar</span>`;
+                    }
+                }
+
+                items.forEach((c) => {
+                    const tr = document.createElement('tr');
+                    const isCurrentFocal = (activeCurrentFocalId && String(c.id) === String(activeCurrentFocalId));
+                    if (isCurrentFocal) {
+                        tr.classList.add('table-success');
+                    }
+
+                    // Nombre
+                    const tdNombre = document.createElement('td');
+                    tdNombre.innerHTML = `<strong>${escapeHtml(c.nombre || '—')}</strong>`;
+                    tr.appendChild(tdNombre);
+
+                    // Rol
+                    const tdRol = document.createElement('td');
+                    tdRol.textContent = c.rol || '—';
+                    tr.appendChild(tdRol);
+
+                    // Email
+                    const tdEmail = document.createElement('td');
+                    if (c.email && c.email !== '—') {
+                        const a = document.createElement('a');
+                        a.href = `mailto:${encodeURIComponent(c.email)}`;
+                        a.textContent = c.email;
+                        tdEmail.appendChild(a);
+                    } else {
+                        tdEmail.textContent = '—';
+                    }
+                    tr.appendChild(tdEmail);
+
+                    // Telefono
+                    const tdTel = document.createElement('td');
+                    if (c.telefono && c.telefono !== '—') {
+                        const a = document.createElement('a');
+                        a.href = `tel:${encodeURIComponent(c.telefono.replace(/\s+/g, ''))}`;
+                        a.textContent = c.telefono;
+                        tdTel.appendChild(a);
+                    } else {
+                        tdTel.textContent = '—';
+                    }
+                    tr.appendChild(tdTel);
+
+                    // Notas
+                    const tdNotas = document.createElement('td');
+                    const notesArr = [c.notas, c.otro].filter(x => x && x !== '—');
+                    tdNotas.className = 'small text-muted';
+                    tdNotas.textContent = notesArr.join(' | ') || '—';
+                    tr.appendChild(tdNotas);
+
+                    // Acciones
+                    const tdActions = document.createElement('td');
+                    tdActions.className = 'text-end text-nowrap';
+
+                    if (isCurrentFocal) {
+                        const badgeFocal = document.createElement('span');
+                        badgeFocal.className = 'badge bg-success-subtle text-success border border-success me-1 py-1 px-2 fw-semibold';
+                        badgeFocal.title = 'Especialista focal asignado para este proceso de adopción';
+                        badgeFocal.textContent = '★ Focal Asignado';
+                        tdActions.appendChild(badgeFocal);
+                    } else {
+                        const assignBtn = document.createElement('button');
+                        assignBtn.type = 'button';
+                        assignBtn.className = 'btn btn-sm btn-primary py-0 px-2 me-1';
+                        assignBtn.style.fontSize = '0.78rem';
+                        assignBtn.style.lineHeight = '1.8';
+                        assignBtn.title = 'Asignar como punto focal de la evaluación';
+                        assignBtn.textContent = '✓ Asignar como Focal';
+                        assignBtn.addEventListener('click', () => handleAssignFocal(c.id, c.nombre, c.email));
+                        tdActions.appendChild(assignBtn);
+                    }
+
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'btn btn-sm btn-outline-secondary py-0 px-2 me-1';
+                    editBtn.style.fontSize = '0.78rem';
+                    editBtn.style.lineHeight = '1.8';
+                    editBtn.textContent = 'Editar';
+                    editBtn.addEventListener('click', () => openEditContactForm(c));
+                    tdActions.appendChild(editBtn);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'btn btn-sm btn-outline-danger py-0 px-2';
+                    deleteBtn.style.fontSize = '0.78rem';
+                    deleteBtn.style.lineHeight = '1.8';
+                    deleteBtn.textContent = 'Eliminar';
+                    deleteBtn.addEventListener('click', () => handleDeleteContact(c));
+                    tdActions.appendChild(deleteBtn);
+
+                    tr.appendChild(tdActions);
+                    focalTbodyEl.appendChild(tr);
+                });
+            }
+
+            function applyContactsSearch() {
+                const query = (focalSearchInputEl?.value || '').trim().toLowerCase();
+                if (!query) {
+                    renderContactsGrid(focalContactsList);
+                    return;
+                }
+
+                const filtered = focalContactsList.filter(c => {
+                    return (c.nombre && c.nombre.toLowerCase().includes(query)) ||
+                           (c.rol && c.rol.toLowerCase().includes(query)) ||
+                           (c.email && c.email.toLowerCase().includes(query)) ||
+                           (c.telefono && c.telefono.toLowerCase().includes(query)) ||
+                           (c.otro && c.otro.toLowerCase().includes(query)) ||
+                           (c.notas && c.notas.toLowerCase().includes(query));
+                });
+
+                renderContactsGrid(filtered);
+            }
+
+            async function loadFocalContacts() {
+                if (!activeFocalEmpresaId) return;
+
+                if (focalLoadingEl) focalLoadingEl.hidden = false;
+                if (focalContentEl) focalContentEl.style.opacity = '0.5';
+                hideFocalAlert();
+
+                try {
+                    let response = await fetch('@Url.Content("~/Administration/MasterTables/empresa-subsidiaria/")' + activeFocalEmpresaId + '/contacts', {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!response.ok) {
+                        response = await fetch('@Url.Content("~/Administration/AdoptionProcess/empresa/")' + activeFocalEmpresaId + '/contacts', {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                    }
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    const data = await response.json();
+                    focalContactsList = data.items || [];
+                    const total = data.totalCount ?? focalContactsList.length;
+
+                    if (focalBadgeCountEl) {
+                        focalBadgeCountEl.textContent = `${total} ${total === 1 ? 'contacto' : 'contactos'}`;
+                    }
+
+                    applyContactsSearch();
+                } catch (err) {
+                    console.error('Error cargando contactos de la empresa:', err);
+                    showFocalAlert('No fue posible cargar los contactos de la subsidiaria. Verifique la conexión.', 'danger');
+                } finally {
+                    if (focalLoadingEl) focalLoadingEl.hidden = true;
+                    if (focalContentEl) focalContentEl.style.opacity = '1';
+                }
+            }
+
+            async function handleAssignFocal(contactId, contactName, contactEmail) {
+                if (!activeFocalEmpresaId) return;
+
+                try {
+                    const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                    const assignUrl = '@Url.Content("~/Administration/AdoptionProcess/")' + '@p.Id/empresa/' + activeFocalEmpresaId + '/assign-focal';
+                    const response = await fetch(assignUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                        },
+                        body: JSON.stringify({ contactoFocalId: contactId })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        activeCurrentFocalId = contactId;
+
+                        // Actualizar UI inline en el acordeón de empresas
+                        const displaySpan = document.getElementById(`focal-display-${activeFocalEmpresaId}`);
+                        const emailSpan = document.getElementById(`focal-email-${activeFocalEmpresaId}`);
+                        const triggerBtn = document.querySelector(`.btn-assign-focal-modal[data-empresa-id="${activeFocalEmpresaId}"]`);
+
+                        if (displaySpan) displaySpan.textContent = data.focalName || contactName || 'Sin asignar';
+                        if (emailSpan) emailSpan.textContent = (data.focalEmail || contactEmail) ? `<${data.focalEmail || contactEmail}>` : '';
+                        if (triggerBtn) triggerBtn.dataset.currentFocalId = String(contactId);
+
+                        applyContactsSearch();
+                        showFocalAlert(`"${contactName}" ha sido asignado como Especialista Focal.`, 'success');
+                    } else {
+                        showFocalAlert(data.message || 'Error al asignar focal.', 'danger');
+                    }
+                } catch (err) {
+                    console.error('Error al asignar contacto focal:', err);
+                    showFocalAlert('Ocurrió un error al guardar la asignación.', 'danger');
+                }
+            }
+
+            async function handleRemoveFocal() {
+                if (!activeFocalEmpresaId) return;
+
+                try {
+                    const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                    const assignUrl = '@Url.Content("~/Administration/AdoptionProcess/")' + '@p.Id/empresa/' + activeFocalEmpresaId + '/assign-focal';
+                    const response = await fetch(assignUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                        },
+                        body: JSON.stringify({ contactoFocalId: null })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        activeCurrentFocalId = null;
+
+                        // Actualizar UI inline en el acordeón de empresas
+                        const displaySpan = document.getElementById(`focal-display-${activeFocalEmpresaId}`);
+                        const emailSpan = document.getElementById(`focal-email-${activeFocalEmpresaId}`);
+                        const triggerBtn = document.querySelector(`.btn-assign-focal-modal[data-empresa-id="${activeFocalEmpresaId}"]`);
+
+                        if (displaySpan) displaySpan.textContent = 'Sin asignar';
+                        if (emailSpan) emailSpan.textContent = '';
+                        if (triggerBtn) triggerBtn.dataset.currentFocalId = '';
+
+                        applyContactsSearch();
+                        showFocalAlert('Se ha quitado la asignación de especialista focal.', 'warning');
+                    } else {
+                        showFocalAlert(data.message || 'Error al quitar focal.', 'danger');
+                    }
+                } catch (err) {
+                    console.error('Error al quitar contacto focal:', err);
+                    showFocalAlert('Ocurrió un error al quitar la asignación.', 'danger');
+                }
+            }
+
+            async function handleDeleteContact(contact) {
+                if (!confirm(`¿Está seguro de que desea eliminar a "${contact.nombre}"?`)) return;
+
+                try {
+                    const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                    let url = '@Url.Content("~/Administration/MasterTables/empresa-subsidiaria/")' + activeFocalEmpresaId + '/contacts/' + contact.id + '/delete';
+                    let response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                        }
+                    });
+
+                    if (!response.ok) {
+                        url = '@Url.Content("~/Administration/AdoptionProcess/empresa/")' + activeFocalEmpresaId + '/contacts/' + contact.id + '/delete';
+                        response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                            }
+                        });
+                    }
+
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        if (activeCurrentFocalId && String(contact.id) === String(activeCurrentFocalId)) {
+                            await handleRemoveFocal();
+                        }
+                        showFocalAlert('Contacto eliminado exitosamente.', 'success');
+                        await loadFocalContacts();
+                    } else {
+                        showFocalAlert(data.message || 'Error al eliminar contacto.', 'danger');
+                    }
+                } catch (err) {
+                    console.error('Error al eliminar contacto:', err);
+                    showFocalAlert('Error de comunicación al eliminar el contacto.', 'danger');
+                }
+            }
+
+            if (toggleFormBtn) {
+                toggleFormBtn.addEventListener('click', () => {
+                    if (formCardEl.style.display === 'none' || !formCardEl.style.display) {
+                        openCreateContactForm();
+                    } else {
+                        closeContactForm();
+                    }
+                });
+            }
+
+            if (formCloseBtn) formCloseBtn.addEventListener('click', closeContactForm);
+            if (formCancelBtn) formCancelBtn.addEventListener('click', closeContactForm);
+
+            if (contactForm) {
+                contactForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (!activeFocalEmpresaId) return;
+
+                    const nombre = fieldNombre?.value?.trim();
+                    if (!nombre) {
+                        showFocalAlert('El nombre del contacto es obligatorio.', 'warning');
+                        if (fieldNombre) fieldNombre.focus();
+                        return;
+                    }
+
+                    const isEditing = Boolean(fieldId?.value);
+                    const contactId = fieldId?.value;
+                    const payload = {
+                        nombre: nombre,
+                        rol: fieldRol?.value?.trim() || null,
+                        email: fieldEmail?.value?.trim() || null,
+                        telefono: fieldTelefono?.value?.trim() || null,
+                        otro: fieldOtro?.value?.trim() || null,
+                        notas: fieldNotas?.value?.trim() || null
+                    };
+
+                    if (formSubmitBtn) {
+                        formSubmitBtn.disabled = true;
+                        formSubmitBtn.textContent = 'Guardando...';
+                    }
+
+                    try {
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        let url = isEditing
+                            ? '@Url.Content("~/Administration/MasterTables/empresa-subsidiaria/")' + activeFocalEmpresaId + '/contacts/' + contactId + '/edit'
+                            : '@Url.Content("~/Administration/MasterTables/empresa-subsidiaria/")' + activeFocalEmpresaId + '/contacts';
+
+                        let response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            url = isEditing
+                                ? '@Url.Content("~/Administration/AdoptionProcess/empresa/")' + activeFocalEmpresaId + '/contacts/' + contactId + '/edit'
+                                : '@Url.Content("~/Administration/AdoptionProcess/empresa/")' + activeFocalEmpresaId + '/contacts';
+
+                            response = await fetch(url, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        }
+
+                        const data = await response.json();
+                        if (response.ok && data.success) {
+                            closeContactForm();
+                            showFocalAlert(data.message || (isEditing ? 'Contacto actualizado.' : 'Contacto registrado.'), 'success');
+                            await loadFocalContacts();
+
+                            if (isEditing && activeCurrentFocalId && String(contactId) === String(activeCurrentFocalId)) {
+                                const displaySpan = document.getElementById(`focal-display-${activeFocalEmpresaId}`);
+                                const emailSpan = document.getElementById(`focal-email-${activeFocalEmpresaId}`);
+                                if (displaySpan) displaySpan.textContent = payload.nombre;
+                                if (emailSpan) emailSpan.textContent = payload.email ? `<${payload.email}>` : '';
+                            }
+                        } else {
+                            showFocalAlert(data.message || 'Error al guardar el contacto.', 'danger');
+                        }
+                    } catch (err) {
+                        console.error('Error al guardar contacto:', err);
+                        showFocalAlert('Error de comunicación al guardar el contacto.', 'danger');
+                    } finally {
+                        if (formSubmitBtn) {
+                            formSubmitBtn.disabled = false;
+                            formSubmitBtn.textContent = isEditing ? 'Actualizar Contacto' : 'Guardar Contacto';
+                        }
+                    }
+                });
+            }
+
+            if (focalSearchInputEl) {
+                focalSearchInputEl.addEventListener('input', applyContactsSearch);
+            }
+
+            if (btnRemoveFocal) {
+                btnRemoveFocal.addEventListener('click', handleRemoveFocal);
+            }
+
+            // Click en el lápiz / botón para abrir modal de focal
+            document.querySelectorAll('.btn-assign-focal-modal').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const empresaId = parseInt(this.dataset.empresaId, 10);
+                    const empresaName = this.dataset.empresaName || 'Empresa';
+                    const currentFocalId = this.dataset.currentFocalId || '';
+
+                    activeFocalEmpresaId = empresaId;
+                    activeCompanyName = empresaName;
+                    activeCurrentFocalId = currentFocalId ? parseInt(currentFocalId, 10) : null;
+
+                    if (focalCompanyNameEl) focalCompanyNameEl.textContent = empresaName;
+                    if (focalSearchInputEl) focalSearchInputEl.value = '';
+                    closeContactForm();
+                    hideFocalAlert();
+
+                    if (focalModalBs) focalModalBs.show();
+                    loadFocalContacts();
+                });
+            });
+
+            // ==========================================
+            // GESTIÓN DE CAPACIDADES POR EMPRESA (AJAX)
+            // ==========================================
+            const getVerificationToken = () => {
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                return tokenEl ? tokenEl.value : '';
+            };
+
+            // Cambio de radio pill [A, F, NA]
+            document.querySelectorAll('.cap-radio-btn').forEach(radio => {
+                radio.addEventListener('change', async function () {
+                    const procesoId = this.dataset.procesoId;
+                    const empresaId = this.dataset.empresaId;
+                    const capacidadId = parseInt(this.dataset.capacidadId, 10);
+                    const estadoCodigo = this.value;
+
+                    const row = this.closest('tr');
+                    const commentInput = row ? row.querySelector('.cap-comment-input') : null;
+                    const comentario = commentInput ? commentInput.value : null;
+
+                    try {
+                        const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/capability-state`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': getVerificationToken()
+                            },
+                            body: JSON.stringify({
+                                capacidadId: capacidadId,
+                                estadoCodigo: estadoCodigo,
+                                comentario: comentario
+                            })
+                        });
+                        if (res.ok) {
+                            row?.classList.add('table-success');
+                            setTimeout(() => row?.classList.remove('table-success'), 800);
+                        }
+                    } catch (e) {
+                        console.error('Error al actualizar estado de capacidad:', e);
+                    }
+                });
+            });
+
+            // Guardar comentario individual de capacidad con feedback visual
+            const saveCapComment = async (inp) => {
+                const procesoId = inp.dataset.procesoId;
+                const empresaId = inp.dataset.empresaId;
+                const capacidadId = parseInt(inp.dataset.capacidadId, 10);
+
+                const row = inp.closest('tr');
+                const activeRadio = row ? row.querySelector('.cap-radio-btn:checked') : null;
+                const estadoCodigo = activeRadio ? activeRadio.value : 'NA';
+                const comentario = inp.value.trim();
+
+                const originalVal = (inp.dataset.originalVal || '').trim();
+                if (comentario === originalVal && !inp.classList.contains('cell-dirty')) {
+                    return;
+                }
+
+                inp.classList.remove('cell-dirty');
+                inp.classList.add('cell-saving');
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/capability-state`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            capacidadId: capacidadId,
+                            estadoCodigo: estadoCodigo,
+                            comentario: comentario
+                        })
+                    });
+
+                    inp.classList.remove('cell-saving');
+                    if (res.ok) {
+                        inp.dataset.originalVal = comentario;
+                        inp.classList.add('cell-flash-success');
+                        setTimeout(() => inp.classList.remove('cell-flash-success'), 1200);
+                    } else {
+                        inp.classList.add('cell-flash-error');
+                        setTimeout(() => inp.classList.remove('cell-flash-error'), 1800);
+                    }
+                } catch (e) {
+                    console.error('Error al guardar comentario de capacidad:', e);
+                    inp.classList.remove('cell-saving');
+                    inp.classList.add('cell-flash-error');
+                    setTimeout(() => inp.classList.remove('cell-flash-error'), 1800);
+                }
+            };
+
+            // Detección de edición en inputs de observación
+            document.querySelectorAll('.cap-comment-input').forEach(inp => {
+                inp.addEventListener('input', function () {
+                    const orig = (this.dataset.originalVal || '').trim();
+                    if (this.value.trim() !== orig) {
+                        this.classList.add('cell-dirty');
+                    } else {
+                        this.classList.remove('cell-dirty');
+                    }
+                });
+                inp.addEventListener('blur', function () {
+                    saveCapComment(this);
+                });
+                inp.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            });
+
+            // Guardar comentario general de subsidiaria
+            const saveCompanyGeneralComment = async (inp) => {
+                const procesoId = inp.dataset.procesoId;
+                const empresaId = inp.dataset.empresaId;
+                const comentario = inp.value.trim();
+                const orig = (inp.dataset.originalVal || '').trim();
+
+                if (comentario === orig && !inp.classList.contains('cell-dirty')) {
+                    return;
+                }
+
+                inp.classList.remove('cell-dirty');
+                inp.classList.add('cell-saving');
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/capability-comment`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            comentario: comentario
+                        })
+                    });
+
+                    inp.classList.remove('cell-saving');
+                    if (res.ok) {
+                        inp.dataset.originalVal = comentario;
+                        inp.classList.add('cell-flash-success');
+                        setTimeout(() => inp.classList.remove('cell-flash-success'), 1200);
+                    } else {
+                        inp.classList.add('cell-flash-error');
+                        setTimeout(() => inp.classList.remove('cell-flash-error'), 1800);
+                    }
+                } catch (e) {
+                    console.error('Error al guardar comentario general de subsidiaria:', e);
+                    inp.classList.remove('cell-saving');
+                    inp.classList.add('cell-flash-error');
+                    setTimeout(() => inp.classList.remove('cell-flash-error'), 1800);
+                }
+            };
+
+            document.querySelectorAll('.company-caps-general-comment').forEach(inp => {
+                inp.addEventListener('input', function () {
+                    const orig = (this.dataset.originalVal || '').trim();
+                    if (this.value.trim() !== orig) {
+                        this.classList.add('cell-dirty');
+                    } else {
+                        this.classList.remove('cell-dirty');
+                    }
+                });
+                inp.addEventListener('blur', function () {
+                    saveCompanyGeneralComment(this);
+                });
+                inp.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            });
+
+            // Botón consolidado "Guardar Cobertura" por subsidiaria
+            document.querySelectorAll('.btn-save-all-company-caps').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const procesoId = this.dataset.procesoId;
+                    const empresaId = this.dataset.empresaId;
+                    const card = this.closest('.accordion-item') || this.closest('.card') || document;
+                    const commentInputs = card.querySelectorAll(`.cap-comment-input[data-empresa-id="${empresaId}"]`);
+                    const generalInput = card.querySelector(`.company-caps-general-comment[data-empresa-id="${empresaId}"]`);
+
+                    const origText = this.innerHTML;
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...';
+
+                    const promises = [];
+                    commentInputs.forEach(inp => {
+                        promises.push(saveCapComment(inp));
+                    });
+                    if (generalInput) {
+                        promises.push(saveCompanyGeneralComment(generalInput));
+                    }
+
+                    await Promise.all(promises);
+
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+                    this.innerHTML = '<span>✓ Guardado con Éxito</span>';
+
+                    setTimeout(() => {
+                        this.disabled = false;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-primary');
+                        this.innerHTML = origText;
+                    }, 2000);
+                });
+            });
         }
     });
 </script>
 <style>
+    .company-accordion-btn {
+        display: flex !important;
+        align-items: center !important;
+    }
+    .company-accordion-btn::after {
+        margin-left: 0.75rem !important;
+        flex-shrink: 0 !important;
+    }
     .company-drag-handle {
         cursor: grab;
         transition: color 0.15s ease, transform 0.15s ease;
@@ -2921,6 +3922,28 @@
     }
     .company-draggable-item.drag-over-bottom {
         border-bottom: 3px solid #0d6efd !important;
+    }
+    .cell-dirty {
+        background-color: #fff9db !important;
+        border-color: #ffc107 !important;
+        box-shadow: 0 0 0 0.15rem rgba(255, 193, 7, 0.25) !important;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .cell-saving {
+        background-color: #e7f1ff !important;
+        border-color: #0d6efd !important;
+    }
+    .cell-flash-success {
+        background-color: #d1e7dd !important;
+        border-color: #198754 !important;
+        color: #0f5132 !important;
+        transition: background-color 0.4s ease;
+    }
+    .cell-flash-error {
+        background-color: #f8d7da !important;
+        border-color: #dc3545 !important;
+        color: #842029 !important;
+        transition: background-color 0.4s ease;
     }
 </style>
 }

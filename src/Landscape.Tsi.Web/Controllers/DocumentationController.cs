@@ -20,6 +20,12 @@ public class DocumentationController : Controller
     }
 
     [HttpGet]
+    public IActionResult UserManual()
+    {
+        return View();
+    }
+
+    [HttpGet]
     public IActionResult Diagram()
     {
         var localDocsPath = Path.Combine(_environment.ContentRootPath, "..", "..", "docs", "diagramas", "arquitectura-landscape-tsi.archify.html");

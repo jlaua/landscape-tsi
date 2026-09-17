@@ -36,7 +36,12 @@ public sealed record ContractExpirationRowDto(
     decimal RequestWafMillonesMes,
     DateTime? FechaVencimiento,
     string? VencimientoLabel,
-    IReadOnlyDictionary<string, bool> HitoExpiracionPorPeriodo);
+    IReadOnlyDictionary<string, bool> HitoExpiracionPorPeriodo,
+    string? TipoContrato = null,
+    string? TipoOperacion = null,
+    int CantidadDrivers = 0,
+    decimal CostoTotalDrivers = 0m,
+    IReadOnlyDictionary<string, decimal>? DriversPorNombre = null);
 
 /// <summary>
 /// Reporte b: Fechas de vencimiento de contratos por empresa y proyección acumulada.
@@ -49,10 +54,15 @@ public sealed record ContractExpirationReportDto(
     IReadOnlyDictionary<string, decimal> RequestWafMillonesAcumuladoPorPeriodo,
     decimal TotalThroughputGbMes,
     int TotalAppsFqdn,
-    decimal TotalRequestWafMillonesMes);
+    decimal TotalRequestWafMillonesMes,
+    IReadOnlyDictionary<string, int>? SubsidiariasAcumuladasPorPeriodo = null,
+    int TotalSubsidiariasConVencimiento = 0,
+    IReadOnlyList<string>? TodosLosDriversDisponibles = null,
+    IReadOnlyList<string>? DriversSeleccionados = null,
+    IReadOnlyDictionary<string, string>? UnidadesPorDriver = null);
 
 /// <summary>
-/// Reporte 3: Detalle de volumetría y drivers por empresa.
+/// Reporte 3: Detalle de volumetría y drivers por empresa (WAAP).
 /// </summary>
 public sealed record CompanyVolumeReportRowDto(
     int EmpresaId,
@@ -60,7 +70,8 @@ public sealed record CompanyVolumeReportRowDto(
     string? TecnologiaAsIs,
     decimal ThroughputMensualGbps,
     decimal AnchoBandaMensualGbps,
-    int DominioSubdominios,
+    int Dominio,
+    int SubDominios,
     int CantidadAppsFqdn,
     int CantidadAppsFqdnApiSecurity,
     decimal ApiProtectionRequestMillonesMes,
@@ -68,10 +79,70 @@ public sealed record CompanyVolumeReportRowDto(
     decimal MillonesRequestWaf,
     decimal MillonesRequestAntibotWaf,
     decimal DataTransferTbMensual,
-    string? RequestSizeResponseSize);
+    string? RequestSize = null,
+    string? ResponseSize = null,
+    string? RequestSizeResponseSize = null)
+{
+    public int DominioSubdominios => Dominio + SubDominios;
+}
 
 /// <summary>
-/// Contenedor de Reporte 3 con subtotales consolidados.
+/// Driver operativo / de consumo dinámico por subsidiaria (DSPM, Cloud, Endpoint, etc.) proveniente de TDriver.
+/// </summary>
+public sealed record CompanyDriverItemDto(
+    int DriverId,
+    int EmpresaId,
+    string EmpresaNombre,
+    string? TecnologiaAsIs,
+    string DescripcionDriver,
+    string UnidadMedida,
+    decimal Cantidad,
+    decimal PrecioUnitario,
+    string Moneda,
+    decimal CostoTotal);
+
+/// <summary>
+/// Fila de la matriz de volumetría pivotada dinámicamente por columnas de driver (operativo puro).
+/// </summary>
+public sealed record CompanyDriverMatrixRowDto(
+    int EmpresaId,
+    string EmpresaNombre,
+    string? TecnologiaAsIs,
+    IReadOnlyDictionary<string, decimal> ValoresPorColumnaDriver);
+
+/// <summary>
+/// Matriz de volumetría dinámica por columnas ("[Descripción] / [Unidad]") para Building Blocks no-WAAP o genéricos.
+/// </summary>
+public sealed record CompanyDriverMatrixDto(
+    IReadOnlyList<string> ColumnasDrivers,
+    IReadOnlyList<CompanyDriverMatrixRowDto> Filas,
+    IReadOnlyDictionary<string, decimal> TotalesPorColumna);
+
+/// <summary>
+/// Fila del reporte 5: Proyección de Costos AS-IS (financiero).
+/// </summary>
+public sealed record AsIsCostItemDto(
+    int DriverId,
+    int EmpresaId,
+    string EmpresaNombre,
+    string? TecnologiaAsIs,
+    string DescripcionDriver,
+    string UnidadMedida,
+    decimal Cantidad,
+    decimal PrecioUnitario,
+    string Moneda,
+    decimal CostoTotal);
+
+/// <summary>
+/// Reporte 5: Proyección de Costos AS-IS valorizado por empresa y consolidado.
+/// </summary>
+public sealed record AsIsCostsReportDto(
+    IReadOnlyList<AsIsCostItemDto> Filas,
+    decimal TotalInversionGeneral,
+    int TotalItemsConCosto);
+
+/// <summary>
+/// Contenedor de Reporte 3 con subtotales consolidados y soporte para drivers dinámicos.
 /// </summary>
 public sealed record CompanyVolumeReportDto(
     IReadOnlyList<CompanyVolumeReportRowDto> Filas,
@@ -84,7 +155,13 @@ public sealed record CompanyVolumeReportDto(
     decimal TotalMillonesRequestAntibot,
     decimal TotalMillonesRequestWaf,
     decimal TotalMillonesRequestAntibotWaf,
-    decimal TotalDataTransferTbMensual);
+    decimal TotalDataTransferTbMensual,
+    IReadOnlyList<CompanyDriverItemDto>? DriversGenerales = null,
+    decimal TotalInversionDrivers = 0m,
+    int TotalCantidadDrivers = 0,
+    CompanyDriverMatrixDto? MatrizDrivers = null,
+    int TotalDominio = 0,
+    int TotalSubDominios = 0);
 
 /// <summary>
 /// Estado de capacidad por subsidiaria: A (Activo), F (Futuro), NA (No aplica), o texto.
@@ -103,7 +180,8 @@ public sealed record CompanyCapabilityMatrixRowDto(
     string EmpresaNombre,
     string? TecnologiaAsIs,
     IReadOnlyDictionary<string, CompanyCapabilityMatrixCellDto> Capacidades,
-    string? ComentarioSubsidiaria);
+    string? ComentarioSubsidiaria,
+    int ProcesoEmpresaId = 0);
 
 /// <summary>
 /// Reporte 4: Matriz de Capacidades por Empresa.
@@ -113,7 +191,7 @@ public sealed record CompanyCapabilitiesMatrixDto(
     IReadOnlyList<CompanyCapabilityMatrixRowDto> Filas);
 
 /// <summary>
-/// Contenedor general con los 4 reportes de la evaluación seleccionada.
+/// Contenedor general con los 5 reportes de la evaluación seleccionada.
 /// </summary>
 public sealed record EvaluationReportsDto(
     int ProcesoId,
@@ -129,4 +207,6 @@ public sealed record EvaluationReportsDto(
     IReadOnlyList<EvaluationScopeReportRowDto> AlcanceReport,
     ContractExpirationReportDto VencimientoContratosReport,
     CompanyVolumeReportDto VolumetriaReport,
-    CompanyCapabilitiesMatrixDto CapacidadesMatrixReport);
+    CompanyCapabilitiesMatrixDto CapacidadesMatrixReport,
+    bool EsWaap = false,
+    AsIsCostsReportDto? CostosAsIsReport = null);

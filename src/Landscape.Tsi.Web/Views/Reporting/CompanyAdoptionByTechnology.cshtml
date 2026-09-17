@@ -379,6 +379,7 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/domain-color-palette.js" asp-append-version="true"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -393,6 +394,7 @@
             const domainLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DomainMetrics.Select(m => m.DominioNombre)));
             const domainValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DomainMetrics.Select(m => m.TotalEmpresasConAdopcion)));
             const domainCtx = document.getElementById('domainAdoptionChart');
+            const domainColors = domainLabels.map((lbl, idx) => window.getDomainPaletteColor ? window.getDomainPaletteColor(lbl, idx + 1) : { bg: '#087f8c', border: '#05565e' });
             if (domainCtx && domainLabels.length > 0) {
                 new Chart(domainCtx, {
                     type: 'bar',
@@ -401,9 +403,9 @@
                         datasets: [{
                             label: 'Empresas con adopción',
                             data: domainValues,
-                            backgroundColor: '#087f8c',
-                            borderColor: '#05565e',
-                            borderWidth: 1,
+                            backgroundColor: domainColors.map(c => c.bg),
+                            borderColor: domainColors.map(c => c.border),
+                            borderWidth: 1.5,
                             borderRadius: 4
                         }]
                     },

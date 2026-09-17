@@ -5,9 +5,9 @@ public static class MasterCatalogRegistry
     public static readonly IReadOnlyList<MasterCatalogDefinition> Catalogs =
     [
         Define("dominio", "Dominio", "TMDominio", "iddominio", "dominio", "Arquitectura de seguridad", "dominio", CatalogEditorMode.Modal,
-            [Text("dominio", "dominio", "Dominio"), Text("descripcion", "descripcionDominio", "Descripción del dominio", true), Text("referencias", "referencias", "Referencias", true), Text("dimensionCiber", "homologacionDimensionSegunCiber", "Homologación según CIBER", true), Text("dimensionLineamiento", "homologacionDimensionSegunLineamiento", "Homologación según lineamiento", true), Text("subDominioCvt", "subDominioCVT", "Subdominio CVT", true), Text("ejemplos", "Ejemplos", "Ejemplos", true)], ["dominio", "descripcion", "subDominioCvt"]),
+            [Text("dominio", "dominio", "Dominio"), ForeignKey("familia", "idFamilia", "Familia", "familia"), Text("descripcion", "descripcionDominio", "Descripción del dominio", true), Text("referencias", "referencias", "Referencias", true), Text("dimensionCiber", "homologacionDimensionSegunCiber", "Homologación según CIBER", true), Text("dimensionLineamiento", "homologacionDimensionSegunLineamiento", "Homologación según lineamiento", true), Text("subDominioCvt", "subDominioCVT", "Subdominio CVT", true), Text("ejemplos", "Ejemplos", "Ejemplos", true)], ["dominio", "familia", "descripcion", "subDominioCvt"]),
         Define("building-block", "Building Block", "TBuildingBlock", "idBuildingBlock", "building-block", "Arquitectura de seguridad", "nombre", CatalogEditorMode.Modal,
-            [ForeignKey("dominio", "idDominio", "Dominio", "dominio"), Text("nombre", "nombreBuildingBlock", "Building Block"), Text("definicion", "definicionBuildingBlock", "Definición", true), ForeignKey("faseAdopcion", "idEstadoFaseDeAdopcionBuildingBlock", "Fase de adopción", "fase-adopcion"), Text("rutaEntregable", "rutaDelEntregable", "Ruta del entregable", true), Text("pilarZt", "PilarZT", "Pilar ZT")], ["nombre", "dominio", "faseAdopcion"]),
+            [ForeignKey("dominio", "idDominio", "Dominio", "dominio"), Text("nombre", "nombreBuildingBlock", "Building Block"), Text("definicion", "definicionBuildingBlock", "Definición", true), ForeignKey("faseAdopcion", "idEstadoFaseDeAdopcionBuildingBlock", "Fase de adopción", "fase-adopcion"), ForeignKey("familia", "idFamilia", "Familia", "familia"), Text("rutaEntregable", "rutaDelEntregable", "Ruta del entregable", true), Text("pilarZt", "PilarZT", "Pilar ZT")], ["nombre", "dominio", "faseAdopcion", "familia"]),
         Define("capacidad-seguridad", "Capacidad de Seguridad", "TCapacidadDeSeguridad", "idCapacidad", "capacidad-seguridad", "Arquitectura de seguridad", "nombre", CatalogEditorMode.Modal,
             [ForeignKey("buildingBlock", "idBuildingBlock", "Building Block", "building-block"), Text("nombre", "nombreCapacidad", "Capacidad"), Text("descripcion", "descripcionCapacidad", "Descripción", true), ForeignKey("estado", "idEstadoCapacidad", "Estado de capacidad", "estado-capacidad")], ["nombre", "buildingBlock", "estado"]),
         Define("estado-capacidad", "Estado de Capacidad", "TMEstadoCapacidad", "idEstadoCapacidad", "estado-capacidad", "Arquitectura de seguridad", "nombre", CatalogEditorMode.Modal,
@@ -22,6 +22,8 @@ public static class MasterCatalogRegistry
             [Text("nombreCorporativo", "nombreTecnologiaAlternativa1-Corporativo", "Nombre corporativo"), Text("nombreLocal", "nombreTecnologiaAlternativa2-Local", "Nombre local"), ForeignKey("familia", "idFamilia", "Familia", "familia"), Text("grupo", "grupoQpertenece", "Grupo al que pertenece"), ForeignKey("estadoAdopcion", "idEstadoAdopcionTSI", "Estado de adopción TSI", "estado-adopcion-tsi"), ForeignKey("posturaRoadmap", "idPosturaResumenRoadmap", "Postura roadmap", "postura-roadmap"), Text("licenciamiento", "modeloEsquemaLicenciamientoSubscripcion", "Modelo de licenciamiento", true), Text("entorno", "entornoImplementacion", "Entorno de implementación", true), Text("referencia", "linkReferencia-Fuente", "Referencia / fuente", true), Text("responsable", "responsableTecnologiaTSI", "Responsable"), Text("unidadResponsable", "unidadResponsableTecnologiaTSI", "Unidad responsable"), Text("categoriaAsIs", "categoriaAS-IS", "Categoría AS-IS"), Text("fuente", "flagFuente", "Fuente")], ["nombreCorporativo", "nombreLocal", "familia", "estadoAdopcion", "posturaRoadmap"]),
         Define("familia", "Familia", "TMFamilia", "idFamilia", "familia", "Arquitectura de seguridad", "nombre", CatalogEditorMode.Modal,
             [Text("nombre", "nombreFamilia", "Familia"), Text("descripcion", "descripcionFamilia", "Descripción", true)], ["nombre", "descripcion"]),
+        Define("version-desplegada", "Versión Desplegada", "TMVersionDesplegada", "idVersionDesplegada", "version-desplegada", "Tecnología", "nombre", CatalogEditorMode.Modal,
+            [Text("nombre", "nombreVersionDesplegada", "Versión desplegada"), Text("descripcion", "descripcion", "Descripción", true), Text("orden", "orden", "Orden"), Text("esActivo", "esActivo", "Activo")], ["nombre", "descripcion", "orden", "esActivo"], CatalogEntityType.Master, "Catálogo maestro de modalidades de versión desplegada (SaaS, PaaS, IaaS, On-Premises, End-user, Híbrido)."),
         Define("casos-uso", "Casos de Uso", "TCasosDeUso", "idCasosDeUso", "casos-uso", "Tecnología", "nombre", CatalogEditorMode.Modal,
             [ForeignKey("tecnologia", "idTecnologiaTSI", "Tecnología TSI", "tecnologia-tsi"), Text("nombre", "casoDeUso", "Caso de uso"), Text("descripcion", "descripcionCasoDeUso", "Descripción", true)], ["nombre", "tecnologia", "descripcion"]),
         Define("empresa-subsidiaria", "Empresa / Subsidiaria", "TEmpresaSubsidiaria", "idEmpresaSubsidiaria", "empresa-subsidiaria", "Organización", "nombre", CatalogEditorMode.Modal,
@@ -67,7 +69,9 @@ public static class MasterCatalogRegistry
         Define("contacto-vendor", "Contacto de Vendor", "TContactoVendor", "idContactoVendor", "contacto-vendor", "Organización", "nombreContactoVendor", CatalogEditorMode.Modal,
             [ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoVendor", "nombreContactoVendor", "Nombre del contacto"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoVendor", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un vendor."),
         Define("contacto-partner", "Contacto de Partner", "TContactoPartner", "idContactoPartner", "contacto-partner", "Organización", "nombreContactoPartner", CatalogEditorMode.Modal,
-            [ForeignKey("partner", "idPartner", "Partner", "partner"), ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoPartner", "nombreContactoPartner", "Nombre del contacto"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoPartner", "partner", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un partner de tecnología.")
+            [ForeignKey("partner", "idPartner", "Partner", "partner"), ForeignKey("vendor", "idVendor", "Vendor", "vendor"), Text("rol", "ROL", "Rol / Cargo", true), Text("nombreContactoPartner", "nombreContactoPartner", "Nombre del contacto"), Text("email", "email", "Correo electrónico"), Text("telefono", "telefono", "Teléfono"), Text("otro", "otro", "Otro", true), Text("notas", "NOTAS", "Notas", true)], ["nombreContactoPartner", "partner", "vendor", "rol", "email", "telefono"], CatalogEntityType.Transactional, "Contactos comerciales o técnicos asociados a un partner de tecnología."),
+        Define("contacto-empresa", "Especialista por Empresa", "TContactoEmpresaSubsidiaria", "idContactoEmpresaSubsidiaria", "contacto-empresa", "Organización", "nombreContactoEmpresaSubsidiaria", CatalogEditorMode.Modal,
+            [ForeignKey("empresa", "idEmpresaSubsidiaria", "Empresa / subsidiaria", "empresa-subsidiaria"), Text("rol", "rol", "Rol / Cargo", true), Text("nombreContactoEmpresaSubsidiaria", "nombreContactoEmpresaSubsidiaria", "Nombre del especialista"), Text("especialistaEnQuePlataformas", "especialistaEnQuePlataformas", "Especialista en qué plataformas", true), Text("email", "email", "Correo electrónico", true), Text("telefono", "telefono", "Teléfono", true), Text("otro", "otro", "Otro", true), Text("notas", "notas", "Notas", true)], ["nombreContactoEmpresaSubsidiaria", "empresa", "rol", "especialistaEnQuePlataformas", "email", "telefono"], CatalogEntityType.Transactional, "Especialistas técnicos y contactos de empresas subsidiarias.")
     ];
 
     public static readonly IReadOnlyList<CatalogRelationDefinition> Relations =
@@ -78,11 +82,13 @@ public static class MasterCatalogRegistry
         new("estado-capacidad", "capacidad-seguridad", "Uno a muchos", "FK_TCapacidadDeSeguridad_TMEstadoCapacidad"),
         new("capacidad-seguridad", "funcionalidad", "Uno a muchos", "FK_TFuncionalidad_TCapacidadDeSeguridad"),
         new("estado-funcionalidad", "funcionalidad", "Uno a muchos", "FK_TFuncionalidad_TMEstadoFuncionalidad"),
+        new("familia", "dominio", "Uno a muchos", "FK_TMDominio_TMFamilia"),
         new("familia", "tecnologia-tsi", "Uno a muchos", "FK_TTecnologiaTSI_TMFamilia"),
         new("estado-adopcion-tsi", "tecnologia-tsi", "Uno a muchos", "FK_TTecnologiaTSI_TMEstadoAdopcionTSI"),
         new("postura-roadmap", "tecnologia-tsi", "Uno a muchos", "FK_TTecnologiaTSI_TMPosturaRoadmap"),
         new("tecnologia-tsi", "casos-uso", "Uno a muchos", "FK_TCasosDeUso_TTecnologiaTSI"),
         new("empresa-subsidiaria", "ciso", "Uno a muchos", "FK_TCISO_TEmpresaSubsidiaria"),
+        new("empresa-subsidiaria", "contacto-empresa", "Uno a muchos", "FK_TContactoEmpresaSubsidiaria_TEmpresaSubsidiaria"),
         new("building-block", "tecnologia-tsi", "Muchos a muchos", "TBuildingBlockVsTTecnologiaTSI", "TBuildingBlockVsTTecnologiaTSI"),
         new("building-block", "proceso-adopcion-tsi", "Uno a muchos", "FK_TProcesoAdopcionTSI_TBuildingBlock"),
         new("estado-adopcion-tsi", "proceso-adopcion-tsi", "Uno a muchos", "FK_TProcesoAdopcionTSI_TMEstadoAdopcionTSI"),
@@ -111,7 +117,6 @@ public static class MasterCatalogRegistry
         Catalogs.Select(catalog => new CatalogEntityMetadata(catalog.Code, catalog.PhysicalTable, catalog.Name, catalog.EntityType, catalog.Group, catalog.NavigationRoute, catalog.IsAdministrable, catalog.Description ?? "Entidad administrable del catálogo Landscape TSI.", catalog.IsDeletable)).Concat(
         [
             Entity("regulacion", "TRegulacionAplicable", "Regulación Aplicable", CatalogEntityType.Transactional, "Organización", null, false, "Regulación aplicable a una empresa subsidiaria."),
-            Entity("contacto-empresa", "TContactoEmpresaSubsidiaria", "Contacto de Empresa", CatalogEntityType.Transactional, "Organización", null, false, "Contacto asociado a una empresa subsidiaria."),
             Entity("bridge-building-technology", "TBuildingBlockVsTTecnologiaTSI", "Building Block ↔ Tecnología", CatalogEntityType.Transactional, "Tecnología", null, false, "Tabla puente de la relación muchos a muchos; actualmente sin PK/UNIQUE.")
         ]).ToArray();
 
@@ -123,6 +128,8 @@ public static class MasterCatalogRegistry
         Relationship("estado-capacidad", "capacidad-seguridad", "1", "N", "FK_TCapacidadDeSeguridad_TMEstadoCapacidad"),
         Relationship("capacidad-seguridad", "funcionalidad", "1", "N", "FK_TFuncionalidad_TCapacidadDeSeguridad"),
         Relationship("estado-funcionalidad", "funcionalidad", "1", "N", "FK_TFuncionalidad_TMEstadoFuncionalidad"),
+        Relationship("familia", "dominio", "1", "N", "FK_TMDominio_TMFamilia"),
+        Relationship("familia", "building-block", "1", "N", "FK_TBuildingBlock_TMFamilia"),
         Relationship("familia", "tecnologia-tsi", "1", "N", "FK_TTecnologiaTSI_TMFamilia"),
         Relationship("estado-adopcion-tsi", "tecnologia-tsi", "1", "N", "FK_TTecnologiaTSI_TMEstadoAdopcionTSI"),
         Relationship("postura-roadmap", "tecnologia-tsi", "1", "N", "FK_TTecnologiaTSI_TMPosturaRoadmap"),

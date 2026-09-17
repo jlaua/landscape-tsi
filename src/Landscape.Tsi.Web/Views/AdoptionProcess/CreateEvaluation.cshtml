@@ -175,6 +175,7 @@
                             <div class="p-3 bg-white rounded border mb-2">
                                 <span class="badge bg-primary mb-2" id="cap-bb-name">Building Block</span>
                                 <span class="badge bg-secondary mb-2 ms-1" id="cap-domain-name">Dominio</span>
+                                <span class="badge bg-info-subtle text-info border mb-2 ms-1" id="cap-family-name">Familia</span>
                                 <div id="cap-items-list" class="row g-3 mt-1"></div>
                             </div>
                         </div>
@@ -329,69 +330,131 @@
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-label fw-semibold">Versión Desplegada</label>
-                                                <input asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-control" placeholder="Ej. v12.4.1" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-label fw-semibold">Tipo Operación</label>
-                                                <select asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-select">
-                                                    <option value="">-- No definido --</option>
-                                                    @foreach (var o in Model.TiposOperacion)
-                                                    {
-                                                        <option value="@o.Id">@o.Label</option>
-                                                    }
-                                                </select>
-                                            </div>
+                                             <div class="col-md-4">
+                                                 <label asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-label fw-semibold">Versión Desplegada</label>
+                                                 <select asp-for="SubsidiaryAsIsList[i].VersionDesplegada" class="form-select">
+                                                     <option value="">-- Seleccionar Versión Desplegada --</option>
+                                                     @foreach (var vd in Model.VersionesDesplegadas)
+                                                     {
+                                                         <option value="@vd.Label">@vd.Label</option>
+                                                     }
+                                                 </select>
+                                             </div>
+                                             <div class="col-md-4">
+                                                 <label asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-label fw-semibold">Tipo Operación</label>
+                                                 <select asp-for="SubsidiaryAsIsList[i].TipoOperacionId" class="form-select">
+                                                     <option value="">-- No definido --</option>
+                                                     @foreach (var o in Model.TiposOperacion)
+                                                     {
+                                                         <option value="@o.Id">@o.Label</option>
+                                                     }
+                                                 </select>
+                                             </div>
+                                             <div class="col-md-4">
+                                                 <label asp-for="SubsidiaryAsIsList[i].ModalidadLaboralId" class="form-label fw-semibold">Modalidad Laboral</label>
+                                                 <select asp-for="SubsidiaryAsIsList[i].ModalidadLaboralId" class="form-select">
+                                                     <option value="">-- No definida --</option>
+                                                     @foreach (var m in Model.ModalidadesLaborales)
+                                                     {
+                                                         <option value="@m.Id">@m.Label</option>
+                                                     }
+                                                 </select>
+                                             </div>
 
-                                            <div class="col-md-3">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <label asp-for="SubsidiaryAsIsList[i].VendorId" class="form-label fw-semibold mb-0">Fabricante / Vendor</label>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor" data-index="@i" title="Registrar nuevo Fabricante / Vendor">+ Nuevo</button>
-                                                </div>
-                                                <select asp-for="SubsidiaryAsIsList[i].VendorId" class="form-select select-vendor" data-index="@i">
-                                                    <option value="">-- Seleccionar Vendor --</option>
-                                                    @foreach (var v in Model.Vendors)
-                                                    {
-                                                        <option value="@v.Id">@v.Label</option>
-                                                    }
-                                                </select>
-                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorNombre" class="input-vendor-name" data-index="@i" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <label asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-label fw-semibold mb-0">Contacto Vendor Local</label>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor-contact" data-index="@i" title="Registrar nuevo Contacto Vendor">+ Nuevo</button>
-                                                </div>
-                                                <select asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-select select-vendor-contact" data-index="@i">
-                                                    <option value="">-- Seleccionar Contacto --</option>
-                                                </select>
-                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorContacto" class="input-vendor-contact-name" data-index="@i" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <label asp-for="SubsidiaryAsIsList[i].PartnerId" class="form-label fw-semibold mb-0">Partner / Integrador Local</label>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner" data-index="@i" title="Registrar nuevo Partner">+ Nuevo</button>
-                                                </div>
-                                                <select asp-for="SubsidiaryAsIsList[i].PartnerId" class="form-select select-partner" data-index="@i">
-                                                    <option value="">-- Directo (Sin Partner) --</option>
-                                                    @foreach (var pt in Model.Partners)
-                                                    {
-                                                        <option value="@pt.Id">@pt.Label</option>
-                                                    }
-                                                </select>
-                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].PartnerNombre" class="input-partner-name" data-index="@i" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <label asp-for="SubsidiaryAsIsList[i].PartnerContactoId" class="form-label fw-semibold mb-0">Contacto Partner Local</label>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner-contact" data-index="@i" title="Registrar nuevo Contacto Partner">+ Nuevo</button>
-                                                </div>
-                                                <select asp-for="SubsidiaryAsIsList[i].PartnerContactoId" class="form-select select-partner-contact" data-index="@i">
-                                                    <option value="">-- Seleccionar Contacto --</option>
-                                                </select>
-                                                <input type="hidden" asp-for="SubsidiaryAsIsList[i].PartnerContacto" class="input-partner-contact-name" data-index="@i" />
-                                            </div>
+                                             <!-- Fabricante / Vendor y Contacto Vendor Local -->
+                                             <div class="col-md-6">
+                                                 <div class="d-flex justify-content-between align-items-center mb-1">
+                                                     <label asp-for="SubsidiaryAsIsList[i].VendorId" class="form-label fw-semibold mb-0">Fabricante / Vendor</label>
+                                                     <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor" data-index="@i" title="Registrar nuevo Fabricante / Vendor">+ Nuevo</button>
+                                                 </div>
+                                                 <select asp-for="SubsidiaryAsIsList[i].VendorId" class="form-select select-vendor" data-index="@i">
+                                                     <option value="">-- Seleccionar Vendor --</option>
+                                                     @foreach (var v in Model.Vendors)
+                                                     {
+                                                         <option value="@v.Id">@v.Label</option>
+                                                     }
+                                                 </select>
+                                                 <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorNombre" class="input-vendor-name" data-index="@i" />
+                                             </div>
+                                             <div class="col-md-6">
+                                                 <div class="d-flex justify-content-between align-items-center mb-1">
+                                                     <label asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-label fw-semibold mb-0">Contacto Vendor Local</label>
+                                                     <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-vendor-contact" data-index="@i" title="Registrar nuevo Contacto Vendor">+ Nuevo</button>
+                                                 </div>
+                                                 <select asp-for="SubsidiaryAsIsList[i].VendorContactoId" class="form-select select-vendor-contact" data-index="@i">
+                                                     <option value="">-- Seleccionar Contacto --</option>
+                                                 </select>
+                                                 <input type="hidden" asp-for="SubsidiaryAsIsList[i].VendorContacto" class="input-vendor-contact-name" data-index="@i" />
+                                             </div>
+
+                                             <!-- Tarjeta de Partners / Integradores Locales (1 a N) -->
+                                             <div class="col-12 mt-3">
+                                                 <div class="card border border-primary-subtle bg-light-subtle shadow-none">
+                                                     <div class="card-header bg-white d-flex justify-content-between align-items-center py-2 border-bottom border-primary-subtle">
+                                                         <div class="d-flex align-items-center gap-2">
+                                                             <i class="bi bi-diagram-3 text-primary fs-5"></i>
+                                                             <div>
+                                                                 <span class="fw-bold text-dark">Partners / Integradores Locales</span>
+                                                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">1 a N</span>
+                                                             </div>
+                                                         </div>
+                                                         <button type="button" class="btn btn-outline-primary btn-sm btn-add-partner-row" data-index="@i">
+                                                             <i class="bi bi-plus-circle me-1"></i>+ Agregar Partner
+                                                         </button>
+                                                     </div>
+                                                     <div class="card-body p-3">
+                                                         <div class="partners-container" data-index="@i" id="partners-container-@i">
+                                                             @{
+                                                                 var existingPartners = Model.SubsidiaryAsIsList[i].Partners;
+                                                                 if (existingPartners.Count == 0)
+                                                                 {
+                                                                     existingPartners.Add(new AsIsPartnerItemInputModel
+                                                                     {
+                                                                         PartnerId = Model.SubsidiaryAsIsList[i].PartnerId,
+                                                                         PartnerNombre = Model.SubsidiaryAsIsList[i].PartnerNombre,
+                                                                         PartnerContactoId = Model.SubsidiaryAsIsList[i].PartnerContactoId,
+                                                                         PartnerContacto = Model.SubsidiaryAsIsList[i].PartnerContacto
+                                                                     });
+                                                                 }
+                                                             }
+                                                             @for (int pIdx = 0; pIdx < existingPartners.Count; pIdx++)
+                                                             {
+                                                                 <div class="row g-2 align-items-end partner-row mb-2 pb-2 border-bottom border-secondary-subtle" data-partner-index="@pIdx">
+                                                                     <div class="col-md-5">
+                                                                         <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                             <label class="form-label small fw-semibold text-muted mb-0">Partner / Integrador Local</label>
+                                                                             <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner" data-index="@i" data-partner-index="@pIdx" title="Registrar nuevo Partner">+ Nuevo</button>
+                                                                         </div>
+                                                                         <select name="SubsidiaryAsIsList[@i].Partners[@pIdx].PartnerId" class="form-select form-select-sm select-partner" data-index="@i" data-partner-index="@pIdx">
+                                                                             <option value="">-- Directo (Sin Partner) --</option>
+                                                                             @foreach (var pt in Model.Partners)
+                                                                             {
+                                                                                 <option value="@pt.Id" selected="@(existingPartners[pIdx].PartnerId == pt.Id ? "selected" : null)">@pt.Label</option>
+                                                                             }
+                                                                         </select>
+                                                                         <input type="hidden" name="SubsidiaryAsIsList[@i].Partners[@pIdx].PartnerNombre" class="input-partner-name" value="@existingPartners[pIdx].PartnerNombre" />
+                                                                     </div>
+                                                                     <div class="col-md-5">
+                                                                         <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                             <label class="form-label small fw-semibold text-muted mb-0">Contacto Partner Local</label>
+                                                                             <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner-contact" data-index="@i" data-partner-index="@pIdx" title="Registrar nuevo Contacto Partner">+ Nuevo</button>
+                                                                         </div>
+                                                                         <select name="SubsidiaryAsIsList[@i].Partners[@pIdx].PartnerContactoId" class="form-select form-select-sm select-partner-contact" data-index="@i" data-partner-index="@pIdx" data-saved-contact-id="@existingPartners[pIdx].PartnerContactoId">
+                                                                             <option value="">-- Seleccionar Contacto --</option>
+                                                                         </select>
+                                                                         <input type="hidden" name="SubsidiaryAsIsList[@i].Partners[@pIdx].PartnerContacto" class="input-partner-contact-name" value="@existingPartners[pIdx].PartnerContacto" />
+                                                                     </div>
+                                                                     <div class="col-md-2 text-end">
+                                                                         <button type="button" class="btn btn-outline-danger btn-sm btn-remove-partner-row" data-index="@i" title="Eliminar este Partner">
+                                                                             <i class="bi bi-trash me-1"></i>Eliminar
+                                                                         </button>
+                                                                     </div>
+                                                                 </div>
+                                                             }
+                                                         </div>
+                                                     </div>
+                                                 </div>
+                                             </div>
 
                                             <!-- Contrato Local -->
                                             <div class="col-12 mt-3">
@@ -938,6 +1001,14 @@
     </div>
 </div>
 
+<template id="partnerOptionsTemplate">
+    <option value="">-- Directo (Sin Partner) --</option>
+    @foreach (var pt in Model.Partners)
+    {
+        <option value="@pt.Id">@pt.Label</option>
+    }
+</template>
+
 @section Scripts {
 <partial name="_ValidationScriptsPartial" />
 <script>
@@ -1031,6 +1102,10 @@
 
                     capBbName.innerText = data.buildingBlockNombre || 'Building Block';
                     capDomainName.innerText = data.dominioNombre || 'Dominio TSI';
+                    const capFamilyName = document.getElementById('cap-family-name');
+                    if (capFamilyName) {
+                        capFamilyName.innerText = data.familiaNombre || 'Sin familia asignada';
+                    }
 
                     capItemsList.innerHTML = '';
                     if (!data.capacidades || data.capacidades.length === 0) {
@@ -1944,6 +2019,7 @@
         // QUICK CREATE PARTNER
         // ----------------------------------------------------
         let activePartnerIndex = null;
+        let activePartnerTargetSelect = null;
         const modalQuickPartnerEl = document.getElementById('modalQuickPartner');
         const modalQuickPartner = modalQuickPartnerEl ? bootstrap.Modal.getOrCreateInstance(modalQuickPartnerEl) : null;
         const quickPartnerNombre = document.getElementById('quickPartnerNombre');
@@ -1953,9 +2029,13 @@
         const btnSubmitQuickPartner = document.getElementById('btnSubmitQuickPartner');
         const spinnerQuickPartner = document.getElementById('spinnerQuickPartner');
 
-        document.querySelectorAll('.btn-quick-partner').forEach(btn => {
-            btn.addEventListener('click', function () {
-                activePartnerIndex = this.getAttribute('data-index');
+        document.addEventListener('click', function (e) {
+            const btnP = e.target.closest('.btn-quick-partner');
+            if (btnP) {
+                activePartnerIndex = btnP.getAttribute('data-index');
+                const partnerRow = btnP.closest('.partner-row');
+                activePartnerTargetSelect = partnerRow ? partnerRow.querySelector('.select-partner') : document.querySelector(`.select-partner[data-index="${activePartnerIndex}"]`);
+
                 if (quickPartnerNombre) quickPartnerNombre.value = '';
                 if (quickPartnerDescripcion) quickPartnerDescripcion.value = '';
                 if (quickPartnerAlert) {
@@ -1971,7 +2051,7 @@
 
                 modalQuickPartner?.show();
                 setTimeout(() => quickPartnerNombre?.focus(), 200);
-            });
+            }
         });
 
         async function handleQuickCreatePartner() {
@@ -1991,7 +2071,7 @@
 
             if (quickPartnerAlert) quickPartnerAlert.classList.add('d-none');
             if (btnSubmitQuickPartner) btnSubmitQuickPartner.disabled = true;
-            if (spinnerQuickPartner) spinnerQuickPartner.classList.remove('d-none');
+            if (spinnerQuickPartner) spinnerQuickPartner.classList.add('d-none');
 
             try {
                 const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -2031,12 +2111,18 @@
                 });
 
                 // Select for active row
-                if (activePartnerIndex !== null) {
+                if (activePartnerTargetSelect) {
+                    activePartnerTargetSelect.value = data.id;
+                    activePartnerTargetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    const partnerRow = activePartnerTargetSelect.closest('.partner-row');
+                    const hiddenName = partnerRow ? partnerRow.querySelector('.input-partner-name') : null;
+                    if (hiddenName) hiddenName.value = data.nombre;
+                } else if (activePartnerIndex !== null) {
                     const activeSelect = document.querySelector(`.select-partner[data-index="${activePartnerIndex}"]`);
                     const hiddenName = document.querySelector(`.input-partner-name[data-index="${activePartnerIndex}"]`);
                     if (activeSelect) {
                         activeSelect.value = data.id;
-                        activeSelect.dispatchEvent(new Event('change'));
+                        activeSelect.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     if (hiddenName) hiddenName.value = data.nombre;
                 }
@@ -2245,6 +2331,8 @@
         // CARGA DINÁMICA DE CONTACTOS DE PARTNER Y QUICK CREATE
         // ----------------------------------------------------
         let activePartnerContactIndex = null;
+        let activePartnerContactTargetSelect = null;
+        let activePartnerContactTargetHidden = null;
         const modalQuickPartnerContactEl = document.getElementById('modalQuickPartnerContact');
         const modalQuickPartnerContact = modalQuickPartnerContactEl ? bootstrap.Modal.getOrCreateInstance(modalQuickPartnerContactEl) : null;
         const quickPartnerContactAlert = document.getElementById('quickPartnerContactAlert');
@@ -2284,10 +2372,15 @@
             }
         }
 
-        document.querySelectorAll('.btn-quick-partner-contact').forEach(btn => {
-            btn.addEventListener('click', function () {
-                activePartnerContactIndex = this.getAttribute('data-index');
-                const rowPartnerSelect = document.querySelector(`.select-partner[data-index="${activePartnerContactIndex}"]`);
+        document.addEventListener('click', function (e) {
+            const btnC = e.target.closest('.btn-quick-partner-contact');
+            if (btnC) {
+                activePartnerContactIndex = btnC.getAttribute('data-index');
+                const partnerRow = btnC.closest('.partner-row');
+                const rowPartnerSelect = partnerRow ? partnerRow.querySelector('.select-partner') : document.querySelector(`.select-partner[data-index="${activePartnerContactIndex}"]`);
+                activePartnerContactTargetSelect = partnerRow ? partnerRow.querySelector('.select-partner-contact') : document.querySelector(`.select-partner-contact[data-index="${activePartnerContactIndex}"]`);
+                activePartnerContactTargetHidden = partnerRow ? partnerRow.querySelector('.input-partner-contact-name') : document.querySelector(`.input-partner-contact-name[data-index="${activePartnerContactIndex}"]`);
+
                 const partnerId = rowPartnerSelect?.value;
                 const partnerNombre = rowPartnerSelect?.selectedIndex > 0 ? rowPartnerSelect.options[rowPartnerSelect.selectedIndex].text : '';
 
@@ -2311,7 +2404,7 @@
 
                 modalQuickPartnerContact?.show();
                 setTimeout(() => quickPartnerContactNombre?.focus(), 200);
-            });
+            }
         });
 
         async function handleQuickCreatePartnerContact() {
@@ -2343,7 +2436,7 @@
 
             if (quickPartnerContactAlert) quickPartnerContactAlert.classList.add('d-none');
             if (btnSubmitQuickPartnerContact) btnSubmitQuickPartnerContact.disabled = true;
-            if (spinnerQuickPartnerContact) spinnerQuickPartnerContact.classList.remove('d-none');
+            if (spinnerQuickPartnerContact) spinnerQuickPartnerContact.classList.add('d-none');
 
             try {
                 const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -2375,7 +2468,22 @@
                 }
 
                 // Add to active row contact select and select it
-                if (activePartnerContactIndex !== null) {
+                if (activePartnerContactTargetSelect) {
+                    const selectContact = activePartnerContactTargetSelect;
+                    const label = data.nombre + (data.rol ? ` (${data.rol})` : '') + (data.email ? ` - ${data.email}` : '');
+                    let opt = selectContact.querySelector(`option[value="${data.id}"]`);
+                    if (!opt) {
+                        opt = document.createElement('option');
+                        opt.value = data.id;
+                        selectContact.appendChild(opt);
+                    }
+                    opt.dataset.name = data.nombre;
+                    opt.text = label;
+                    selectContact.value = data.id;
+                    if (activePartnerContactTargetHidden) {
+                        activePartnerContactTargetHidden.value = data.nombre;
+                    }
+                } else if (activePartnerContactIndex !== null) {
                     const selectContact = document.querySelector(`.select-partner-contact[data-index="${activePartnerContactIndex}"]`);
                     const hiddenContactName = document.querySelector(`.input-partner-contact-name[data-index="${activePartnerContactIndex}"]`);
                     if (selectContact) {
@@ -2407,6 +2515,143 @@
                 if (spinnerQuickPartnerContact) spinnerQuickPartnerContact.classList.add('d-none');
             }
         }
+
+        // ----------------------------------------------------
+        // GESTIÓN DINÁMICA DE MÚLTIPLES PARTNERS POR AS-IS (1 A N)
+        // ----------------------------------------------------
+        function reindexPartnerRows(subIndex) {
+            const container = document.getElementById(`partners-container-${subIndex}`);
+            if (!container) return;
+            const rows = container.querySelectorAll('.partner-row');
+            rows.forEach((r, idx) => {
+                r.dataset.partnerIndex = idx;
+                const pSel = r.querySelector('.select-partner');
+                if (pSel) {
+                    pSel.name = `SubsidiaryAsIsList[${subIndex}].Partners[${idx}].PartnerId`;
+                    pSel.dataset.partnerIndex = idx;
+                }
+                const pName = r.querySelector('.input-partner-name');
+                if (pName) pName.name = `SubsidiaryAsIsList[${subIndex}].Partners[${idx}].PartnerNombre`;
+
+                const cSel = r.querySelector('.select-partner-contact');
+                if (cSel) {
+                    cSel.name = `SubsidiaryAsIsList[${subIndex}].Partners[${idx}].PartnerContactoId`;
+                    cSel.dataset.partnerIndex = idx;
+                }
+                const cName = r.querySelector('.input-partner-contact-name');
+                if (cName) cName.name = `SubsidiaryAsIsList[${subIndex}].Partners[${idx}].PartnerContacto`;
+
+                const btnP = r.querySelector('.btn-quick-partner');
+                if (btnP) btnP.dataset.partnerIndex = idx;
+                const btnC = r.querySelector('.btn-quick-partner-contact');
+                if (btnC) btnC.dataset.partnerIndex = idx;
+            });
+        }
+
+        document.addEventListener('click', function (e) {
+            const addBtn = e.target.closest('.btn-add-partner-row');
+            if (addBtn) {
+                const subIndex = addBtn.getAttribute('data-index');
+                const container = document.getElementById(`partners-container-${subIndex}`);
+                if (!container) return;
+                const currentRows = container.querySelectorAll('.partner-row');
+                const newPIdx = currentRows.length;
+                const tpl = document.getElementById('partnerOptionsTemplate');
+                const partnerOptionsHtml = tpl ? tpl.innerHTML : '<option value="">-- Directo (Sin Partner) --</option>';
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row g-2 align-items-end partner-row mb-2 pb-2 border-bottom border-secondary-subtle';
+                rowDiv.dataset.partnerIndex = newPIdx;
+                rowDiv.innerHTML = `
+                    <div class="col-md-5">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-semibold text-muted mb-0">Partner / Integrador Local</label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner" data-index="${subIndex}" data-partner-index="${newPIdx}" title="Registrar nuevo Partner">+ Nuevo</button>
+                        </div>
+                        <select name="SubsidiaryAsIsList[${subIndex}].Partners[${newPIdx}].PartnerId" class="form-select form-select-sm select-partner" data-index="${subIndex}" data-partner-index="${newPIdx}">
+                            ${partnerOptionsHtml}
+                        </select>
+                        <input type="hidden" name="SubsidiaryAsIsList[${subIndex}].Partners[${newPIdx}].PartnerNombre" class="input-partner-name" />
+                    </div>
+                    <div class="col-md-5">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-semibold text-muted mb-0">Contacto Partner Local</label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-primary btn-quick-partner-contact" data-index="${subIndex}" data-partner-index="${newPIdx}" title="Registrar nuevo Contacto Partner">+ Nuevo</button>
+                        </div>
+                        <select name="SubsidiaryAsIsList[${subIndex}].Partners[${newPIdx}].PartnerContactoId" class="form-select form-select-sm select-partner-contact" data-index="${subIndex}" data-partner-index="${newPIdx}">
+                            <option value="">-- Seleccionar Contacto --</option>
+                        </select>
+                        <input type="hidden" name="SubsidiaryAsIsList[${subIndex}].Partners[${newPIdx}].PartnerContacto" class="input-partner-contact-name" />
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button type="button" class="btn btn-outline-danger btn-sm btn-remove-partner-row" data-index="${subIndex}" title="Eliminar este Partner">
+                            <i class="bi bi-trash me-1"></i>Eliminar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(rowDiv);
+                reindexPartnerRows(subIndex);
+            }
+
+            const removeBtn = e.target.closest('.btn-remove-partner-row');
+            if (removeBtn) {
+                const subIndex = removeBtn.getAttribute('data-index');
+                const row = removeBtn.closest('.partner-row');
+                const container = document.getElementById(`partners-container-${subIndex}`);
+                if (row && container) {
+                    if (container.querySelectorAll('.partner-row').length > 1) {
+                        row.remove();
+                        reindexPartnerRows(subIndex);
+                    } else {
+                        const pSel = row.querySelector('.select-partner');
+                        if (pSel) pSel.value = '';
+                        const cSel = row.querySelector('.select-partner-contact');
+                        if (cSel) cSel.innerHTML = '<option value="">-- Seleccionar Contacto --</option>';
+                        const pName = row.querySelector('.input-partner-name');
+                        if (pName) pName.value = '';
+                        const cName = row.querySelector('.input-partner-contact-name');
+                        if (cName) cName.value = '';
+                    }
+                }
+            }
+        });
+
+        // Delegación de eventos para select-partner y select-partner-contact
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.classList.contains('select-partner')) {
+                const partnerRow = e.target.closest('.partner-row');
+                if (partnerRow) {
+                    const contactSelect = partnerRow.querySelector('.select-partner-contact');
+                    const hiddenName = partnerRow.querySelector('.input-partner-name');
+                    if (hiddenName) {
+                        hiddenName.value = e.target.selectedIndex > 0 ? e.target.options[e.target.selectedIndex].text : '';
+                    }
+                    if (contactSelect) {
+                        loadPartnerContacts(e.target.value, contactSelect);
+                    }
+                }
+            }
+            if (e.target && e.target.classList.contains('select-partner-contact')) {
+                const partnerRow = e.target.closest('.partner-row');
+                if (partnerRow) {
+                    const hiddenContactName = partnerRow.querySelector('.input-partner-contact-name');
+                    if (hiddenContactName) {
+                        const selectedOpt = e.target.options[e.target.selectedIndex];
+                        hiddenContactName.value = selectedOpt?.dataset?.name || (e.target.selectedIndex > 0 ? selectedOpt.text : '');
+                    }
+                }
+            }
+        });
+
+        // Inicializar contactos de partner para filas existentes
+        document.querySelectorAll('.partner-row').forEach(row => {
+            const pSel = row.querySelector('.select-partner');
+            const cSel = row.querySelector('.select-partner-contact');
+            if (pSel && cSel && pSel.value) {
+                const savedContactId = cSel.dataset.savedContactId;
+                loadPartnerContacts(pSel.value, cSel, savedContactId);
+            }
+        });
 
         if (btnSubmitQuickPartnerContact) btnSubmitQuickPartnerContact.addEventListener('click', handleQuickCreatePartnerContact);
         if (quickPartnerContactNombre) {
@@ -2445,20 +2690,6 @@
                         hidden.value = '';
                     }
                 }
-            });
-        });
-
-        document.querySelectorAll('.select-partner').forEach(sel => {
-            sel.addEventListener('change', function () {
-                const idx = this.getAttribute('data-index');
-                const hidden = document.querySelector(`.input-partner-name[data-index="${idx}"]`);
-                if (hidden) {
-                    hidden.value = this.selectedIndex > 0 ? this.options[this.selectedIndex].text : '';
-                }
-                const contactSelect = document.querySelector(`.select-partner-contact[data-index="${idx}"]`);
-                const contactHidden = document.querySelector(`.input-partner-contact-name[data-index="${idx}"]`);
-                if (contactHidden) contactHidden.value = '';
-                loadPartnerContacts(this.value, contactSelect);
             });
         });
 
@@ -2523,13 +2754,6 @@
                     const idx = sel.getAttribute('data-index');
                     const contactSelect = document.querySelector(`.select-vendor-contact[data-index="${idx}"]`);
                     loadVendorContacts(sel.value, contactSelect);
-                }
-            });
-            document.querySelectorAll('.select-partner').forEach(sel => {
-                if (sel.value) {
-                    const idx = sel.getAttribute('data-index');
-                    const contactSelect = document.querySelector(`.select-partner-contact[data-index="${idx}"]`);
-                    loadPartnerContacts(sel.value, contactSelect);
                 }
             });
         } catch (e) {

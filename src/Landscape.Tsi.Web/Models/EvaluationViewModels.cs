@@ -86,6 +86,7 @@ public sealed class CreateEvaluationViewModel
     public IReadOnlyList<CatalogOption> ModalidadesLaborales { get; set; } = [];
     public IReadOnlyList<CatalogOption> Vendors { get; set; } = [];
     public IReadOnlyList<CatalogOption> Partners { get; set; } = [];
+    public IReadOnlyList<CatalogOption> VersionesDesplegadas { get; set; } = [];
 
     // Selección múltiple con checkboxes de empresas
     public List<SubsidiaryCheckboxItem> Subsidiaries { get; set; } = [];
@@ -102,6 +103,14 @@ public sealed class CreateEvaluationViewModel
     public string? ContactoVendorCorporativo { get; set; }
     public string? PartnerCorporativo { get; set; }
     public string? ContactoPartnerCorporativo { get; set; }
+}
+
+public sealed class AsIsPartnerItemInputModel
+{
+    public int? PartnerId { get; set; }
+    public string? PartnerNombre { get; set; }
+    public int? PartnerContactoId { get; set; }
+    public string? PartnerContacto { get; set; }
 }
 
 public sealed class SubsidiaryCheckboxItem
@@ -135,6 +144,7 @@ public sealed class SubsidiaryAsIsInputModel
     public string? PartnerNombre { get; set; }
     public int? PartnerContactoId { get; set; }
     public string? PartnerContacto { get; set; }
+    public List<AsIsPartnerItemInputModel> Partners { get; set; } = [];
     public string? NumeroContrato { get; set; }
     public bool EsPayg { get; set; }
     public DateTime? FechaInicioContrato { get; set; }

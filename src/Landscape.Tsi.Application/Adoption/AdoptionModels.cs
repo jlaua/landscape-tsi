@@ -35,6 +35,14 @@ public sealed record AdoptionProcessDetailDto(
     IReadOnlyList<StandardTechnologyDto> EstandaresHistoricos,
     IReadOnlyList<CompanyAdoptionRowDto> EmpresasParticipantes);
 
+public sealed record CompanyCapabilityItemDto(
+    int Id,
+    int CapacidadId,
+    string CapacidadNombre,
+    string EstadoCodigo,
+    string? Comentario,
+    int OrdenVisualizacion = 0);
+
 public sealed record CompanyAdoptionRowDto(
     int ProcesoEmpresaId,
     int EmpresaId,
@@ -46,7 +54,9 @@ public sealed record CompanyAdoptionRowDto(
     string? JustificacionNoAplica,
     DateTime FechaIncorporacion,
     IReadOnlyList<ImplementedTechnologyDto> TecnologiasImplementadas,
-    string EstadoAlineamiento);
+    string EstadoAlineamiento,
+    IReadOnlyList<CompanyCapabilityItemDto>? Capacidades = null,
+    string? ComentarioCapacidades = null);
 
 public sealed record StandardTechnologyDto(
     int Id,
@@ -196,8 +206,8 @@ public sealed record SaveDriverCommand(
 
 public sealed record SaveOperationModelCommand(
     int TecnologiaImplementadaId,
-    int TipoOperacionId,
-    int ModalidadLaboralId,
+    int? TipoOperacionId,
+    int? ModalidadLaboralId,
     Guid ActorUserId,
     string CorrelationId);
 
@@ -238,7 +248,8 @@ public sealed record BuildingBlockCapabilitiesDto(
     int BuildingBlockId,
     string BuildingBlockNombre,
     string DominioNombre,
-    IReadOnlyList<CapabilitySummaryDto> Capacidades);
+    IReadOnlyList<CapabilitySummaryDto> Capacidades,
+    string? FamiliaNombre = null);
 
 public sealed record CapabilitySummaryDto(
     int Id,

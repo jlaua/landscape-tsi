@@ -265,7 +265,7 @@ public sealed class AdoptionEvaluationTests
     {
         var dtoCorp = new ImplementedTechnologyDto(
             1, 2, "BCP", 3, 44, "Akamai Kona", "Akamai", true, "v2.0", "ALINEADO", null, [], [], true);
-        
+
         var dtoLocal = new ImplementedTechnologyDto(
             2, 5, "Mibanco", 3, 44, "Akamai Kona", "Akamai", true, "v1.8", "ALINEADO", null, [], [], false);
 

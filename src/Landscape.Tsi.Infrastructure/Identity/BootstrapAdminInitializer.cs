@@ -57,6 +57,10 @@ public sealed class BootstrapAdminInitializer(
             .SingleAsync(x => x.Code == SystemRoles.AdministratorCode, cancellationToken);
         var securityArchitectRole = await dbContext.BusinessRoles
             .SingleAsync(x => x.Code == SystemRoles.SecurityArchitectCode, cancellationToken);
+        var governmentSpocRole = await dbContext.BusinessRoles
+            .SingleAsync(x => x.Code == SystemRoles.GovernmentSpocCode, cancellationToken);
+        var tsiEngineerRole = await dbContext.BusinessRoles
+            .SingleAsync(x => x.Code == SystemRoles.TsiEngineerCode, cancellationToken);
 
         foreach (var entry in Permissions.AdministratorPermissions)
         {
@@ -78,6 +82,22 @@ public sealed class BootstrapAdminInitializer(
                     cancellationToken))
             {
                 dbContext.RolePermissions.Add(new IamRolPermiso { Role = securityArchitectRole, Permission = permission });
+            }
+
+            if (Permissions.GovernmentSpocPermissions.Contains(entry.Key) &&
+                !await dbContext.RolePermissions.AnyAsync(
+                    x => x.RoleId == governmentSpocRole.Id && x.PermissionId == permission.Id,
+                    cancellationToken))
+            {
+                dbContext.RolePermissions.Add(new IamRolPermiso { Role = governmentSpocRole, Permission = permission });
+            }
+
+            if (Permissions.TsiEngineerPermissions.Contains(entry.Key) &&
+                !await dbContext.RolePermissions.AnyAsync(
+                    x => x.RoleId == tsiEngineerRole.Id && x.PermissionId == permission.Id,
+                    cancellationToken))
+            {
+                dbContext.RolePermissions.Add(new IamRolPermiso { Role = tsiEngineerRole, Permission = permission });
             }
         }
 

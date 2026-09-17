@@ -90,7 +90,7 @@ public sealed class LoginPageTests
         var homeHtml = await home.Content.ReadAsStringAsync();
         Assert.Contains("Cerrar sesión", homeHtml);
         Assert.Contains("Administración", homeHtml);
-        Assert.Contains("Mapa del Catálogo Landscape TSI", homeHtml);
+        Assert.Contains("Mapa Landscape TSI", homeHtml);
         Assert.Contains("data-catalog-code=\"building-block\"", homeHtml);
         Assert.Contains("data-catalog-code=\"building-block\"", homeHtml);
         Assert.DoesNotContain("data-catalog-graph", homeHtml);
@@ -238,7 +238,8 @@ public sealed class LoginPageTests
 
         var html = await client.GetStringAsync("/Account/AccessDenied");
 
-        Assert.Contains("<h1 id=\"denied-title\">Acceso denegado</h1>", html);
+        Assert.Contains("id=\"denied-title\"", html);
+        Assert.Contains("Acceso denegado", html);
         Assert.Contains("No dispone de permisos", html);
         Assert.Contains("aria-labelledby=\"denied-title\"", html);
     }

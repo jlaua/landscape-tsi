@@ -55,6 +55,7 @@
                                 Documentación
                             </button>
                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Documentation" asp-action="UserManual"><span class="fw-semibold">Manual de Usuario</span></a></li>
                                 <li><a class="dropdown-item" asp-controller="Documentation" asp-action="Index">Arquitectura del Sistema</a></li>
                                 @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
                                     Landscape.Tsi.Application.Identity.Permissions.CatalogView))
@@ -82,7 +83,10 @@
                                     @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
                                         Landscape.Tsi.Application.Identity.Permissions.CatalogView))
                                     {
-                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Index">Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Map">Mapa de Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Index">Gestión de Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="DomainColors">Configuración de Colores de Dominios</a></li>
+                                        <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="TechnologyMapping" asp-action="Index">Mapeo de Tecnologías TSI</a></li>
                                     }
                                 </ul>
@@ -106,7 +110,8 @@
                                     Reportería
                                 </button>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Index">Reportería de catálogos</a></li>
+                                    <li><a class="dropdown-item fw-semibold" asp-controller="Reporting" asp-action="Index">Distribución de Dominios</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Catalogs">Reportería de catálogos</a></li>
                                     <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompaniesAndCiso">Empresas y CISO</a></li>
                                     <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompanyAdoptionByTechnology">Adopción de Empresas por Tecnología</a></li>
                                 </ul>

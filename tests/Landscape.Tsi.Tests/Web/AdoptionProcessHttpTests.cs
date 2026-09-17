@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
@@ -295,10 +296,12 @@ public sealed class AdoptionProcessHttpTests
         Assert.Contains("b) Vencimiento de Contratos & Proyección", content);
         Assert.Contains("3) Volumetría por Empresa", content);
         Assert.Contains("4) Capacidades por Empresa", content);
+        Assert.Contains("5) Proyección de Costos AS-IS", content);
 
         // Verifica elementos clave de cada reporte
         Assert.Contains("WAF AS-IS", content);
-        Assert.Contains("Throughput GB Acum", content);
+        Assert.Contains("Throughput", content);
+        Assert.Contains("ACUM:", content);
         Assert.Contains("Data Transfer", content);
         Assert.Contains("Matriz de Cobertura de Capacidades", content);
     }
@@ -357,6 +360,69 @@ public sealed class AdoptionProcessHttpTests
 
         var response = await client.PostAsync("/Administration/AdoptionProcess/Evaluations/1/Delete?noDelete=true", new FormUrlEncodedContent([]));
         Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CompanyContacts_Endpoints_ReturnOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/empresa/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, json.GetProperty("entityId").GetInt32());
+        Assert.Equal("empresa-subsidiaria", json.GetProperty("entityType").GetString());
+        Assert.True(json.TryGetProperty("items", out var items));
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, items.ValueKind);
+
+        var lookupResponse = await client.GetAsync("/Administration/AdoptionProcess/empresa/1/contacts-lookup");
+        Assert.Equal(HttpStatusCode.OK, lookupResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DriverVolume_And_CapabilityState_Endpoints_ReturnOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var driverResp = await client.PostAsJsonAsync("/Administration/AdoptionProcess/1/empresa/1/driver-volume", new
+        {
+            driverKey = "api_prot",
+            cantidad = 1.0m
+        });
+        Assert.Equal(HttpStatusCode.OK, driverResp.StatusCode);
+
+        var capResp = await client.PostAsJsonAsync("/Administration/AdoptionProcess/1/empresa/1/capability-state", new
+        {
+            capacidadId = 1,
+            estadoCodigo = "A",
+            comentario = "Observación de prueba"
+        });
+        Assert.Equal(HttpStatusCode.OK, capResp.StatusCode);
+
+        var commentResp = await client.PostAsJsonAsync("/Administration/AdoptionProcess/1/empresa/1/capability-comment", new
+        {
+            comentario = "Comentario general"
+        });
+        Assert.Equal(HttpStatusCode.OK, commentResp.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateVencimientosDrivers_Endpoint_ReturnsOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var resp = await client.PostAsJsonAsync("/Administration/AdoptionProcess/1/update-vencimientos-drivers", new
+        {
+            drivers = new[] { "Throughput (mensual)", "Millones Request WAF (mensual)" }
+        });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var json = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(json.GetProperty("success").GetBoolean());
     }
 
     private static WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -480,15 +546,30 @@ public sealed class AdoptionProcessHttpTests
             var milestone = new ContractTimelineMilestoneDto("Dic-26", 2026, 12, false);
             var expRow = new ContractExpirationRowDto(1, 1, "Banco Subsidiaria", "F5 WAAP", 250m, 35, 120m, DateTime.Today.AddMonths(12), "Dic-26", new Dictionary<string, bool> { ["Dic-26"] = true });
             var expReport = new ContractExpirationReportDto([milestone], [expRow], new Dictionary<string, decimal> { ["Dic-26"] = 250m }, new Dictionary<string, int> { ["Dic-26"] = 35 }, new Dictionary<string, decimal> { ["Dic-26"] = 120m }, 250m, 35, 120m);
-            var volRow = new CompanyVolumeReportRowDto(1, "Banco Subsidiaria", "F5 WAAP", 1.5m, 2.0m, 40, 35, 12, 15m, 25m, 120m, 145m, 450m, "15 KB / 45 KB");
+            var volRow = new CompanyVolumeReportRowDto(1, "Banco Subsidiaria", "F5 WAAP", 1.5m, 2.0m, 25, 15, 35, 12, 15m, 25m, 120m, 145m, 450m, "15", "45", "15 KB / 45 KB");
             var volReport = new CompanyVolumeReportDto([volRow], 1.5m, 2.0m, 40, 35, 12, 15m, 25m, 120m, 145m, 450m);
             var capCell = new CompanyCapabilityMatrixCellDto(1, "WAF", "A", null);
             var matrixRow = new CompanyCapabilityMatrixRowDto(1, "Banco Subsidiaria", "F5 WAAP", new Dictionary<string, CompanyCapabilityMatrixCellDto> { ["WAF"] = capCell }, "Comentario prueba");
             var matrixReport = new CompanyCapabilitiesMatrixDto(["WAF"], [matrixRow]);
 
+            var costItem = new AsIsCostItemDto(1, 1, "Banco Subsidiaria", "F5 WAAP", "Licencias WAF", "Unidades", 5m, 1000m, "USD", 5000m);
+            var costosReport = new AsIsCostsReportDto([costItem], 5000m, 1);
+
             return Task.FromResult<EvaluationReportsDto?>(new EvaluationReportsDto(
                 procesoId, "PROC-TEST-001", "Evaluación WAAP Test", 1, "Application Security", "Seguridad", "Líder TSI", DateTime.Today, DateTime.Today.AddMonths(6), "En Evaluación",
-                [scopeRow], expReport, volReport, matrixReport));
+                [scopeRow], expReport, volReport, matrixReport, EsWaap: true, CostosAsIsReport: costosReport));
         }
+
+        public Task<AdoptionResult> UpdateCompanyCapabilityStateAsync(int procesoId, int empresaId, int capacidadId, string estadoCodigo, string? comentario, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<AdoptionResult> UpdateCompanyCapabilityCommentAsync(int procesoId, int empresaId, string? comentario, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<AdoptionResult> UpdateCompanyDriverVolumeAsync(int procesoId, int empresaId, string driverKey, decimal cantidad, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<AdoptionResult> SaveVencimientoReportDriversAsync(int procesoId, IEnumerable<string> drivers, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
     }
 }

@@ -429,6 +429,47 @@ GROUP BY p.idPartner";
         finally { await CloseConnectionAsync(); }
     }
 
+    public async Task<IReadOnlyDictionary<int, int>> GetCompanyContactCountsAsync(IEnumerable<int> companyIds, CancellationToken cancellationToken = default)
+    {
+        var idList = companyIds.Distinct().ToList();
+        var result = new Dictionary<int, int>();
+        if (idList.Count == 0) return result;
+        foreach (var id in idList) result[id] = 0;
+
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var paramNames = new List<string>();
+            for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+
+            var sql = $@"
+SELECT e.idEmpresaSubsidiaria, COUNT(DISTINCT ce.idContactoEmpresaSubsidiaria) AS ContactCount
+FROM [dbo].[TEmpresaSubsidiaria] e
+LEFT JOIN [dbo].[TContactoEmpresaSubsidiaria] ce ON ce.idEmpresaSubsidiaria = e.idEmpresaSubsidiaria
+WHERE e.idEmpresaSubsidiaria IN ({string.Join(", ", paramNames)})
+GROUP BY e.idEmpresaSubsidiaria";
+
+            await using var command = CreateCommand(sql);
+            for (var i = 0; i < idList.Count; i++)
+            {
+                AddParameter(command, paramNames[i], idList[i]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetInt32(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+        catch
+        {
+            return result;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
     public async Task<CatalogRow?> GetAsync(MasterCatalogDefinition definition, int id, CancellationToken cancellationToken = default)
     {
         EnsureWhitelisted(definition);

@@ -86,7 +86,9 @@ public sealed class CatalogMapMetadataTests
             ["vendor"] = "T",
             ["partner"] = "T",
             ["contacto-vendor"] = "T",
-            ["contacto-partner"] = "T"
+            ["contacto-partner"] = "T",
+            ["contacto-empresa"] = "T",
+            ["version-desplegada"] = "M"
         };
 
         var administrable = MasterCatalogRegistry.EntityMetadata
@@ -111,12 +113,12 @@ public sealed class CatalogMapMetadataTests
         Assert.Equal("Arquitectura de seguridad", entities.Single(entity => entity.PhysicalTableName == "TMEstadoAdopcionTSI").Group);
 
         Assert.Equal(12, entities.Count(entity => entity.Group == "Arquitectura de seguridad"));
-        Assert.Equal(3, entities.Count(entity => entity.Group == "Tecnología"));
-        Assert.Equal(7, entities.Count(entity => entity.Group == "Organización"));
+        Assert.Equal(4, entities.Count(entity => entity.Group == "Tecnología"));
+        Assert.Equal(8, entities.Count(entity => entity.Group == "Organización"));
         Assert.Equal(10, entities.Count(entity => entity.Group == "Operación"));
 
         Assert.Equal(
-            ["Tecnología TSI", "Casos de Uso", "Tecnología TSI Implementada por Empresa"],
+            ["Tecnología TSI", "Versión Desplegada", "Casos de Uso", "Tecnología TSI Implementada por Empresa"],
             entities.Where(entity => entity.Group == "Tecnología").Select(entity => entity.LogicalName).ToArray());
     }
 
@@ -150,8 +152,9 @@ public sealed class CatalogMapMetadataTests
     {
         var ciso = MasterCatalogRegistry.GetByCode("ciso")!;
 
-        Assert.Equal(CatalogDisplayPrivacy.RedactedValue, CatalogDisplayPrivacy.Protect(ciso, "email", "person@example.test"));
-        Assert.Equal(CatalogDisplayPrivacy.RedactedValue, CatalogDisplayPrivacy.Protect(ciso, "telefono", "+51 999 999 999"));
+        Assert.Equal("p***n@example.test", CatalogDisplayPrivacy.Protect(ciso, "email", "person@example.test"));
+        Assert.Equal("+51  ••• 99", CatalogDisplayPrivacy.Protect(ciso, "telefono", "+51 999 999 999"));
+        Assert.Equal("person@example.test", CatalogDisplayPrivacy.Protect(ciso, "email", "person@example.test", canViewSensitive: true));
         Assert.Equal("Nombre funcional", CatalogDisplayPrivacy.Protect(ciso, "nombre", "Nombre funcional"));
         Assert.Null(CatalogDisplayPrivacy.Protect(ciso, "email", null));
         Assert.Equal("person@example.test", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(ciso, "email", null, "person@example.test"));

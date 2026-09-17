@@ -13,6 +13,10 @@ public interface IBuildingBlockRelatedService
         int pageSize,
         string? functionalitySortBy = null,
         string? functionalitySortDirection = null,
+        string? capabilitySortBy = null,
+        string? capabilitySortDirection = null,
+        int? functionalityPageSize = null,
+        int? capabilityPageSize = null,
         CancellationToken cancellationToken = default);
 }
 

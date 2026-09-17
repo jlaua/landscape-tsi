@@ -16,6 +16,8 @@ public interface ICatalogManagementService
         Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
     Task<IReadOnlyDictionary<int, int>> GetPartnerContactCountsAsync(IEnumerable<int> partnerIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
+    Task<IReadOnlyDictionary<int, int>> GetCompanyContactCountsAsync(IEnumerable<int> companyIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
 }
 
 public sealed record CatalogRelationBucket(int ParentId, string ParentName, int Total);

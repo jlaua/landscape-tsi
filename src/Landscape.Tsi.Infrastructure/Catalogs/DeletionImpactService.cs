@@ -274,6 +274,20 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                         if (operationTariff > 0)
                             grandChildren.Add(new DeletionDependencyNode("Tarifario de Operación", "TTarifarioOperacion", operationTariff, 2, "Servicio → Tarifario Operación", []));
                     }
+                    else if (childDef.Code == "tecnologia-tsi-implementada")
+                    {
+                        var contracts = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[TContratoTecnologia] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [{fkCol.PhysicalName}] = @rootId)", rootId, cancellationToken);
+                        if (contracts > 0)
+                            grandChildren.Add(new DeletionDependencyNode("Contratos de Tecnología", "TContratoTecnologia", contracts, 2, "Implementada → Contratos", []));
+
+                        var drivers = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[TDriver] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [{fkCol.PhysicalName}] = @rootId)", rootId, cancellationToken);
+                        if (drivers > 0)
+                            grandChildren.Add(new DeletionDependencyNode("Drivers Operativos", "TDriver", drivers, 2, "Implementada → Drivers", []));
+
+                        var models = await ReadCountAsync($"SELECT COUNT_BIG(*) FROM [dbo].[TModeloDeOperacion] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [{fkCol.PhysicalName}] = @rootId)", rootId, cancellationToken);
+                        if (models > 0)
+                            grandChildren.Add(new DeletionDependencyNode("Modelos de Operación", "TModeloDeOperacion", models, 2, "Implementada → Modelo Operación", []));
+                    }
 
                     result.Add(new DeletionDependencyNode(childDef.Name, childDef.PhysicalTable, count, 1, $"{definition.Name} → {childDef.Name}", grandChildren));
                 }
@@ -301,6 +315,52 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
     {
         var totalDeleted = 0;
 
+        if (definition.Code == "tecnologia-tsi")
+        {
+            // 1. Relaciones en tabla puente
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+
+            // 2. Tablas nietas de TTecnologiaTSIimplementadaSubsidiaria
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TContratoTecnologia] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [idTecnologiaTSI] = @rootId) AND [idContratoPadre] IS NOT NULL", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TContratoTecnologia] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [idTecnologiaTSI] = @rootId)", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TDriver] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [idTecnologiaTSI] = @rootId)", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TModeloDeOperacion] WHERE [idTecnologiaTSIimplementadaSubsidiaria] IN (SELECT [idTecnologiaTSIimplementadaSubsidiaria] FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [idTecnologiaTSI] = @rootId)", rootId, cancellationToken);
+
+            // 3. Tablas nietas de TServicioTecnologia (Tarifarios)
+            totalDeleted += await ExecuteAsync("DELETE p FROM [dbo].[TTarifarioProyectoHoras] p INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = p.[idServicio] WHERE s.[idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE o FROM [dbo].[TTarifarioOperacion] o INNER JOIN [dbo].[TServicioTecnologia] s ON s.[idServicio] = o.[idServicio] WHERE s.[idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+
+            // 4. Casos de Uso
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TCasosDeUso] WHERE [idTecnologiaTSI] = @rootId OR [idEstandarTecnologia] IN (SELECT [idEstandarTecnologia] FROM [dbo].[TEstandarTecnologiaHistorico] WHERE [idTecnologiaTSI] = @rootId)", rootId, cancellationToken);
+
+            // 5. Histórico de Estándares Tecnológicos
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TEstandarTecnologiaHistorico] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+
+            // 6. Desvincular Vendors y Partners (no eliminar la entidad de empresa proveedora)
+            totalDeleted += await ExecuteAsync("UPDATE [dbo].[TVendor] SET [idTecnologiaTSI] = NULL WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("UPDATE [dbo].[TPartner] SET [idTecnologiaTSI] = NULL WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+
+            // 7. Tablas hijas directas
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TTecnologiaTSIimplementadaSubsidiaria] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TServicioTecnologia] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+
+            // 8. Registro raíz
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TTecnologiaTSI] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
+            return totalDeleted;
+        }
+
+        if (definition.Code == "vendor")
+        {
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TContactoVendor] WHERE [idVendor] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TContactoPartner] WHERE [idVendor] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("UPDATE [dbo].[TPartner] SET [idVendor] = NULL WHERE [idVendor] = @rootId", rootId, cancellationToken);
+            totalDeleted += await ExecuteAsync("UPDATE [dbo].[TServicioTecnologia] SET [idVendor] = NULL WHERE [idVendor] = @rootId", rootId, cancellationToken);
+        }
+        else if (definition.Code == "partner")
+        {
+            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TContactoPartner] WHERE [idPartner] = @rootId", rootId, cancellationToken);
+        }
+
         foreach (var childDef in MasterCatalogRegistry.Catalogs.Where(c => c.Code != definition.Code))
         {
             var fkCols = childDef.Columns.Where(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -316,11 +376,6 @@ public sealed class DeletionImpactService(IdentityDbContext dbContext, IConfigur
                     totalDeleted += await ExecuteAsync($"DELETE FROM [dbo].[TContratoTecnologia] WHERE [{fkCol.PhysicalName}] = @rootId AND [idContratoPadre] IS NOT NULL", rootId, cancellationToken);
                 }
             }
-        }
-
-        if (definition.Code == "tecnologia-tsi")
-        {
-            totalDeleted += await ExecuteAsync("DELETE FROM [dbo].[TBuildingBlockVsTTecnologiaTSI] WHERE [idTecnologiaTSI] = @rootId", rootId, cancellationToken);
         }
 
         var selfRefCol = definition.Columns.FirstOrDefault(c => c.Type == CatalogFieldType.ForeignKey && string.Equals(c.ReferenceCatalogCode, definition.Code, StringComparison.OrdinalIgnoreCase));

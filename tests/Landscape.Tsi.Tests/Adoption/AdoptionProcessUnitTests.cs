@@ -4,6 +4,7 @@ using Landscape.Tsi.Domain.Adoption;
 using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Adoption;
 using Landscape.Tsi.Infrastructure.Catalogs;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Tests.Adoption;
@@ -573,6 +574,114 @@ public sealed class AdoptionProcessUnitTests
     }
 
     [Fact]
+    public async Task GetEvaluationReportsAsync_WhenBuildingBlockIsDspm_DoesNotGenerateSyntheticWaapDrivers_AndIncludesGenericDrivers()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 776,
+            CodigoProceso = "EVAL-TSI-20260916-776",
+            NombreProceso = "Evaluacion DSPM - Corporativo",
+            IdBuildingBlock = 2,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var bb = new TBuildingBlock { Id = 2, Nombre = "DSPM" };
+        ctx.BuildingBlocks.Add(bb);
+
+        var emp1 = new TEmpresaSubsidiaria { Id = 1, Nombre = "Banco de Crédito del Perú", Pais = "Perú" };
+        var emp2 = new TEmpresaSubsidiaria { Id = 2, Nombre = "Mi Banco Perú", Pais = "Perú" };
+        ctx.Companies.AddRange(emp1, emp2);
+
+        var tech = new TTecnologiaTSI { Id = 10, NombreCorporativo = "DAM - Imperva" };
+        ctx.Technologies.Add(tech);
+
+        ctx.AdoptionProcessCompanies.AddRange(
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 101, IdProcesoAdopcionTSI = 776, IdEmpresaSubsidiaria = 1, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 102, IdProcesoAdopcionTSI = 776, IdEmpresaSubsidiaria = 2, Aplica = true }
+        );
+
+        var impl1 = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 201,
+            IdEmpresaSubsidiaria = 1,
+            IdTecnologiaTSI = 10,
+            IdBuildingBlock = 2,
+            IdProcesoAdopcionEmpresa = 101,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.Add(impl1);
+
+        var driverDspm = new TDriver
+        {
+            IdDriver = 501,
+            IdTecnologiaTSIimplementadaSubsidiaria = 201,
+            DescripcionDriver = "Datastores Cloud y Repositorios",
+            UnidadMedida = "Datastores",
+            Cantidad = 50m,
+            PrecioUnitario = 200m,
+            Moneda = "USD"
+        };
+        ctx.Drivers.Add(driverDspm);
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var report = await service.GetEvaluationReportsAsync(776);
+
+        Assert.NotNull(report);
+        Assert.False(report.EsWaap);
+        Assert.Equal("DSPM", report.BuildingBlockNombre);
+
+        // Validar que NO contiene valores sintéticos de WAAP (Throughput, FQDNs, Req WAF deben ser 0)
+        Assert.Equal(0m, report.VolumetriaReport.TotalThroughputMensualGbps);
+        Assert.Equal(0, report.VolumetriaReport.TotalAppsFqdn);
+        Assert.Equal(0m, report.VolumetriaReport.TotalMillonesRequestWaf);
+
+        // Validar que los drivers son los de DSPM
+        Assert.NotNull(report.VolumetriaReport.DriversGenerales);
+        Assert.Equal(1, report.VolumetriaReport.TotalCantidadDrivers);
+        Assert.Equal(10000m, report.VolumetriaReport.TotalInversionDrivers);
+
+        var bcpDriver = report.VolumetriaReport.DriversGenerales.FirstOrDefault(d => d.EmpresaId == 1 && d.DriverId > 0);
+        Assert.NotNull(bcpDriver);
+        Assert.Equal("Datastores Cloud y Repositorios", bcpDriver.DescripcionDriver);
+        Assert.Equal("Datastores", bcpDriver.UnidadMedida);
+        Assert.Equal(50m, bcpDriver.Cantidad);
+        Assert.Equal(200m, bcpDriver.PrecioUnitario);
+        Assert.Equal(10000m, bcpDriver.CostoTotal);
+
+        // Validar que Mi Banco (sin drivers configurados) tiene la fila descriptiva
+        var miBancoRow = report.VolumetriaReport.DriversGenerales.FirstOrDefault(d => d.EmpresaId == 2);
+        Assert.NotNull(miBancoRow);
+        Assert.Equal(0, miBancoRow.DriverId);
+        Assert.Equal("Sin drivers de consumo registrados", miBancoRow.DescripcionDriver);
+
+        // Validar Matriz de Drivers en Columnas (Pestaña 3)
+        Assert.NotNull(report.VolumetriaReport.MatrizDrivers);
+        Assert.Single(report.VolumetriaReport.MatrizDrivers.ColumnasDrivers);
+        Assert.Equal("Datastores Cloud y Repositorios / Datastores", report.VolumetriaReport.MatrizDrivers.ColumnasDrivers[0]);
+
+        var bcpMatrixRow = report.VolumetriaReport.MatrizDrivers.Filas.FirstOrDefault(f => f.EmpresaId == 1);
+        Assert.NotNull(bcpMatrixRow);
+        Assert.Equal(50m, bcpMatrixRow.ValoresPorColumnaDriver["Datastores Cloud y Repositorios / Datastores"]);
+
+        var miBancoMatrixRow = report.VolumetriaReport.MatrizDrivers.Filas.FirstOrDefault(f => f.EmpresaId == 2);
+        Assert.NotNull(miBancoMatrixRow);
+        Assert.Equal(0m, miBancoMatrixRow.ValoresPorColumnaDriver["Datastores Cloud y Repositorios / Datastores"]);
+
+        // Validar Reporte 5 (Proyección de Costos AS-IS)
+        Assert.NotNull(report.CostosAsIsReport);
+        Assert.Equal(10000m, report.CostosAsIsReport.TotalInversionGeneral);
+        Assert.Equal(1, report.CostosAsIsReport.TotalItemsConCosto);
+    }
+
+    [Fact]
     public async Task BuildProcessDetailAsync_IsolatesTechnologiesByProcesoEmpresa_WithoutDuplicates()
     {
         var options = new DbContextOptionsBuilder<CatalogDbContext>()
@@ -697,6 +806,129 @@ public sealed class AdoptionProcessUnitTests
         Assert.Equal(50000m, contract.MontoAnual);
         Assert.Equal(150000m, contract.MontoTrianual);
         Assert.Equal("Vendor: AKAMAI / Partner: Apukay", contract.Observaciones);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyCapabilityStateAsync_UpdatesAndPersistsState()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 1,
+            CodigoProceso = "PROC-CAP-001",
+            NombreProceso = "Proceso WAAP",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1
+        };
+        var procEmp = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 100,
+            IdProcesoAdopcionTSI = 1,
+            IdEmpresaSubsidiaria = 5,
+            Aplica = true
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+        ctx.AdoptionProcessCompanies.Add(procEmp);
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+
+        var result = await service.UpdateCompanyCapabilityStateAsync(
+            1, 5, 20, "A", "Activo en producción", Guid.NewGuid(), "corr-1");
+
+        Assert.True(result.Succeeded);
+
+        var saved = await ctx.ProcessCompanyCapabilities
+            .FirstOrDefaultAsync(c => c.IdProcesoAdopcionEmpresa == 100 && c.IdCapacidad == 20);
+
+        Assert.NotNull(saved);
+        Assert.Equal("A", saved.EstadoCobertura);
+        Assert.Equal("Activo en producción", saved.Comentario);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyDriverVolumeAsync_UpdatesAndPersistsDriver()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 2,
+            CodigoProceso = "PROC-VOL-001",
+            NombreProceso = "Proceso WAAP Volumetría",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1
+        };
+        var procEmp = new TProcesoAdopcionEmpresa
+        {
+            IdProcesoAdopcionEmpresa = 200,
+            IdProcesoAdopcionTSI = 2,
+            IdEmpresaSubsidiaria = 8,
+            Aplica = true
+        };
+        var impl = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 88,
+            IdEmpresaSubsidiaria = 8,
+            IdBuildingBlock = 10,
+            IdProcesoAdopcionEmpresa = 200,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+        ctx.AdoptionProcessCompanies.Add(procEmp);
+        ctx.ImplementedTechnologies.Add(impl);
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+
+        var res = await service.UpdateCompanyDriverVolumeAsync(
+            2, 8, "throughput", 1450.5m, Guid.NewGuid(), "corr-2");
+
+        Assert.True(res.Succeeded);
+
+        var drv = await ctx.Drivers.FirstOrDefaultAsync(d => d.IdTecnologiaTSIimplementadaSubsidiaria == 88);
+        Assert.NotNull(drv);
+        Assert.Equal("Throughput (mensual)", drv.DescripcionDriver);
+        Assert.Equal(1450.5m, drv.Cantidad);
+    }
+
+    [Fact]
+    public async Task SaveVencimientoReportDriversAsync_PersistsJsonConfiguration()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 5,
+            CodigoProceso = "PROC-DRV-005",
+            NombreProceso = "Proceso Drivers Test",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+
+        var selected = new[] { "Throughput (mensual)", "Millones Request WAF (mensual)" };
+        var res = await service.SaveVencimientoReportDriversAsync(5, selected, Guid.NewGuid(), "corr-5");
+
+        Assert.True(res.Succeeded);
+
+        var updated = await ctx.AdoptionProcesses.FirstAsync(p => p.IdProcesoAdopcionTSI == 5);
+        Assert.NotNull(updated.DriversReporteVencimiento);
+        Assert.Contains("Throughput (mensual)", updated.DriversReporteVencimiento);
+        Assert.Contains("Millones Request WAF (mensual)", updated.DriversReporteVencimiento);
     }
 
     private sealed class NullAuditTrail : IAuditTrailService

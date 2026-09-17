@@ -7,6 +7,7 @@
     var isImplementedTech = Model.Definition.Route == "tecnologia-tsi-implementada";
     var isVendor = Model.Definition.Route == "vendor";
     var isPartner = Model.Definition.Route == "partner";
+    var isEmpresaSubsidiaria = Model.Definition.Route == "empresa-subsidiaria";
     var canDelete = Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete);
 }
 <nav aria-label="Ruta de navegación">
@@ -20,17 +21,29 @@
 <section class="catalog-shell" aria-labelledby="catalog-detail-title">
     <div class="page-heading">
         <div><p class="eyebrow">TABLA MAESTRA</p><h1 id="catalog-detail-title">@Model.Definition.Name</h1><p class="supporting-text">Consulte y mantenga la información registrada.</p></div>
-        @if (!Model.Definition.IsReadOnly && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
-        {
-            @if (Model.Definition.EditorMode == CatalogEditorMode.Page)
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport))
             {
-                <a class="md-button md-button-filled" asp-action="CatalogCreateForm" asp-route-catalogRoute="@Model.Definition.Route">Crear registro</a>
+                <a class="md-button md-button-tonal d-inline-flex align-items-center gap-1"
+                   asp-action="ExportToExcel"
+                   asp-route-catalogRoute="@Model.Definition.Route"
+                   asp-route-search="@Model.Search"
+                   title="Exportar registros filtrados a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Exportar a Excel</span>
+                </a>
             }
-            else
+            @if (!Model.Definition.IsReadOnly && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
             {
-                <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-catalog-modal">Crear registro</button>
+                @if (Model.Definition.EditorMode == CatalogEditorMode.Page)
+                {
+                    <a class="md-button md-button-filled" asp-action="CatalogCreateForm" asp-route-catalogRoute="@Model.Definition.Route">Crear registro</a>
+                }
+                else
+                {
+                    <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-catalog-modal">Crear registro</button>
+                }
             }
-        }
+        </div>
     </div>
     @if (TempData["SuccessMessage"] is string success) { <div class="app-alert app-alert-success" role="status">@success</div> }
     @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
@@ -102,7 +115,7 @@
                                 </a>
                             </th>
                         }
-                        @if (isVendor || isPartner)
+                        @if (isVendor || isPartner || isEmpresaSubsidiaria)
                         {
                             <th scope="col">Contactos</th>
                         }
@@ -162,22 +175,25 @@
                                     <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td>
                                 }
                             }
-                            @if (isVendor || isPartner)
+                            @if (isVendor || isPartner || isEmpresaSubsidiaria)
                             {
                                 var contactCount = 0;
                                 if (Model.ContactCounts != null && Model.ContactCounts.TryGetValue(row.Id, out var cc))
                                 {
                                     contactCount = cc;
                                 }
+                                var entityType = isVendor ? "vendor" : (isPartner ? "partner" : "empresa-subsidiaria");
                                 var entityName = isVendor
                                     ? (row.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{row.Id}")
-                                    : (row.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{row.Id}");
+                                    : (isPartner
+                                        ? (row.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{row.Id}")
+                                        : (row.DisplayValues.GetValueOrDefault("nombreEmpresa") ?? $"Empresa #{row.Id}"));
                                 <td data-label="Contactos">
                                     <button type="button"
                                             class="md-button md-button-chip entity-contact-count-btn"
                                             data-bs-toggle="modal"
                                             data-bs-target="#contacts-modal"
-                                            data-entity-type="@(isVendor ? "vendor" : "partner")"
+                                            data-entity-type="@entityType"
                                             data-entity-id="@row.Id"
                                             data-entity-name="@entityName"
                                             data-contact-count="@contactCount"
@@ -419,7 +435,7 @@
     </div>
 }
 
-@if (isVendor || isPartner)
+@if (isVendor || isPartner || isEmpresaSubsidiaria)
 {
     <div class="modal fade" id="contacts-modal" tabindex="-1" aria-labelledby="contacts-modal-title" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -551,7 +567,7 @@
     {
         <script src="~/js/vendor-admin.js" asp-append-version="true"></script>
     }
-    @if (isVendor || isPartner)
+    @if (isVendor || isPartner || isEmpresaSubsidiaria)
     {
         <script src="~/js/vendor-partner-contacts-admin.js" asp-append-version="true"></script>
     }

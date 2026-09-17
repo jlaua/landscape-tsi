@@ -26,6 +26,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TMEstadoAdopcionTSI> TechnologyAdoptionStates => Set<TMEstadoAdopcionTSI>();
     public DbSet<TModalidadLaboral> WorkModes => Set<TModalidadLaboral>();
     public DbSet<TTipoOperacion> OperationTypes => Set<TTipoOperacion>();
+    public DbSet<TMVersionDesplegada> DeploymentVersions => Set<TMVersionDesplegada>();
 
     // Entidades de Adopción y Operación
     public DbSet<TProcesoAdopcionTSI> AdoptionProcesses => Set<TProcesoAdopcionTSI>();
@@ -38,6 +39,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TPartner> Partners => Set<TPartner>();
     public DbSet<TContactoPartner> PartnerContacts => Set<TContactoPartner>();
     public DbSet<TContactoVendor> VendorContacts => Set<TContactoVendor>();
+    public DbSet<TContactoEmpresaSubsidiaria> CompanyContacts => Set<TContactoEmpresaSubsidiaria>();
+    public DbSet<TProcesoEmpresaCapacidad> ProcessCompanyCapabilities => Set<TProcesoEmpresaCapacidad>();
 
     // Entidades de Servicios y Tarifarios
     public DbSet<TTipoServicio> ServiceTypes => Set<TTipoServicio>();
@@ -48,9 +51,9 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder b)
     {
-        Map<TmDominio>(b, "TMDominio", "iddominio", (e, p) => { p(e, x => x.Dominio, "dominio"); p(e, x => x.DescripcionDominio, "descripcionDominio"); p(e, x => x.Referencias, "referencias"); p(e, x => x.HomologacionDimensionSegunCiber, "homologacionDimensionSegunCiber"); p(e, x => x.HomologacionDimensionSegunLineamiento, "homologacionDimensionSegunLineamiento"); p(e, x => x.SubDominioCvt, "subDominioCVT"); p(e, x => x.Ejemplos, "Ejemplos"); });
+        Map<TmDominio>(b, "TMDominio", "iddominio", (e, p) => { p(e, x => x.Dominio, "dominio"); p(e, x => x.DescripcionDominio, "descripcionDominio"); p(e, x => x.Referencias, "referencias"); p(e, x => x.HomologacionDimensionSegunCiber, "homologacionDimensionSegunCiber"); p(e, x => x.HomologacionDimensionSegunLineamiento, "homologacionDimensionSegunLineamiento"); p(e, x => x.SubDominioCvt, "subDominioCVT"); p(e, x => x.Ejemplos, "Ejemplos"); p(e, x => x.IdFamilia, "idFamilia"); });
         Map<TBuildingBlock>(b, "TBuildingBlock", "idBuildingBlock", (e, p) => { p(e, x => x.IdDominio, "idDominio"); p(e, x => x.Nombre, "nombreBuildingBlock"); p(e, x => x.Definicion, "definicionBuildingBlock"); p(e, x => x.IdFase, "idEstadoFaseDeAdopcionBuildingBlock"); p(e, x => x.Ruta, "rutaDelEntregable"); p(e, x => x.Pilar, "PilarZT"); p(e, x => x.IdFamilia, "idFamilia"); });
-        Map<TCapacidadSeguridad>(b, "TCapacidadDeSeguridad", "idCapacidad", (e, p) => { p(e, x => x.IdBuildingBlock, "idBuildingBlock"); p(e, x => x.Nombre, "nombreCapacidad"); p(e, x => x.Descripcion, "descripcionCapacidad"); p(e, x => x.IdEstado, "idEstadoCapacidad"); });
+        Map<TCapacidadSeguridad>(b, "TCapacidadDeSeguridad", "idCapacidad", (e, p) => { p(e, x => x.IdBuildingBlock, "idBuildingBlock"); p(e, x => x.Nombre, "nombreCapacidad"); p(e, x => x.Descripcion, "descripcionCapacidad"); p(e, x => x.IdEstado, "idEstadoCapacidad"); p(e, x => x.OrdenVisualizacion, "ordenVisualizacion"); });
         Map<TMEstadoCapacidad>(b, "TMEstadoCapacidad", "idEstadoCapacidad", (e, p) => { p(e, x => x.Nombre, "nombreEstadoCapacidad"); p(e, x => x.Descripcion, "descripcionEstadoCapacidad"); });
         Map<TFuncionalidad>(b, "TFuncionalidad", "idFuncionalidad", (e, p) => { p(e, x => x.IdCapacidad, "idCapacidad"); p(e, x => x.Nombre, "nombreFuncionalidad"); p(e, x => x.Descripcion, "descripcionFuncionalidad"); p(e, x => x.IdEstado, "idEstadoCoberturaFuncionalidad"); });
         Map<TMEstadoFuncionalidad>(b, "TMEstadoFuncionalidad", "idEstadoCoberturaFuncionalidad", (e, p) => { p(e, x => x.Nombre, "nombreEstadoFuncionalidad"); p(e, x => x.Descripcion, "descripcionEstadoFuncionalidad"); });
@@ -68,7 +71,10 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TPartner>(b, "TPartner", "idPartner", (e, p) => { p(e, x => x.NombrePartner, "nombrePartner"); p(e, x => x.DescripcionPartner, "descripcionPartner"); p(e, x => x.IdVendor, "idVendor"); p(e, x => x.IdTecnologiaTSI, "idTecnologiaTSI"); });
         Map<TContactoPartner>(b, "TContactoPartner", "idContactoPartner", (e, p) => { p(e, x => x.IdPartner, "idPartner"); p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoPartner, "nombreContactoPartner"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
         Map<TContactoVendor>(b, "TContactoVendor", "idContactoVendor", (e, p) => { p(e, x => x.IdVendor, "idVendor"); p(e, x => x.Rol, "ROL"); p(e, x => x.NombreContactoVendor, "nombreContactoVendor"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "NOTAS"); });
+        Map<TContactoEmpresaSubsidiaria>(b, "TContactoEmpresaSubsidiaria", "idContactoEmpresaSubsidiaria", (e, p) => { p(e, x => x.IdEmpresaSubsidiaria, "idEmpresaSubsidiaria"); p(e, x => x.Rol, "rol"); p(e, x => x.NombreContactoEmpresaSubsidiaria, "nombreContactoEmpresaSubsidiaria"); p(e, x => x.EspecialistaEnQuePlataformas, "especialistaEnQuePlataformas"); p(e, x => x.Email, "email"); p(e, x => x.Telefono, "telefono"); p(e, x => x.Otro, "otro"); p(e, x => x.Notas, "notas"); });
+        Map<TMVersionDesplegada>(b, "TMVersionDesplegada", "idVersionDesplegada", (e, p) => { p(e, x => x.Nombre, "nombreVersionDesplegada"); p(e, x => x.Descripcion, "descripcion"); p(e, x => x.Orden, "orden"); p(e, x => x.EsActivo, "esActivo"); });
 
+        b.Entity<TmDominio>().HasOne<TMFamilia>().WithMany().HasForeignKey(x => x.IdFamilia).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TBuildingBlock>().HasOne<TmDominio>().WithMany().HasForeignKey(x => x.IdDominio).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TBuildingBlock>().HasOne<TEstadoFaseAdopcion>().WithMany().HasForeignKey(x => x.IdFase).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TBuildingBlock>().HasOne<TMFamilia>().WithMany().HasForeignKey(x => x.IdFamilia).OnDelete(DeleteBehavior.NoAction);
@@ -76,6 +82,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         b.Entity<TCapacidadSeguridad>().HasOne<TMEstadoCapacidad>().WithMany().HasForeignKey(x => x.IdEstado).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TFuncionalidad>().HasOne<TCapacidadSeguridad>().WithMany().HasForeignKey(x => x.IdCapacidad).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TFuncionalidad>().HasOne<TMEstadoFuncionalidad>().WithMany().HasForeignKey(x => x.IdEstado).OnDelete(DeleteBehavior.NoAction);
+        b.Entity<TContactoEmpresaSubsidiaria>().HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TTecnologiaTSI>().HasOne<TMFamilia>().WithMany().HasForeignKey(x => x.IdFamilia).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TTecnologiaTSI>().HasOne<TMEstadoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdEstadoAdopcion).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TTecnologiaTSI>().HasOne<TMPosturaRoadmap>().WithMany().HasForeignKey(x => x.IdPostura).OnDelete(DeleteBehavior.NoAction);
@@ -99,6 +106,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.FechaEstimadaCierre).HasColumnName("fechaEstimadaCierre").HasColumnType("date");
             entity.Property(x => x.FechaCreacion).HasColumnName("fechaCreacion").HasColumnType("datetime2(0)");
             entity.Property(x => x.UsuarioCreacion).HasColumnName("usuarioCreacion").HasMaxLength(100);
+            entity.Property(x => x.DriversReporteVencimiento).HasColumnName("driversReporteVencimiento").HasMaxLength(1000);
 
             entity.HasOne<TBuildingBlock>().WithMany().HasForeignKey(x => x.IdBuildingBlock).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TMEstadoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdEstadoAdopcionTSI).OnDelete(DeleteBehavior.NoAction);
@@ -115,6 +123,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.IdContactoEmpresaSubsidiaria).HasColumnName("idContactoEmpresaSubsidiaria");
             entity.Property(x => x.Aplica).HasColumnName("aplica");
             entity.Property(x => x.JustificacionNoAplica).HasColumnName("justificacionNoAplica").HasMaxLength(1000);
+            entity.Property(x => x.ComentarioCapacidades).HasColumnName("comentarioCapacidades").HasMaxLength(1000);
             entity.Property(x => x.FechaIncorporacion).HasColumnName("fechaIncorporacion").HasColumnType("date");
             entity.Property(x => x.FechaModificacion).HasColumnName("fechaModificacion").HasColumnType("datetime2(0)");
             entity.Property(x => x.UsuarioModificacion).HasColumnName("usuarioModificacion").HasMaxLength(100);
@@ -207,6 +216,23 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
 
             entity.HasOne<TTecnologiaTSIimplementadaSubsidiaria>().WithMany().HasForeignKey(x => x.IdTecnologiaTSIimplementadaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Mapeo TProcesoEmpresaCapacidad
+        b.Entity<TProcesoEmpresaCapacidad>(entity =>
+        {
+            entity.ToTable("TProcesoEmpresaCapacidad", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdProcesoEmpresaCapacidad);
+            entity.Property(x => x.IdProcesoEmpresaCapacidad).HasColumnName("idProcesoEmpresaCapacidad").ValueGeneratedOnAdd();
+            entity.Property(x => x.IdProcesoAdopcionEmpresa).HasColumnName("idProcesoAdopcionEmpresa");
+            entity.Property(x => x.IdCapacidad).HasColumnName("idCapacidad");
+            entity.Property(x => x.EstadoCobertura).HasColumnName("estadoCobertura").HasMaxLength(10);
+            entity.Property(x => x.Comentario).HasColumnName("comentario").HasMaxLength(500);
+            entity.Property(x => x.FechaModificacion).HasColumnName("fechaModificacion").HasColumnType("datetime2(0)");
+            entity.Property(x => x.UsuarioModificacion).HasColumnName("usuarioModificacion").HasMaxLength(100);
+
+            entity.HasOne<TProcesoAdopcionEmpresa>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionEmpresa).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TCapacidadSeguridad>().WithMany().HasForeignKey(x => x.IdCapacidad).OnDelete(DeleteBehavior.NoAction);
         });
 
         // Mapeo TTipoServicio

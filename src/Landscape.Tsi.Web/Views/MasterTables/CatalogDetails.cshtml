@@ -66,6 +66,34 @@
                             </dd>
                         </div>
                     }
+                    else if (column.Code == "familia")
+                    {
+                        <div class="detail-field">
+                            <dt>@column.Label</dt>
+                            <dd>
+                                <select class="form-select form-select-sm" name="familia" style="max-width: 280px; display: inline-block;">
+                                    <option value="">-- Sin asignar --</option>
+                                    @if (Model.Options.TryGetValue("familia", out var familias))
+                                    {
+                                        var currentFamiliaVal = Model.Record.Values.GetValueOrDefault("familia")?.ToString();
+                                        foreach (var f in familias)
+                                        {
+                                            var isSelected = string.Equals(f.Id.ToString(), currentFamiliaVal, StringComparison.OrdinalIgnoreCase)
+                                                || string.Equals(f.Label, Model.Record.DisplayValues.GetValueOrDefault("familia"), StringComparison.OrdinalIgnoreCase);
+                                            if (isSelected)
+                                            {
+                                                <option value="@f.Id" selected>@f.Label</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@f.Id">@f.Label</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </dd>
+                        </div>
+                    }
                     else
                     {
                         <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)">
@@ -667,8 +695,22 @@
 @if (Model.Related is not null)
 {
     <section class="report-card related-entities-card" aria-labelledby="building-related-title">
-        <p class="eyebrow">ENTIDADES RELACIONADAS</p>
-        <h2 id="building-related-title">Building Block @Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</h2>
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow mb-1">ENTIDADES RELACIONADAS</p>
+                <h2 id="building-related-title" class="mb-0">Building Block @Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</h2>
+            </div>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+            {
+                <a class="md-button md-button-tonal"
+                   asp-action="ExportBuildingBlockGrid"
+                   asp-route-id="@Model.Record.Id"
+                   asp-route-grid="all"
+                   title="Exportar todas las grillas relacionadas a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Descargar Ficha Completa en Excel</span>
+                </a>
+            }
+        </div>
         <div class="report-kpi-grid">
             <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Capabilities.TotalCount</span><span class="report-kpi-label">Capacidades de Seguridad</span></div>
             <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Functionalities.TotalCount</span><span class="report-kpi-label">Funcionalidades</span></div>
@@ -677,7 +719,24 @@
 
         <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
             <h3 class="mb-0">Capacidades de Seguridad <span class="result-count">(@Model.Related.Capabilities.TotalCount)</span></h3>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" id="btn-save-cap-order" class="md-button" style="background-color: #008080; color: #ffffff; border: none; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500;" disabled title="Guarda el orden visual establecido arrastrando las capacidades">
+                        <span>💾 Guardar cambios</span>
+                    </button>
+                    <span id="cap-order-status" class="small text-success d-none">¡Orden guardado!</span>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="capacidades"
+                       title="Descargar Capacidades de Seguridad en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
                 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
                 {
                     <button type="button" class="md-button md-button-filled" data-bs-toggle="modal" data-bs-target="#create-capability-modal">+ Nueva Capacidad</button>
@@ -688,9 +747,143 @@
                 }
             </div>
         </div>
-        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"><input type="hidden" name="functionalitySearch" value="" /><input type="hidden" name="technologySearch" value="" /><label for="capability-search">Buscar capacidades</label><input id="capability-search" name="capabilitySearch" class="form-control" type="search" /><button class="md-button md-button-tonal" type="submit">Buscar</button></form>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <input type="hidden" name="functionalitySearch" value="@Model.FunctionalitySearch" />
+            <input type="hidden" name="technologySearch" value="@Model.TechnologySearch" />
+            <input type="hidden" name="functionalitySortBy" value="@Model.FunctionalitySortBy" />
+            <input type="hidden" name="functionalitySortDirection" value="@Model.FunctionalitySortDirection" />
+            <input type="hidden" name="capabilitySortBy" value="@Model.CapabilitySortBy" />
+            <input type="hidden" name="capabilitySortDirection" value="@Model.CapabilitySortDirection" />
+            <input type="hidden" name="functionalityPageSize" value="@Model.FunctionalityPageSize" />
+            <label for="capability-search">Buscar capacidades</label>
+            <input id="capability-search" name="capabilitySearch" value="@Model.CapabilitySearch" class="form-control" type="search" placeholder="Buscar por nombre o estado…" />
+            <div class="md-field page-size-field d-inline-flex align-items-center gap-1 ms-2">
+                <label for="capability-page-size" class="me-1 small text-muted">Filas:</label>
+                <select id="capability-page-size" name="capabilityPageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                    @foreach (var size in new[] { 10, 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.CapabilityPageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.CapabilitySearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize">Limpiar</a>
+            }
+        </form>
+
+        @{
+            var capGridCapSortAria = string.Equals(Model.CapabilitySortBy, "capacity", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridCapDir = string.Equals(Model.CapabilitySortBy, "capacity", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var capGridStatusSortAria = string.Equals(Model.CapabilitySortBy, "status", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridStatusDir = string.Equals(Model.CapabilitySortBy, "status", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var capGridDescSortAria = string.Equals(Model.CapabilitySortBy, "description", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridDescDir = string.Equals(Model.CapabilitySortBy, "description", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+        }
+
         @if (Model.Related.Capabilities.TotalCount == 0) { <p class="empty-state">No existen Capacidades de Seguridad asociadas a este Building Block.</p> }
-        else { <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0"><table><thead><tr><th>Capacidad</th><th>Estado de Capacidad</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Capabilities.Items) { <tr><td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td><td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a><button type="button" class="md-button md-button-text btn-reassign-cap" data-cap-id="@row.Id" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-capability-modal">Reasignar</button> }@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }</td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages</p><div class="pagination-shell">@if (Model.Related.Capabilities.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)">Anterior</a> }@if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)">Siguiente</a> }</div> }
+        else {
+            <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0">
+                <table id="capabilities-sortable-table" class="align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 44px;" aria-label="Reordenar"></th>
+                            <th scope="col" aria-sort="@capGridCapSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="capacity" asp-route-capabilitySortDirection="@nextCapGridCapDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Capacidad @(capGridCapSortAria == "ascending" ? "▲" : capGridCapSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@capGridStatusSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="status" asp-route-capabilitySortDirection="@nextCapGridStatusDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Estado de Capacidad @(capGridStatusSortAria == "ascending" ? "▲" : capGridStatusSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@capGridDescSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="description" asp-route-capabilitySortDirection="@nextCapGridDescDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Descripción @(capGridDescSortAria == "ascending" ? "▲" : capGridDescSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="capabilities-sortable-tbody">
+                        @foreach (var row in Model.Related.Capabilities.Items)
+                        {
+                            <tr class="capability-draggable-row" data-cap-id="@row.Id">
+                                <td style="width: 44px; text-align: center; cursor: grab;" class="capability-drag-handle text-muted" title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">
+                                    <span style="font-size: 1.25rem; user-select: none; line-height: 1;">&#x22EE;&#x22EE;</span>
+                                </td>
+                                <td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td>
+                                <td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                                <td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td>
+                                <td class="table-actions">
+                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                    {
+                                        <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a>
+                                        <button type="button" class="md-button md-button-text btn-reassign-cap" data-cap-id="@row.Id" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-capability-modal">Reasignar</button>
+                                    }
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                    {
+                                        <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages · @Model.Related.Capabilities.TotalCount registros</p>
+            <div class="pagination-shell">
+                @if (Model.Related.Capabilities.Page > 1)
+                {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-functionalityPage="@Model.Related.Functionalities.Page">Anterior</a>
+                }
+                @if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages)
+                {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-functionalityPage="@Model.Related.Functionalities.Page">Siguiente</a>
+                }
+            </div>
+        }
 
         @{
             var capSortAria = string.Equals(Model.FunctionalitySortBy, "capacity", StringComparison.OrdinalIgnoreCase)
@@ -715,6 +908,16 @@
         <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
             <h3 class="mb-0">Funcionalidades <span class="result-count">(@Model.Related.Functionalities.TotalCount)</span></h3>
             <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="funcionalidades"
+                       title="Descargar Funcionalidades en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
                 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
                 {
                     <button type="button" class="md-button md-button-filled" data-bs-toggle="modal" data-bs-target="#create-functionality-modal">+ Nueva Funcionalidad</button>
@@ -726,13 +929,29 @@
             </div>
         </div>
         <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
-            <input type="hidden" name="capabilitySearch" value="" />
-            <input type="hidden" name="technologySearch" value="" />
+            <input type="hidden" name="capabilitySearch" value="@Model.CapabilitySearch" />
+            <input type="hidden" name="technologySearch" value="@Model.TechnologySearch" />
             <input type="hidden" name="functionalitySortBy" value="@Model.FunctionalitySortBy" />
             <input type="hidden" name="functionalitySortDirection" value="@Model.FunctionalitySortDirection" />
+            <input type="hidden" name="capabilitySortBy" value="@Model.CapabilitySortBy" />
+            <input type="hidden" name="capabilitySortDirection" value="@Model.CapabilitySortDirection" />
+            <input type="hidden" name="capabilityPageSize" value="@Model.CapabilityPageSize" />
             <label for="functionality-search">Buscar funcionalidades</label>
-            <input id="functionality-search" name="functionalitySearch" class="form-control" type="search" />
+            <input id="functionality-search" name="functionalitySearch" value="@Model.FunctionalitySearch" class="form-control" type="search" placeholder="Buscar por funcionalidad, capacidad o estado…" />
+            <div class="md-field page-size-field d-inline-flex align-items-center gap-1 ms-2">
+                <label for="functionality-page-size" class="me-1 small text-muted">Filas:</label>
+                <select id="functionality-page-size" name="functionalityPageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                    @foreach (var size in new[] { 10, 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.FunctionalityPageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
             <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.FunctionalitySearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize">Limpiar</a>
+            }
         </form>
         @if (Model.Related.Functionalities.TotalCount == 0) { <p class="empty-state">No existen Funcionalidades asociadas a las capacidades de este Building Block.</p> }
         else {
@@ -741,17 +960,32 @@
                     <thead>
                         <tr>
                             <th scope="col" aria-sort="@capSortAria">
-                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="capacity" asp-route-functionalitySortDirection="@nextCapDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="capacity" asp-route-functionalitySortDirection="@nextCapDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
                                     Capacidad @(capSortAria == "ascending" ? "▲" : capSortAria == "descending" ? "▼" : "")
                                 </a>
                             </th>
                             <th scope="col" aria-sort="@funcSortAria">
-                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="functionality" asp-route-functionalitySortDirection="@nextFuncDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="functionality" asp-route-functionalitySortDirection="@nextFuncDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
                                     Funcionalidad @(funcSortAria == "ascending" ? "▲" : funcSortAria == "descending" ? "▼" : "")
                                 </a>
                             </th>
                             <th scope="col" aria-sort="@statusSortAria">
-                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySortBy="status" asp-route-functionalitySortDirection="@nextStatusDir" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="status" asp-route-functionalitySortDirection="@nextStatusDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
                                     Estado de funcionalidad @(statusSortAria == "ascending" ? "▲" : statusSortAria == "descending" ? "▼" : "")
                                 </a>
                             </th>
@@ -779,13 +1013,25 @@
                     </tbody>
                 </table>
             </div>
-            <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages</p>
+            <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages · @Model.Related.Functionalities.TotalCount registros</p>
             <div class="pagination-shell">
                 @if (Model.Related.Functionalities.Page > 1) {
-                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)" asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch">Anterior</a>
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-capabilityPage="@Model.Related.Capabilities.Page">Anterior</a>
                 }
                 @if (Model.Related.Functionalities.Page < Model.Related.Functionalities.TotalPages) {
-                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)" asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch">Siguiente</a>
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-capabilityPage="@Model.Related.Capabilities.Page">Siguiente</a>
                 }
             </div>
         }
@@ -815,9 +1061,21 @@
             </div>
         }
 
-        <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
             <h4 class="h6 mb-0 text-muted">Catálogo de Tecnologías Candidatas / Relacionadas</h4>
-            @if (Model.TechnologyMapping is not null) { <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="BuildingBlockRelations" asp-route-buildingBlockId="@Model.TechnologyMapping.BuildingBlockId" asp-route-returnUrl="@Context.Request.Path">+ Asociar Tecnología</a> }
+            <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="tecnologias"
+                       title="Descargar Tecnologías TSI relacionadas en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
+                @if (Model.TechnologyMapping is not null) { <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="BuildingBlockRelations" asp-route-buildingBlockId="@Model.TechnologyMapping.BuildingBlockId" asp-route-returnUrl="@Context.Request.Path">+ Asociar Tecnología</a> }
+            </div>
         </div>
         @if (Model.Related.Technologies.TotalCount == 0) { <p class="empty-state">No existen Tecnologías TSI candidatas relacionadas con este Building Block.</p> }
         else { <div class="responsive-table" role="region" aria-label="Tecnologías TSI relacionadas" tabindex="0"><table><thead><tr><th>Tecnología TSI</th><th>Familia</th><th>Estado de Adopción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Technologies.Items) { <tr><td data-label="Tecnología">@row.DisplayValues.GetValueOrDefault("tecnologia")</td><td data-label="Familia">@row.DisplayValues.GetValueOrDefault("familia")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estadoAdopcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@row.Id">Ver</a></td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Technologies.Page de @Model.Related.Technologies.TotalPages</p> }
@@ -1197,6 +1455,142 @@
         <partial name="_AssociateFunctionalityModal" model="Model" />
         <partial name="_ReassignFunctionalityModal" model="Model" />
         <script src="~/js/assignment-modals.js" asp-append-version="true"></script>
+
+        <script>
+            (function () {
+                const tbody = document.getElementById('capabilities-sortable-tbody');
+                const btnSave = document.getElementById('btn-save-cap-order');
+                const statusSpan = document.getElementById('cap-order-status');
+                if (!tbody || !btnSave) return;
+
+                let draggedRow = null;
+                let hasChanges = false;
+
+                function initCapDragAndDrop() {
+                    const rows = tbody.querySelectorAll('.capability-draggable-row');
+
+                    rows.forEach(row => {
+                        const handle = row.querySelector('.capability-drag-handle');
+                        if (handle) {
+                            handle.addEventListener('mouseenter', () => row.setAttribute('draggable', 'true'));
+                            handle.addEventListener('mouseleave', () => {
+                                if (!row.classList.contains('dragging')) {
+                                    row.setAttribute('draggable', 'false');
+                                }
+                            });
+                        }
+
+                        row.addEventListener('dragstart', (e) => {
+                            draggedRow = row;
+                            row.classList.add('dragging');
+                            row.style.opacity = '0.5';
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', row.dataset.capId || '');
+                        });
+
+                        row.addEventListener('dragend', () => {
+                            row.classList.remove('dragging');
+                            row.style.opacity = '1';
+                            row.setAttribute('draggable', 'false');
+                            draggedRow = null;
+                            rows.forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+                        });
+
+                        row.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (!draggedRow || draggedRow === row) return;
+
+                            const bounding = row.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            if (e.clientY - offset > 0) {
+                                row.classList.remove('drag-over-top');
+                                row.classList.add('drag-over-bottom');
+                            } else {
+                                row.classList.remove('drag-over-bottom');
+                                row.classList.add('drag-over-top');
+                            }
+                        });
+
+                        row.addEventListener('dragleave', () => {
+                            row.classList.remove('drag-over-top', 'drag-over-bottom');
+                        });
+
+                        row.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            row.classList.remove('drag-over-top', 'drag-over-bottom');
+                            if (!draggedRow || draggedRow === row) return;
+
+                            const bounding = row.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            if (e.clientY - offset > 0) {
+                                row.after(draggedRow);
+                            } else {
+                                row.before(draggedRow);
+                            }
+
+                            hasChanges = true;
+                            btnSave.removeAttribute('disabled');
+                            btnSave.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.4)';
+                            if (statusSpan) {
+                                statusSpan.textContent = 'Hay cambios de orden sin guardar';
+                                statusSpan.className = 'small text-warning';
+                                statusSpan.classList.remove('d-none');
+                            }
+                        });
+                    });
+                }
+
+                initCapDragAndDrop();
+
+                btnSave.addEventListener('click', async function () {
+                    const currentRows = Array.from(tbody.querySelectorAll('.capability-draggable-row'));
+                    const capabilityIds = currentRows.map(r => parseInt(r.dataset.capId, 10)).filter(id => !isNaN(id) && id > 0);
+
+                    if (capabilityIds.length === 0) return;
+
+                    btnSave.setAttribute('disabled', 'true');
+                    const originalText = btnSave.innerHTML;
+                    btnSave.innerHTML = '<span>⏳ Guardando…</span>';
+
+                    try {
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        const response = await fetch('@Url.Action("ReorderCapabilities", "MasterTables", new { id = Model.Record.Id })', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                            },
+                            body: JSON.stringify({ capabilityIds })
+                        });
+
+                        const data = await response.json();
+                        if (response.ok && data.success) {
+                            hasChanges = false;
+                            btnSave.style.boxShadow = '';
+                            if (statusSpan) {
+                                statusSpan.textContent = '¡Orden guardado exitosamente!';
+                                statusSpan.className = 'small text-success';
+                                statusSpan.classList.remove('d-none');
+                                setTimeout(() => statusSpan.classList.add('d-none'), 3500);
+                            }
+                        } else {
+                            alert(data.message || 'Error al guardar el orden.');
+                            btnSave.removeAttribute('disabled');
+                        }
+                    } catch (err) {
+                        console.error('Error guardando orden de capacidades:', err);
+                        alert('Ocurrió un error al guardar el orden de capacidades.');
+                        btnSave.removeAttribute('disabled');
+                    } finally {
+                        btnSave.innerHTML = originalText;
+                        if (!hasChanges) {
+                            btnSave.setAttribute('disabled', 'true');
+                        }
+                    }
+                });
+            })();
+        </script>
     }
 }
 

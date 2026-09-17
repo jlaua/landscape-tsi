@@ -9,13 +9,13 @@ using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Infrastructure.Identity;
 using Landscape.Tsi.Web.Models;
-using Microsoft.EntityFrameworkCore;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -38,7 +38,8 @@ public sealed class MasterTablesHttpTests
         "ciso",
         "postura-roadmap",
         "modalidad-laboral",
-        "tipo-operacion"
+        "tipo-operacion",
+        "contacto-empresa"
     };
 
     public static TheoryData<string> AuthoritativeCatalogRoutes => new()
@@ -67,6 +68,17 @@ public sealed class MasterTablesHttpTests
         var readOnlyCreate = await client.GetAsync("/Administration/MasterTables/estado-adopcion-tsi/create");
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, readOnlyCreate.StatusCode);
+    }
+
+    [Fact]
+    public async Task DomainColors_ReturnsSuccess()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/DomainColors");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Configuración de Colores de Dominios", html);
     }
 
     [Fact]
@@ -188,11 +200,15 @@ public sealed class MasterTablesHttpTests
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/Administration/MasterTables/building-block/details/1?functionalitySortBy=capacity&functionalitySortDirection=desc");
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/details/1?functionalitySortBy=capacity&functionalitySortDirection=desc&capabilitySortBy=status&capabilitySortDirection=asc&functionalityPageSize=50");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("aria-sort=\"descending\"", html);
+        Assert.Contains("aria-sort=\"ascending\"", html);
+        Assert.Contains("name=\"functionalityPageSize\"", html);
+        Assert.Contains("name=\"capabilityPageSize\"", html);
+        Assert.Contains("<option value=\"50\" selected", html);
     }
 
     [Fact]
@@ -724,6 +740,27 @@ public sealed class MasterTablesHttpTests
     }
 
     [Fact]
+    public async Task EmpresaSubsidiariaContactsEndpoint_ReturnsJsonWithContacts()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts");
+        var body = await response.Content.ReadAsStringAsync();
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            throw new Exception($"STATUS: {response.StatusCode} | BODY: {body}");
+        }
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, json.GetProperty("entityId").GetInt32());
+        Assert.Equal("empresa-subsidiaria", json.GetProperty("entityType").GetString());
+        Assert.True(json.TryGetProperty("items", out var items));
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, items.ValueKind);
+    }
+
+    [Fact]
     public async Task VendorContacts_CreateEditDelete_ApiWorkflow()
     {
         await using var factory = CreateFactory();
@@ -804,6 +841,55 @@ public sealed class MasterTablesHttpTests
 
         // 4. Delete contact
         var deleteResponse = await client.PostAsync($"/Administration/MasterTables/partner/1/contacts/{contactId}/delete", null);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyContacts_CreateEditDelete_ApiWorkflow()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // 1. Create contact for Empresa 1
+        var createDto = new SaveMasterContactDto
+        {
+            Nombre = "Especialista Test Subsidiaria",
+            Rol = "Security Specialist",
+            Email = "especialista@subsidiaria.com",
+            Telefono = "987654321",
+            Notas = "Contacto técnico asignable como focal"
+        };
+        var createResponse = await client.PostAsJsonAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts", createDto);
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var createResult = await createResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(createResult.GetProperty("success").GetBoolean());
+        var contactId = createResult.GetProperty("id").GetInt32();
+
+        // 2. Query contacts list for Empresa 1 (has 1 contact)
+        var listResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var listJson = await listResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var items = listJson.GetProperty("items").EnumerateArray().ToList();
+        Assert.Contains(items, item => item.GetProperty("nombre").GetString() == "Especialista Test Subsidiaria");
+
+        // 3. Query contacts list for Empresa 99 (has 0 contacts, e.g. Bolivia scenario)
+        var emptyResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/99/contacts");
+        Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
+        var emptyJson = await emptyResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(0, emptyJson.GetProperty("totalCount").GetInt32());
+        Assert.Empty(emptyJson.GetProperty("items").EnumerateArray().ToList());
+
+        // 4. Edit contact
+        var editDto = new SaveMasterContactDto
+        {
+            Nombre = "Especialista Lead Actualizado",
+            Rol = "Lead Security Architect"
+        };
+        var editResponse = await client.PostAsJsonAsync($"/Administration/MasterTables/empresa-subsidiaria/1/contacts/{contactId}/edit", editDto);
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        // 5. Delete contact
+        var deleteResponse = await client.PostAsync($"/Administration/MasterTables/empresa-subsidiaria/1/contacts/{contactId}/delete", null);
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
     }
 
@@ -948,16 +1034,23 @@ public sealed class MasterTablesHttpTests
             int pageSize,
             string? functionalitySortBy = null,
             string? functionalitySortDirection = null,
+            string? capabilitySortBy = null,
+            string? capabilitySortDirection = null,
+            int? functionalityPageSize = null,
+            int? capabilityPageSize = null,
             CancellationToken cancellationToken = default)
         {
             if (buildingBlockId == 999)
                 return Task.FromResult(new BuildingBlockRelatedResult(Empty, Empty, Empty));
 
+            var capSize = capabilityPageSize ?? pageSize;
+            var funcSize = functionalityPageSize ?? pageSize;
+
             var capRow = new CatalogRow(10, new Dictionary<string, object?> { ["capacidad"] = "Capacidad Alfa", ["estado"] = "Activo", ["descripcion"] = "Desc" }, new Dictionary<string, string?> { ["capacidad"] = "Capacidad Alfa", ["estado"] = "Activo", ["descripcion"] = "Desc" });
             var funcRow = new CatalogRow(20, new Dictionary<string, object?> { ["capacidad"] = "Capacidad Alfa", ["funcionalidad"] = "Funcionalidad Beta", ["estado"] = "Activo", ["idCapacidad"] = 10 }, new Dictionary<string, string?> { ["capacidad"] = "Capacidad Alfa", ["funcionalidad"] = "Funcionalidad Beta", ["estado"] = "Activo", ["idCapacidad"] = "10" });
             return Task.FromResult(new BuildingBlockRelatedResult(
-                new CatalogPageResult([capRow], 1, 10, 1),
-                new CatalogPageResult([funcRow], 1, 10, 1),
+                new CatalogPageResult([capRow], 1, capSize, 1),
+                new CatalogPageResult([funcRow], 1, funcSize, 1),
                 Empty));
         }
     }

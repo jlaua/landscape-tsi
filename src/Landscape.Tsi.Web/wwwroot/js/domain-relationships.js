@@ -59,14 +59,25 @@
             const relation = (await response.json()).items?.find(item => item.childCode === 'building-block');
             const buckets = relation?.buckets ?? [];
             if (!relation) throw new Error('No existe una relación registrada entre Dominio y Building Block.');
+            const colors = buckets.map(b => (window.getDomainPaletteColor ? window.getDomainPaletteColor(b.parentName, b.parentId) : { bg: '#2457a6', border: '#17345f', text: '#1e293b' }));
             table.innerHTML = buckets.length
-                ? buckets.map(bucket => `<tr><td><a href="/Administration/MasterTables/Domain/${bucket.parentId}">${escapeHtml(bucket.parentName)}</a></td><td>${bucket.total}</td></tr>`).join('')
+                ? buckets.map((bucket, i) => {
+                    const c = colors[i];
+                    return `<tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px;background-color:${c.bg};border:1px solid ${c.border};vertical-align:middle;"></span><a href="/Administration/MasterTables/Domain/${bucket.parentId}">${escapeHtml(bucket.parentName)}</a></td><td><strong>${bucket.total}</strong></td></tr>`;
+                }).join('')
                 : '<tr><td colspan="2">No hay dominios registrados.</td></tr>';
             new Chart(canvas, {
                 type: 'bar',
                 data: {
                     labels: buckets.map(bucket => bucket.parentName),
-                    datasets: [{ label: 'Building Blocks', data: buckets.map(bucket => bucket.total), backgroundColor: '#2457a6', borderColor: '#17345f', borderWidth: 1 }]
+                    datasets: [{
+                        label: 'Building Blocks',
+                        data: buckets.map(bucket => bucket.total),
+                        backgroundColor: colors.map(c => c.bg),
+                        borderColor: colors.map(c => c.border),
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }]
                 },
                 plugins: [barValueLabelsPlugin],
                 options: {
