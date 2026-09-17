@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Secuencia de autorización de una solicitud",
+    "output": "04-authorization-request-sequence.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1480, 1040],
+    "views": [
+      {"id":"authentication","label":"Identidad y sesión","focus":["user","browser","mvc","authentication"],"note":"La identidad federada se vincula con un usuario local activo."},
+      {"id":"authorized","label":"Escenario autorizado","focus":["mvc","authorization","policyHandler","application","efcore","sqlServer","audit"],"note":"Todas las condiciones permiten ejecutar y auditar la acción."},
+      {"id":"denied","label":"Escenario denegado","focus":["mvc","authorization","policyHandler","audit","browser","user"],"note":"Una política fallida impide ejecutar parcialmente la acción."}
+    ]
+  },
+  "participants": [
+    {"id":"user","type":"external","label":"Usuario"},
+    {"id":"browser","type":"frontend","label":"Navegador"},
+    {"id":"mvc","type":"frontend","label":"ASP.NET Core MVC"},
+    {"id":"authentication","type":"security","label":"Autenticación"},
+    {"id":"authorization","type":"security","label":"Autorización"},
+    {"id":"policyHandler","type":"security","label":"Policy Handler"},
+    {"id":"application","type":"backend","label":"Aplicación"},
+    {"id":"efcore","type":"backend","label":"EF Core"},
+    {"id":"sqlServer","type":"database","label":"SQL Server"},
+    {"id":"audit","type":"database","label":"Auditoría"}
+  ],
+  "segments": [
+    {"from":150,"to":330,"label":"Autenticación"},
+    {"from":345,"to":665,"label":"Escenario autorizado"},
+    {"from":680,"to":900,"label":"Escenario denegado"}
+  ],
+  "messages": [
+    {"id":"userRequest","from":"user","to":"browser","y":180,"label":"realizar acción"},
+    {"id":"browserRequest","from":"browser","to":"mvc","y":220,"label":"solicitud HTTP","variant":"emphasis"},
+    {"id":"validateSession","from":"mvc","to":"authentication","y":260,"label":"validar autenticación","variant":"security"},
+    {"id":"identityReturn","from":"authentication","to":"mvc","y":305,"label":"identidad + usuario activo","variant":"return"},
+    {"id":"authorizeAction","from":"mvc","to":"authorization","y":365,"label":"autorizar acción y recurso","variant":"security"},
+    {"id":"evaluatePermission","from":"authorization","to":"policyHandler","y":405,"label":"evaluar permiso atómico","variant":"security"},
+    {"id":"evaluateContext","from":"policyHandler","to":"efcore","y":445,"label":"cargar roles, ámbito y recurso"},
+    {"id":"queryContext","from":"efcore","to":"sqlServer","y":485,"label":"consulta acotada"},
+    {"id":"contextReturn","from":"sqlServer","to":"policyHandler","y":525,"label":"asignación + estado + actores","variant":"return"},
+    {"id":"policyAllowed","from":"policyHandler","to":"authorization","y":565,"label":"permiso + ámbito + estado + SoD: cumple","variant":"return"},
+    {"id":"executeCommand","from":"authorization","to":"application","y":605,"label":"acción autorizada","variant":"emphasis"},
+    {"id":"persistBusiness","from":"application","to":"efcore","y":645,"label":"persistir cambio"},
+    {"id":"auditAllowed","from":"application","to":"audit","y":685,"label":"registrar decisión de alto impacto","variant":"dashed"},
+    {"id":"authorizedResponse","from":"mvc","to":"browser","y":725,"label":"respuesta autorizada","variant":"return"},
+    {"id":"secondRequest","from":"browser","to":"mvc","y":785,"label":"otra acción protegida","variant":"emphasis"},
+    {"id":"secondAuthorize","from":"mvc","to":"authorization","y":825,"label":"reevaluar del lado servidor","variant":"security"},
+    {"id":"policyDenied","from":"policyHandler","to":"authorization","y":865,"label":"una condición falla","variant":"security"},
+    {"id":"auditDenied","from":"authorization","to":"audit","y":905,"label":"auditar denegación privilegiada","variant":"dashed"},
+    {"id":"deniedResponse","from":"mvc","to":"browser","y":945,"label":"acceso denegado sin filtrar datos","variant":"return"}
+  ],
+  "cards": [
+    {"dot":"rose","title":"Evaluación obligatoria","items":["Identidad activa, permiso, ámbito, asignación, estado y SoD","El servidor reevalúa aunque la interfaz ocultara la acción"]},
+    {"dot":"emerald","title":"Autorizado","items":["Solo después de todas las políticas se ejecuta el caso de uso","La auditoría de alto impacto precede a la confirmación"]},
+    {"dot":"amber","title":"Denegado","items":["No existe ejecución parcial","Los intentos privilegiados y conflictos SoD quedan auditados"]}
+  ]
+}

@@ -1,0 +1,396 @@
+@model Landscape.Tsi.Web.Models.EvaluationsIndexViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = "Evaluaciones - Procesos de Adopción TSI";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li>Procesos de Adopción TSI</li>
+        <li aria-current="page">Evaluaciones</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="evaluations-title">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · FASE 2</p>
+            <h1 id="evaluations-title" class="h2 mb-1">Evaluaciones de Tecnologías TSI</h1>
+            <p class="supporting-text mb-0">
+                Gestión integral de evaluaciones técnicas y de mercado, diagnóstico AS-IS por subsidiaria, contratos locales y definición de estándares corporativos TSI.
+            </p>
+        </div>
+        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+        {
+            <div class="d-flex gap-2">
+                <a class="md-button md-button-filled d-inline-flex align-items-center gap-2" asp-action="CreateEvaluation">
+                    <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Nueva Solicitud de Evaluación</span>
+                </a>
+            </div>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="app-alert app-alert-success mb-3" role="status">
+            <strong>Éxito: </strong> @success
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Atención: </strong> @error
+        </div>
+    }
+
+    <!-- KPI Summary Cards -->
+    <div class="kpi-grid mb-4" aria-label="Indicadores Clave de Evaluaciones">
+        <div class="kpi-card">
+            <span>Evaluaciones Activas</span>
+            <strong class="text-primary">@Model.TotalActivas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Evaluaciones Terminadas</span>
+            <strong class="text-success">@Model.TotalTerminadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Evaluaciones Canceladas</span>
+            <strong class="text-danger">@Model.TotalCanceladas</strong>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="card p-3 mb-4 shadow-sm border-0 bg-light">
+        <form method="get" asp-action="Evaluations" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label for="search" class="form-label small fw-semibold text-muted mb-1">Búsqueda rápida</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white">🔍</span>
+                    <input type="text" id="search" name="search" class="form-control" placeholder="Buscar por código, nombre, BB..." value="@Model.Search" />
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label for="dominioId" class="form-label small fw-semibold text-muted mb-1">Dominio TSI</label>
+                <select id="dominioId" name="dominioId" class="form-select">
+                    <option value="">Todos los dominios</option>
+                    @foreach (var d in Model.Dominios)
+                    {
+                        <option value="@d.Id" selected="@(Model.DominioId == d.Id ? "selected" : null)">@d.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="estadoId" class="form-label small fw-semibold text-muted mb-1">Fase / Estado</label>
+                <select id="estadoId" name="estadoId" class="form-select">
+                    <option value="">Todos los estados</option>
+                    @foreach (var e in Model.EstadosAdopcion)
+                    {
+                        <option value="@e.Id" selected="@(Model.EstadoId == e.Id ? "selected" : null)">@e.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">Filtrar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search) || Model.DominioId.HasValue || Model.EstadoId.HasValue)
+                {
+                    <a asp-action="Evaluations" class="btn btn-outline-secondary" title="Limpiar filtros">✕</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <!-- Responsive Table -->
+    <div class="responsive-table card shadow-sm border-0" role="region" aria-label="Listado de Evaluaciones" tabindex="0">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Evaluación</th>
+                    <th scope="col">Dominio & Building Block</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Líder TSI</th>
+                    <th scope="col">Inicio / Estimada</th>
+                    <th scope="col">Participación Subsidiarias</th>
+                    <th scope="col" class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Processes.Count == 0)
+            {
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        <div class="py-3">
+                            <p class="fs-5 mb-2">No se encontraron evaluaciones registradas.</p>
+                            <p class="text-secondary small mb-3">Ajusta los filtros o registra una nueva solicitud de evaluación.</p>
+                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                            {
+                                <a class="md-button md-button-filled" asp-action="CreateEvaluation">+ Registrar Solicitud de Evaluación</a>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+            @foreach (var p in Model.Processes)
+            {
+                <tr class="@(!p.IsActivo ? "table-light text-muted opacity-75" : "")">
+                    <td data-label="Código">
+                        <code class="fw-bold fs-6">@p.Codigo</code>
+                        @if (!p.IsActivo)
+                        {
+                            <span class="badge bg-danger ms-1" style="font-size:0.65rem;">BAJA</span>
+                        }
+                    </td>
+                    <td data-label="Evaluación">
+                        <a class="fw-semibold text-decoration-none" asp-action="Details" asp-route-id="@p.Id">
+                            @p.Nombre
+                        </a>
+                    </td>
+                    <td data-label="Dominio & Building Block">
+                        <span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:0.75rem;">@p.DominioName</span>
+                        <div class="small fw-semibold">
+                            <a asp-controller="MasterTables" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@p.BuildingBlockId">
+                                @p.BuildingBlockName
+                            </a>
+                        </div>
+                    </td>
+                    <td data-label="Estado">
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge @(p.IsCancelada || !p.IsActivo ? "bg-danger text-white" : p.IsTerminada ? "bg-success text-white" : "bg-info text-dark")">
+                                @p.EstadoAdopcion
+                            </span>
+                            @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-1 btn-change-status-row"
+                                        style="font-size: 0.7rem; line-height: 1.2;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modal-change-status-eval"
+                                        data-id="@p.Id"
+                                        data-code="@p.Codigo"
+                                        data-name="@p.Nombre"
+                                        data-status-id="@p.EstadoId"
+                                        title="Cambiar estado de adopción TSI">
+                                    ✏️
+                                </button>
+                            }
+                        </div>
+                    </td>
+                    <td data-label="Líder TSI">
+                        <span class="small">@(p.LiderCorporativo ?? "No asignado")</span>
+                    </td>
+                    <td data-label="Fechas">
+                        <span class="small d-block text-nowrap">@p.FechaInicio.ToString("dd/MM/yyyy")</span>
+                        <span class="small text-muted d-block text-nowrap">
+                            @(p.FechaEstimadaCierre.HasValue ? $"→ {p.FechaEstimadaCierre.Value:dd/MM/yyyy}" : "Sin fecha fin")
+                        </span>
+                    </td>
+                    <td data-label="Participación">
+                        <div class="small">
+                            <strong class="text-primary">@p.TotalEmpresas</strong> empresas
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                <span>@p.EmpresasConAdopcion impl.</span> · 
+                                <span>@p.EmpresasNoAplica no aplica</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-label="Acciones" class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-info text-dark" asp-action="Reports" asp-route-id="@p.Id" title="Ver seguimiento y reportes de la evaluación">
+                            📊 Reportes
+                        </a>
+                        <a class="btn btn-sm btn-outline-primary ms-1" asp-action="Details" asp-route-id="@p.Id" title="Ver detalle">
+                            Detalle
+                        </a>
+                        @if (p.IsActivo && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                        {
+                            <a class="btn btn-sm btn-outline-secondary ms-1" asp-action="EditEvaluation" asp-route-id="@p.Id" title="Editar evaluación completa">
+                                Editar
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-deactivate ms-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modal-deactivate"
+                                    data-id="@p.Id"
+                                    data-code="@p.Codigo"
+                                    data-name="@p.Nombre"
+                                    title="Dar de baja evaluación">
+                                Dar de baja
+                            </button>
+                        }
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-eval ms-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modal-delete-eval"
+                                    data-id="@p.Id"
+                                    data-code="@p.Codigo"
+                                    data-name="@p.Nombre"
+                                    title="Eliminar permanentemente evaluación y registros asociados">
+                                🗑️ Eliminar
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Modal: Cambiar Estado de Evaluación (TMEstadoAdopcionTSI) -->
+<div class="modal fade" id="modal-change-status-eval" tabindex="-1" aria-labelledby="modalChangeStatusEvalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="form-change-status-eval" asp-action="UpdateStatus" asp-route-id="0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title h6 mb-0" id="modalChangeStatusEvalTitle">🔄 Cambiar Estado de Evaluación TSI</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">
+                        Los estados reflejan la evolución técnica del proceso según la tabla maestra <code>TMEstadoAdopcionTSI</code>.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Evaluación</label>
+                        <input type="text" id="change-status-display" class="form-control bg-light" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label for="change-status-select" class="form-label small fw-semibold">Nuevo Estado de Adopción <span class="text-danger">*</span></label>
+                        <select id="change-status-select" name="statusId" class="form-select" required>
+                            @foreach (var e in Model.EstadosAdopcion)
+                            {
+                                <option value="@e.Id">@e.Label</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">💾 Guardar Nuevo Estado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dar de baja Evaluación -->
+<div class="modal fade" id="modal-deactivate" tabindex="-1" aria-labelledby="modalDeactivateTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="form-deactivate" asp-action="DeactivateEvaluation" asp-route-id="0">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title h6 mb-0" id="modalDeactivateTitle">Dar de Baja Proceso de Evaluación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">
+                        Al dar de baja la evaluación, se conservará la información registrada para auditoría histórica pero se marcará como cancelada/inactiva.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Evaluación</label>
+                        <input type="text" id="deact-display" class="form-control bg-light" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivoBaja" class="form-label small fw-semibold">Motivo de la baja <span class="text-danger">*</span></label>
+                        <textarea id="motivoBaja" name="motivoBaja" class="form-control" rows="3" required minlength="10" placeholder="Especifique la justificación o causa por la cual se da de baja esta evaluación..."></textarea>
+                        <div class="form-text">Mínimo 10 caracteres. Se registrará en la pista de auditoría.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Baja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Eliminar Evaluación y registros asociados -->
+<div class="modal fade" id="modal-delete-eval" tabindex="-1" aria-labelledby="modalDeleteEvalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="form-delete-eval" asp-action="DeleteEvaluation" asp-route-id="0">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title h6 mb-0" id="modalDeleteEvalTitle">🗑️ Eliminar Proceso de Evaluación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-flex align-items-start gap-2 mb-3" role="alert">
+                        <span class="fs-5">⚠️</span>
+                        <div class="small">
+                            <strong>¡Acción destructiva irreversible!</strong><br />
+                            Se eliminará la evaluación junto con sus dependencias: empresas subsidiarias convocadas, asignaciones históricas de estándar y servicios técnicos asociados vinculados a este proceso.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Evaluación a eliminar</label>
+                        <input type="text" id="delete-eval-display" class="form-control bg-light" readonly />
+                    </div>
+                    <p class="small text-muted mb-0">
+                        Esta operación quedará registrada en la pista de auditoría del sistema.
+                    </p>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger fw-bold">🗑️ Confirmar y Eliminar Todo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const formDeactivate = document.getElementById('form-deactivate');
+        const displayInput = document.getElementById('deact-display');
+
+        document.querySelectorAll('.btn-deactivate').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const code = this.dataset.code;
+                const name = this.dataset.name;
+
+                displayInput.value = `${code} - ${name}`;
+                formDeactivate.action = `/Administration/AdoptionProcess/Evaluations/${id}/Deactivate`;
+            });
+        });
+
+        const formDeleteEval = document.getElementById('form-delete-eval');
+        const deleteDisplayInput = document.getElementById('delete-eval-display');
+
+        document.querySelectorAll('.btn-delete-eval').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const code = this.dataset.code;
+                const name = this.dataset.name;
+
+                if (deleteDisplayInput) deleteDisplayInput.value = `${code} - ${name}`;
+                if (formDeleteEval) formDeleteEval.action = `/Administration/AdoptionProcess/Evaluations/${id}/Delete`;
+            });
+        });
+
+        const formChangeStatus = document.getElementById('form-change-status-eval');
+        const changeStatusDisplay = document.getElementById('change-status-display');
+        const changeStatusSelect = document.getElementById('change-status-select');
+
+        document.querySelectorAll('.btn-change-status-row').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const code = this.dataset.code;
+                const name = this.dataset.name;
+                const statusId = this.dataset.statusId;
+
+                if (changeStatusDisplay) changeStatusDisplay.value = `${code} - ${name}`;
+                if (changeStatusSelect && statusId) changeStatusSelect.value = statusId;
+                if (formChangeStatus) formChangeStatus.action = `/Administration/AdoptionProcess/${id}/Status`;
+            });
+        });
+    });
+</script>
+}

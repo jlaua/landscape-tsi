@@ -1,0 +1,59 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Flujo conceptual de adopción tecnológica",
+    "output": "03-technology-adoption-workflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1050, 912],
+    "views": [
+      {"id":"verified","label":"Contrato verificado","focus":["create","submit","evaluate","governance","decision","approved","rejected"],"note":"La autorización depende de permiso, asignación, ámbito, estado y SoD."},
+      {"id":"pending","label":"Definiciones pendientes","focus":["observations","corrections","technicalReview","archive"],"note":"Estas etapas solicitadas aún no tienen estados ni transiciones aprobados en OpenSpec."}
+    ]
+  },
+  "lanes": [
+    {"id":"requester","label":"Solicitante autorizado"},
+    {"id":"architect","label":"Arquitecto de Seguridad"},
+    {"id":"engineer","label":"Ingeniero de TSI"},
+    {"id":"government","label":"Punto de Contacto del Gobierno"},
+    {"id":"system","label":"Landscape TSI / Auditoría"},
+    {"id":"pendingLane","label":"Pendiente de especificación","variant":"exception"}
+  ],
+  "phases": [
+    {"id":"request","label":"Solicitud","fromCol":0,"toCol":1},
+    {"id":"review","label":"Evaluación","fromCol":2,"toCol":3,"variant":"emphasis"},
+    {"id":"resolution","label":"Gobierno y resultado","fromCol":4,"toCol":5,"variant":"security"}
+  ],
+  "mainPath": ["create","submit","evaluate","governance","decision","approved"],
+  "nodes": [
+    {"id":"create","lane":"requester","col":0,"type":"frontend","label":"Crear","sublabel":"rol exacto pendiente"},
+    {"id":"submit","lane":"requester","col":1,"type":"frontend","label":"Enviar","sublabel":"permiso atómico"},
+    {"id":"evaluate","lane":"architect","col":2,"type":"backend","label":"Evaluar","sublabel":"actor asignado"},
+    {"id":"technicalReview","lane":"engineer","col":3,"type":"backend","label":"Revisión TSI","sublabel":"etapa no aprobada","tag":"pendiente"},
+    {"id":"governance","lane":"government","col":4,"type":"security","label":"Gobierno","sublabel":"ámbito + SoD"},
+    {"id":"decision","lane":"government","col":5,"type":"security","label":"Decidir","sublabel":"estado válido"},
+    {"id":"approved","lane":"system","col":5,"type":"database","label":"Aprobado","sublabel":"auditable"},
+    {"id":"rejected","lane":"pendingLane","col":5,"type":"external","label":"Rechazado","sublabel":"auditable"},
+    {"id":"observations","lane":"pendingLane","col":2,"type":"external","label":"Observaciones","sublabel":"no aprobado","tag":"pendiente"},
+    {"id":"corrections","lane":"pendingLane","col":3,"type":"external","label":"Correcciones","sublabel":"retorno no definido","tag":"pendiente"},
+    {"id":"archive","lane":"pendingLane","col":4,"type":"external","label":"Archivo","sublabel":"estado no definido","tag":"pendiente"}
+  ],
+  "edges": [
+    {"id":"createSubmit","from":"create","to":"submit","label":"solicitud completa","role":"main"},
+    {"id":"submitEvaluate","from":"submit","to":"evaluate","label":"enviada y asignada","role":"main","variant":"emphasis"},
+    {"id":"evaluateTechnical","from":"evaluate","to":"technicalReview","label":"si se aprueba esta etapa","role":"branch","variant":"dashed"},
+    {"id":"evaluateGovernance","from":"evaluate","to":"governance","label":"evaluación concluida","role":"main","variant":"emphasis"},
+    {"id":"technicalGovernance","from":"technicalReview","to":"governance","label":"recomendación técnica","role":"branch","variant":"dashed"},
+    {"id":"governanceDecision","from":"governance","to":"decision","label":"acción autorizada","role":"main","variant":"security"},
+    {"id":"decisionApproved","from":"decision","to":"approved","label":"aprobar","role":"main","variant":"emphasis"},
+    {"id":"decisionRejected","from":"decision","to":"rejected","label":"rechazar","role":"error","variant":"security"},
+    {"id":"evaluateObservations","from":"evaluate","to":"observations","label":"si se define observación","role":"branch","variant":"dashed"},
+    {"id":"observationsCorrections","from":"observations","to":"corrections","label":"cambio requerido","role":"return","variant":"dashed"},
+    {"id":"approvedArchive","from":"approved","to":"archive","label":"si se aprueba cierre","role":"branch","variant":"dashed"}
+  ],
+  "cards": [
+    {"dot":"rose","title":"Control obligatorio","items":["Servidor evalúa permiso, ámbito, asignación, estado y segregación","Crear, enviar, evaluar y decidir requieren permisos aún por cerrar en matriz"]},
+    {"dot":"amber","title":"No aprobado todavía","items":["No existe catálogo oficial de estados ni transiciones","Observaciones, correcciones, revisión técnica y archivo quedan como etapas candidatas"]},
+    {"dot":"emerald","title":"Trazabilidad","items":["Las transiciones deben ser explícitas y auditables","Aprobaciones de alto impacto y denegaciones SoD se registran"]}
+  ]
+}

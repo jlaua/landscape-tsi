@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Landscape.Tsi.Application/Landscape.Tsi.Application.csproj" />
+    <Project Path="src/Landscape.Tsi.Domain/Landscape.Tsi.Domain.csproj" />
+    <Project Path="src/Landscape.Tsi.Infrastructure/Landscape.Tsi.Infrastructure.csproj" />
+    <Project Path="src/Landscape.Tsi.Web/Landscape.Tsi.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Landscape.Tsi.Tests/Landscape.Tsi.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,46 @@
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+
+<div class="modal fade" id="reassign-functionality-modal" tabindex="-1" aria-labelledby="reassign-functionality-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content md-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">ADMINISTRACIÓN DE RELACIONES</p>
+                    <h2 class="modal-title" id="reassign-functionality-title">Reasignar Funcionalidad</h2>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Está por reasignar la funcionalidad <strong id="reassign-func-display-name"></strong> a otra Capacidad de Seguridad.</p>
+
+                <div class="mb-3">
+                    <label for="reassign-func-target-cap" class="form-label fw-semibold">Capacidad de Seguridad Destino</label>
+                    <select class="form-select" id="reassign-func-target-cap" required>
+                        <option value="">-- Seleccione la Capacidad de destino --</option>
+                    </select>
+                </div>
+
+                <div id="reassign-func-impact-panel" hidden class="card p-3 mb-3 border-warning bg-light">
+                    <h3 class="h6 text-warning-emphasis fw-bold mb-2">Resumen de Impacto</h3>
+                    <div id="reassign-func-impact-content"></div>
+                </div>
+
+                <form id="reassign-functionality-form" method="post" asp-action="ReassignFunctionality" asp-route-id="@Model.Record.Id">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="functionalityId" id="reassign-modal-func-id" />
+                    <input type="hidden" name="sourceCapabilityId" id="reassign-modal-func-source-cap-id" />
+                    <input type="hidden" name="targetCapabilityId" id="reassign-modal-func-target-cap-id" />
+                    <input type="hidden" name="concurrencyToken" id="reassign-modal-func-token" />
+                    <div class="mb-3">
+                        <label for="reassign-func-justification-input" class="form-label">Justificación del cambio</label>
+                        <input type="text" class="form-control" name="justification" id="reassign-func-justification-input" placeholder="Motivo de la reasignación" maxlength="250" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="md-button md-button-filled" id="btn-confirm-reassign-func" disabled>Confirmar Reasignación</button>
+            </div>
+        </div>
+    </div>
+</div>

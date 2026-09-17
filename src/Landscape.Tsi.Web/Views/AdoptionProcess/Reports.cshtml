@@ -1,0 +1,1346 @@
+@model Landscape.Tsi.Application.Adoption.EvaluationReportsDto
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = $"Seguimiento y Reportería - {Model.NombreProceso}";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Evaluations">Evaluaciones TSI</a></li>
+        <li><a asp-action="Details" asp-route-id="@Model.ProcesoId">@Model.CodigoProceso</a></li>
+        <li aria-current="page">Reportería & Seguimiento</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="reports-page-title">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold">@Model.DominioNombre</span>
+                <span class="badge bg-secondary-subtle text-secondary border">BB: @Model.BuildingBlockNombre</span>
+                <span class="badge bg-info text-dark">@Model.EstadoAdopcionNombre</span>
+            </div>
+            <h1 id="reports-page-title" class="h2 mb-1">📊 Seguimiento y Reportería Operacional</h1>
+            <p class="supporting-text mb-0">
+                Evaluación: <strong>@Model.NombreProceso</strong> (<code class="fw-bold">@Model.CodigoProceso</code>) · Líder: @(Model.LiderCorporativo ?? "No asignado") · Vigencia: @Model.FechaInicio.ToString("dd/MM/yyyy") @(Model.FechaEstimadaCierre.HasValue ? $"al {Model.FechaEstimadaCierre.Value:dd/MM/yyyy}" : "")
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+            {
+                <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="all"
+                   class="btn btn-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                   title="Exportar libro Excel completo con las 4 pestañas de reportería y seguimiento">
+                    <span>📥 Exportar Todo a Excel</span>
+                </a>
+            }
+            <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" onclick="window.print()">
+                <span>🖨️ Imprimir / Guardar PDF</span>
+            </button>
+            <a asp-action="Details" asp-route-id="@Model.ProcesoId" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+                <span>← Volver al Proceso</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-grid mb-4" aria-label="Resumen Ejecutivo de la Evaluación">
+        <div class="kpi-card">
+            <span>Subsidiarias Participantes</span>
+            <strong>@Model.AlcanceReport.Count</strong>
+        </div>
+        @if (Model.EsWaap)
+        {
+            <div class="kpi-card">
+                <span>Throughput Global Proyectado</span>
+                <strong>@Model.VencimientoContratosReport.TotalThroughputGbMes.ToString("N1") GB/m</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Total Apps FQDN Protegidas</span>
+                <strong>@Model.VencimientoContratosReport.TotalAppsFqdn</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Tráfico WAF Corporativo</span>
+                <strong>@Model.VencimientoContratosReport.TotalRequestWafMillonesMes.ToString("N1") M req/m</strong>
+            </div>
+        }
+        else
+        {
+            <div class="kpi-card">
+                <span>Building Block Evaluado</span>
+                <strong class="text-truncate" title="@Model.BuildingBlockNombre">@Model.BuildingBlockNombre</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Drivers de Consumo</span>
+                <strong>@Model.VolumetriaReport.TotalCantidadDrivers Registrados</strong>
+            </div>
+            <div class="kpi-card">
+                <span>Inversión Total Drivers</span>
+                <strong>USD @Model.VolumetriaReport.TotalInversionDrivers.ToString("N2")</strong>
+            </div>
+        }
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="tab-alcance" data-bs-toggle="tab" data-bs-target="#pane-alcance" type="button" role="tab" aria-controls="pane-alcance" aria-selected="true">
+                📋 a) Alcance del Proceso
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-vencimientos" data-bs-toggle="tab" data-bs-target="#pane-vencimientos" type="button" role="tab" aria-controls="pane-vencimientos" aria-selected="false">
+                ⏱️ b) Vencimiento de Contratos & Proyección
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-volumetria" data-bs-toggle="tab" data-bs-target="#pane-volumetria" type="button" role="tab" aria-controls="pane-volumetria" aria-selected="false">
+                📈 3) Volumetría por Empresa
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-capacidades" data-bs-toggle="tab" data-bs-target="#pane-capacidades" type="button" role="tab" aria-controls="pane-capacidades" aria-selected="false">
+                🛡️ 4) Capacidades por Empresa
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-costos" data-bs-toggle="tab" data-bs-target="#pane-costos" type="button" role="tab" aria-controls="pane-costos" aria-selected="false">
+                💰 5) Proyección de Costos AS-IS
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="reportTabsContent">
+        
+        <!-- PESTAÑA A: ALCANCE DEL PROCESO -->
+        <div class="tab-pane fade show active" id="pane-alcance" role="tabpanel" aria-labelledby="tab-alcance">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Alcance del Proceso de Evaluación</h2>
+                        <small class="text-muted">Resumen consolidado de empresas participantes, tecnología AS-IS, contratos, partners y modo de operación</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                        {
+                            <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="as-is"
+                               class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                               title="Exportar esta tabla a formato Excel">
+                                <span>📥 Exportar a Excel</span>
+                            </a>
+                        }
+                        <span class="badge bg-primary fs-6">@Model.AlcanceReport.Count Empresas</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; letter-spacing:0.5px;">
+                            <tr>
+                                <th scope="col">Empresa</th>
+                                <th scope="col">País</th>
+                                <th scope="col">Fecha Vencimiento</th>
+                                <th scope="col">@(Model.EsWaap ? "WAF AS-IS" : "Tecnología AS-IS")</th>
+                                <th scope="col">Tipo Contrato</th>
+                                <th scope="col">Fabricante / Vendor</th>
+                                <th scope="col">Partner / Integrador</th>
+                                <th scope="col">Operación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.AlcanceReport)
+                        {
+                            <tr>
+                                <td class="fw-bold text-dark">@row.EmpresaNombre</td>
+                                <td>
+                                    <span class="badge bg-secondary-subtle text-secondary border">@(row.Pais ?? "Global")</span>
+                                </td>
+                                <td>
+                                    @if (row.TipoContrato == "PAYG" || !row.FechaVencimientoContrato.HasValue)
+                                    {
+                                        <span class="badge bg-info-subtle text-dark border border-info">PAYG</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning-subtle text-dark border border-warning">@row.FechaVencimientoContrato.Value.ToString("dd/MM/yyyy")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-primary">@row.TecnologiaAsIs</span>
+                                </td>
+                                <td>
+                                    <span class="badge @(row.TipoContrato == "PAYG" ? "bg-info-subtle text-dark border border-info" : "bg-light text-secondary border")">
+                                        @(row.TipoContrato ?? "Contrato")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="small fw-semibold text-dark">@(row.Vendor ?? "-")</span>
+                                </td>
+                                <td>
+                                    <span class="small">@(row.Partner ?? "Directo")</span>
+                                </td>
+                                <td>
+                                    <span class="badge @(row.TipoOperacion == "Autogestionado" ? "bg-success-subtle text-success border border-success" : "bg-primary-subtle text-primary border border-primary")">
+                                        @(row.TipoOperacion ?? "Autogestionado")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA B: VENCIMIENTO DE CONTRATOS & PROYECCIÓN ACUMULADA -->
+        @{
+            var activeDrivers = Model.VencimientoContratosReport.DriversSeleccionados?.ToList() ??
+                (Model.EsWaap ? new List<string> { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" } : new List<string>());
+            var availableDrivers = Model.VencimientoContratosReport.TodosLosDriversDisponibles?.ToList() ?? activeDrivers;
+            var driverUnits = Model.VencimientoContratosReport.UnidadesPorDriver ?? new Dictionary<string, string>();
+        }
+        <div class="tab-pane fade" id="pane-vencimientos" role="tabpanel" aria-labelledby="tab-vencimientos">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Fechas de Vencimiento de Contratos y Proyección Acumulada</h2>
+                        <small class="text-muted">Línea de tiempo cronológica según el vencimiento más cercano de cada subsidiaria y absorción paulatina de volumetría</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        @if (availableDrivers.Count > 0)
+                        {
+                            <div class="dropdown" id="dropdownVencimientoDrivers">
+                                <button class="btn btn-outline-primary btn-sm dropdown-toggle fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                                        type="button" id="btnVencimientoDriversDropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                                        title="Seleccionar qué drivers proyectar en la línea de tiempo">
+                                    <span>📊 Drivers a Proyectar</span>
+                                    <span class="badge bg-primary text-white ms-1" id="badgeSelectedDriversCount">@activeDrivers.Count</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end shadow-lg p-3" aria-labelledby="btnVencimientoDriversDropdown" style="min-width: 340px; max-height: 480px; overflow-y: auto;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                        <span class="fw-bold small text-dark">Drivers para la Proyección</span>
+                                        <span class="badge bg-success-subtle text-success border border-success small" id="statusDriverSave" style="display:none;">Guardado en BD ✓</span>
+                                    </div>
+                                    <div class="d-flex gap-1 mb-2">
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btnDriversDefault" style="font-size:0.75rem;">Estándar</button>
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btnDriversAll" style="font-size:0.75rem;">Todos</button>
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btnDriversClear" style="font-size:0.75rem;">Limpiar</button>
+                                    </div>
+                                    <div id="driversCheckboxContainer">
+                                        @for (var i = 0; i < availableDrivers.Count; i++)
+                                        {
+                                            var driverName = availableDrivers[i];
+                                            var isChecked = activeDrivers.Contains(driverName, StringComparer.OrdinalIgnoreCase);
+                                            var unit = driverUnits.GetValueOrDefault(driverName) ?? "";
+                                            <div class="form-check py-1">
+                                                <input class="form-check-input chk-vencimiento-driver" type="checkbox" value="@driverName" id="chk_driver_@i" @(isChecked ? "checked" : "") />
+                                                <label class="form-check-label small text-dark" for="chk_driver_@i">
+                                                    <strong>@driverName</strong>
+                                                    @if (!string.IsNullOrWhiteSpace(unit))
+                                                    {
+                                                        <span class="text-muted small ms-1">(@unit)</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                        {
+                            <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="vencimientos"
+                                class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                                title="Exportar matriz de vencimientos y timeline a formato Excel">
+                                <span>📥 Exportar a Excel</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0 text-center" id="tableVencimientosProyeccion">
+                        <thead class="table-light text-muted" style="font-size:0.75rem;">
+                            <tr>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; width:40px;">#</th>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:180px;">Subsidiaria</th>
+                                <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:160px;">Producto Actual</th>
+                                <th scope="col" colspan="@(Math.Max(1, activeDrivers.Count))" class="bg-light" id="thGroupDrivers">Drivers Proyectados</th>
+                                <th scope="col" colspan="@Model.VencimientoContratosReport.PeriodosHito.Count" class="bg-primary text-white">Línea Cronológica de Expiración Contractual</th>
+                            </tr>
+                            <tr id="trDriverHeaders">
+                                @foreach (var d in activeDrivers)
+                                {
+                                    var unit = driverUnits.GetValueOrDefault(d) ?? "";
+                                    <th scope="col" class="th-driver-vertical" data-driver-header="@d" title="@d @(!string.IsNullOrWhiteSpace(unit) ? $"({unit})" : "")">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">@d</span>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(unit))
+                                            {
+                                                <span class="th-driver-unit-badge" title="Unidad: @unit">@unit</span>
+                                            }
+                                        </div>
+                                    </th>
+                                }
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <th scope="col" class="th-milestone fw-bold text-nowrap" style="min-width:75px; vertical-align:bottom; padding-bottom:8px;">@h.PeriodoLabel</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyVencimientosReport">
+                        @foreach (var row in Model.VencimientoContratosReport.Filas)
+                        {
+                            var assignedHito = row.HitoExpiracionPorPeriodo.FirstOrDefault(kv => kv.Value).Key ?? (row.TipoContrato == "PAYG" ? "PAYG" : "PAYG");
+                            <tr data-empresa-id="@row.EmpresaId" data-assigned-hito="@assignedHito">
+                                <td class="text-muted small">@row.Secuencia</td>
+                                <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
+                                <td class="text-start small text-primary">@(row.ProductoActual ?? (Model.EsWaap ? "WAF Local" : "No configurada"))</td>
+                                @foreach (var d in activeDrivers)
+                                {
+                                    var val = row.DriversPorNombre != null && row.DriversPorNombre.TryGetValue(d, out var v) ? v : 0m;
+                                    var fmt = (val > 0 && val < 0.05m) ? val.ToString("0.###") : (val % 1 == 0 ? val.ToString("N0") : val.ToString("N1"));
+                                    <td class="text-end fw-semibold small td-driver-val" data-driver-key="@d">@(val == 0 ? "—" : fmt)</td>
+                                }
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    var isMarked = row.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active;
+                                    <td class="@(isMarked ? "bg-primary-subtle" : "") td-milestone" data-milestone="@h.PeriodoLabel">
+                                        @if (isMarked)
+                                        {
+                                            <span class="badge bg-primary text-white fw-bold px-2 py-1" title="Expiración: @row.VencimientoLabel">X</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted opacity-25">·</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot class="table-dark" id="tfootVencimientosReport" style="font-size:0.85rem;">
+                        @foreach (var d in activeDrivers)
+                        {
+                            var totalVal = Model.VencimientoContratosReport.Filas
+                                .Sum(r => (r.DriversPorNombre != null && r.DriversPorNombre.TryGetValue(d, out var v)) ? v : 0m);
+                            var fmtTotal = (totalVal > 0 && totalVal < 0.05m) ? totalVal.ToString("0.###") : (totalVal % 1 == 0 ? totalVal.ToString("N0") : totalVal.ToString("N1"));
+                            var unit = driverUnits.GetValueOrDefault(d) ?? "";
+                            
+                            <tr data-footer-driver="@d">
+                                <td colspan="3" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
+                                    @d @(!string.IsNullOrWhiteSpace(unit) ? $"({unit})" : "") ACUM:
+                                </td>
+                                @foreach (var otherD in activeDrivers)
+                                {
+                                    if (string.Equals(otherD, d, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <td class="text-end fw-bold bg-secondary bg-opacity-25" data-driver-total="@d">@fmtTotal</td>
+                                    }
+                                    else
+                                    {
+                                        <td class="text-center text-muted" data-driver-placeholder="@otherD">—</td>
+                                    }
+                                }
+                                @{
+                                    decimal runSum = 0m;
+                                    foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                    {
+                                        var rowsInHito = Model.VencimientoContratosReport.Filas
+                                            .Where(r => r.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active)
+                                            .ToList();
+                                        runSum += rowsInHito.Sum(r => (r.DriversPorNombre != null && r.DriversPorNombre.TryGetValue(d, out var v)) ? v : 0m);
+                                        var fmtRun = (runSum > 0 && runSum < 0.05m) ? runSum.ToString("0.###") : (runSum % 1 == 0 ? runSum.ToString("N0") : runSum.ToString("N1"));
+                                        <td class="text-center fw-bold bg-dark border-start" data-hito-accum="@h.PeriodoLabel">
+                                            @fmtRun
+                                        </td>
+                                    }
+                                }
+                            </tr>
+                        }
+                            <tr class="table-secondary text-dark fw-bold" id="trSubsidiariasAcumuladas">
+                                <td colspan="@(3 + activeDrivers.Count)" class="text-end fw-bold text-uppercase" id="tdSubsidiariasAcumuladasLabel" style="letter-spacing:0.5px;">
+                                    SUBSIDIARIAS ACUMULADAS:
+                                </td>
+                                @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    <td class="text-center fw-bold bg-dark border-start text-white" data-sub-accum="@h.PeriodoLabel">
+                                        @(Model.VencimientoContratosReport.SubsidiariasAcumuladasPorPeriodo != null && Model.VencimientoContratosReport.SubsidiariasAcumuladasPorPeriodo.TryGetValue(h.PeriodoLabel, out var v) ? v : 0)
+                                    </td>
+                                }
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <script id="vencimientoReportData" type="application/json">
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+                        procesoId = Model.ProcesoId,
+                        milestones = Model.VencimientoContratosReport.PeriodosHito.Select(h => h.PeriodoLabel).ToList(),
+                        defaultDrivers = Model.EsWaap 
+                            ? new List<string> { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" }
+                            : (availableDrivers.Take(3).ToList()),
+                        driverUnits = driverUnits,
+                        companies = Model.VencimientoContratosReport.Filas.Select(f => new {
+                            empresaId = f.EmpresaId,
+                            empresaNombre = f.EmpresaNombre,
+                            assignedHito = f.HitoExpiracionPorPeriodo.FirstOrDefault(kv => kv.Value).Key ?? (f.TipoContrato == "PAYG" ? "PAYG" : "PAYG"),
+                            drivers = f.DriversPorNombre ?? new Dictionary<string, decimal>()
+                        }).ToList()
+                    }))
+                </script>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 3: VOLUMETRÍA / DRIVERS POR EMPRESA -->
+        <div class="tab-pane fade" id="pane-volumetria" role="tabpanel" aria-labelledby="tab-volumetria">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">@(Model.EsWaap ? "Volumetría Detallada y Dimensionamiento por Empresa" : "Drivers de Consumo y Dimensionamiento por Empresa")</h2>
+                        <small class="text-muted">
+                            @(Model.EsWaap 
+                                ? "Drivers de consumo mensual por subsidiaria, capacidad de throughput, transacciones y transferencia de datos" 
+                                : $"Métricas y drivers operativos registrados para el Building Block {Model.BuildingBlockNombre}")
+                        </small>
+                    </div>
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                    {
+                        <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="volumetria"
+                           class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                           title="Exportar volumetría y drivers por empresa a formato Excel">
+                            <span>📥 Exportar a Excel</span>
+                        </a>
+                    }
+                </div>
+
+                @if (Model.EsWaap)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0 text-center" style="font-size:0.8rem;">
+                            <thead class="table-light text-muted text-uppercase" style="font-size:0.7rem;">
+                                <tr>
+                                    <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
+                                    <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
+                                    <th scope="col" title="Throughput (mensual)">Throughput<br/><small class="text-muted text-lowercase fw-normal">(Gbps/mes)</small></th>
+                                    <th scope="col" title="Ancho de Banda (mensual)">Ancho Banda<br/><small class="text-muted text-lowercase fw-normal">(Gbps/mes)</small></th>
+                                    <th scope="col" title="Dominio">Dominio<br/><small class="text-muted fw-normal">(Dominio)</small></th>
+                                    <th scope="col" title="Sub Dominios">Sub Dominios<br/><small class="text-muted fw-normal">(Sub Dominios)</small></th>
+                                    <th scope="col" title="Cantidad de aplicaciones (FQDN)">Cant. Apps<br/><small class="text-muted fw-normal">FQDN</small></th>
+                                    <th scope="col" title="Cantidad de Aplicaciones FQDN en API Security">Apps FQDN<br/><small class="text-muted fw-normal">API Security</small></th>
+                                    <th scope="col" title="API Protection / API Security Request">API Protection<br/><small class="text-muted text-lowercase fw-normal">Req (M/mes)</small></th>
+                                    <th scope="col" title="Millones de Request (mensual / antibot)">Req Antibot<br/><small class="text-muted text-lowercase fw-normal">(M/mes)</small></th>
+                                    <th scope="col" title="Millones Request WAF (mensual)">Req WAF<br/><small class="text-muted text-lowercase fw-normal">(M/mes)</small></th>
+                                    <th scope="col" title="Millones Request Antibot+WAF (mensual)">Req Total<br/><small class="text-muted fw-normal">Antibot+WAF</small></th>
+                                    <th scope="col" title="Data Transfer (mensual)">Data Transfer<br/><small class="text-muted text-lowercase fw-normal">(TB/mes)</small></th>
+                                    <th scope="col" title="Request Size (mensual)">Request Size<br/><small class="text-muted fw-normal">(KB/GB)</small></th>
+                                    <th scope="col" title="Response Size (mensual)">Response Size<br/><small class="text-muted fw-normal">(KB/GB/TB)</small></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var row in Model.VolumetriaReport.Filas)
+                            {
+                                <tr data-empresa-id="@row.EmpresaId">
+                                    <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
+                                    <td class="text-start text-primary">@(row.TecnologiaAsIs ?? "WAF Local")</td>
+                                    <td class="text-end fw-semibold editable-vol-cell" contenteditable="true" data-driver-key="throughput" data-decimals="1" title="Haga clic para editar Throughput (mensual)">@row.ThroughputMensualGbps.ToString("N1")</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="ancho_banda" data-decimals="2" title="Haga clic para editar Ancho de Banda (mensual)">@row.AnchoBandaMensualGbps.ToString("N2")</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="dominio" data-decimals="0" title="Haga clic para editar Dominio">@row.Dominio</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="subdominios" data-decimals="0" title="Haga clic para editar Sub Dominios">@row.SubDominios</td>
+                                    <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="apps_fqdn" data-decimals="0" title="Haga clic para editar Cantidad de aplicaciones (FQDN)">@row.CantidadAppsFqdn</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="apps_api_sec" data-decimals="0" title="Haga clic para editar Cantidad de Aplicaciones FQDN en API Security">@row.CantidadAppsFqdnApiSecurity</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="api_prot" data-decimals="1" title="Haga clic para editar API Protection / API Security Request">@row.ApiProtectionRequestMillonesMes.ToString("N1")</td>
+                                    <td class="text-end editable-vol-cell col-antibot" contenteditable="true" data-driver-key="antibot" data-decimals="1" title="Haga clic para editar Millones de Request (mensual / antibot)">@row.MillonesRequestAntibot.ToString("N1")</td>
+                                    <td class="text-end fw-semibold editable-vol-cell col-waf" contenteditable="true" data-driver-key="waf" data-decimals="1" title="Haga clic para editar Millones Request WAF (mensual)">@row.MillonesRequestWaf.ToString("N1")</td>
+                                    <td class="text-end fw-bold text-primary col-antibot-waf">@row.MillonesRequestAntibotWaf.ToString("N1")</td>
+                                    <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="data_transfer" data-decimals="1" title="Haga clic para editar Data Transfer (mensual)">@row.DataTransferTbMensual.ToString("N1")</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="request_size" data-decimals="0" title="Haga clic para editar Request Size (mensual)">@(row.RequestSize ?? "—")</td>
+                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="response_size" data-decimals="0" title="Haga clic para editar Response Size (mensual)">@(row.ResponseSize ?? "—")</td>
+                                </tr>
+                            }
+                            </tbody>
+                            <tfoot class="table-dark fw-bold" style="font-size:0.8rem;">
+                                <tr>
+                                    <td colspan="2" class="text-start text-uppercase">TOTALES CONSOLIDADOS:</td>
+                                    <td class="text-end tot-throughput">@Model.VolumetriaReport.TotalThroughputMensualGbps.ToString("N1")</td>
+                                    <td class="text-end tot-ancho_banda">@Model.VolumetriaReport.TotalAnchoBandaMensualGbps.ToString("N2")</td>
+                                    <td class="text-end tot-dominio">@Model.VolumetriaReport.TotalDominio</td>
+                                    <td class="text-end tot-subdominios">@Model.VolumetriaReport.TotalSubDominios</td>
+                                    <td class="text-end tot-apps_fqdn">@Model.VolumetriaReport.TotalAppsFqdn</td>
+                                    <td class="text-end tot-apps_api_sec">@Model.VolumetriaReport.TotalAppsFqdnApiSecurity</td>
+                                    <td class="text-end tot-api_prot">@Model.VolumetriaReport.TotalApiProtectionRequestMillonesMes.ToString("N1")</td>
+                                    <td class="text-end tot-antibot">@Model.VolumetriaReport.TotalMillonesRequestAntibot.ToString("N1")</td>
+                                    <td class="text-end tot-waf">@Model.VolumetriaReport.TotalMillonesRequestWaf.ToString("N1")</td>
+                                    <td class="text-end text-info tot-antibot-waf">@Model.VolumetriaReport.TotalMillonesRequestAntibotWaf.ToString("N1")</td>
+                                    <td class="text-end tot-data_transfer">@Model.VolumetriaReport.TotalDataTransferTbMensual.ToString("N1")</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    var matriz = Model.VolumetriaReport.MatrizDrivers;
+                    var tieneColumnas = matriz != null && matriz.ColumnasDrivers.Count > 0;
+
+                    if (!tieneColumnas)
+                    {
+                        <div class="p-3">
+                            <div class="alert alert-info d-flex align-items-center gap-2 mb-0">
+                                <span class="fs-5">ℹ️</span>
+                                <div class="flex-grow-1">
+                                    <strong>No se han registrado drivers operativos para @Model.BuildingBlockNombre.</strong>
+                                    <div class="small text-muted">Puede agregar drivers específicos de dimensionamiento y consumo (ej. datastores, repositorios, TB escaneados, licencias) desde el detalle del proceso de evaluación en la sección de Convocatoria.</div>
+                                </div>
+                                <a asp-action="Details" asp-route-id="@Model.ProcesoId" class="btn btn-sm btn-outline-primary text-nowrap">Configurar Drivers en el Proceso →</a>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0" style="font-size:0.85rem;">
+                            <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem;">
+                                <tr>
+                                    <th scope="col" style="min-width:180px;">Empresa</th>
+                                    <th scope="col" style="min-width:160px;">Tecnología AS-IS</th>
+                                    @if (tieneColumnas)
+                                    {
+                                        @foreach (var col in matriz!.ColumnasDrivers)
+                                        {
+                                            <th scope="col" class="text-end text-nowrap">@col</th>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <th scope="col" class="text-center">Drivers Operativos</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @if (tieneColumnas && matriz!.Filas.Count > 0)
+                            {
+                                @foreach (var fila in matriz.Filas)
+                                {
+                                    <tr data-empresa-id="@fila.EmpresaId">
+                                        <td class="fw-bold text-dark">@fila.EmpresaNombre</td>
+                                        <td><span class="text-primary fw-semibold">@(fila.TecnologiaAsIs ?? "No configurada")</span></td>
+                                        @foreach (var col in matriz.ColumnasDrivers)
+                                        {
+                                            var cant = fila.ValoresPorColumnaDriver.TryGetValue(col, out var val) ? val : 0m;
+                                            <td class="text-end fw-semibold editable-matrix-driver-cell @(cant > 0 ? "text-dark" : "text-muted")"
+                                                contenteditable="true"
+                                                data-driver-key="@col"
+                                                title="Haga clic para editar driver: @col">
+                                                @cant.ToString("N2")
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                @foreach (var alc in Model.AlcanceReport)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-dark">@alc.EmpresaNombre</td>
+                                        <td><span class="text-primary fw-semibold">@(alc.TecnologiaAsIs ?? "No configurada")</span></td>
+                                        <td class="text-center text-muted fst-italic">0.00 (Sin drivers cargados)</td>
+                                    </tr>
+                                }
+                            }
+                            </tbody>
+                            @if (tieneColumnas)
+                            {
+                                <tfoot class="table-dark fw-bold" style="font-size:0.85rem;">
+                                    <tr>
+                                        <td colspan="2" class="text-start text-uppercase">TOTALES CONSOLIDADOS:</td>
+                                        @foreach (var col in matriz!.ColumnasDrivers)
+                                        {
+                                            var tot = matriz.TotalesPorColumna.TryGetValue(col, out var totVal) ? totVal : 0m;
+                                            <td class="text-end text-warning">@tot.ToString("N2")</td>
+                                        }
+                                    </tr>
+                                </tfoot>
+                            }
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- PESTAÑA 4: CAPACIDADES POR EMPRESA -->
+        <div class="tab-pane fade" id="pane-capacidades" role="tabpanel" aria-labelledby="tab-capacidades">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">Matriz de Cobertura de Capacidades por Subsidiaria</h2>
+                        <small class="text-muted">Mapeo de estado técnico: Activo (A), Funcionalidad futura (F) y No aplica (NA)</small>
+                    </div>
+                    <div class="d-flex gap-3 align-items-center">
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                        {
+                            <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="capacidades"
+                               class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                               title="Exportar matriz de capacidades por subsidiaria a formato Excel">
+                                <span>📥 Exportar a Excel</span>
+                            </a>
+                        }
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-success">A</span> <strong>Activo</strong>
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-primary">F</span> <strong>Futuro</strong>
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1 small">
+                            <span class="badge bg-secondary">NA</span> <strong>No aplica</strong>
+                        </span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0 text-center" style="font-size:0.8rem;">
+                        <thead class="table-light text-muted" style="font-size:0.75rem;">
+                            <tr>
+                                <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
+                                <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
+                                @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
+                                {
+                                    <th scope="col" style="min-width:90px;" title="@col">
+                                        <div class="small fw-semibold text-wrap" style="max-width:120px; margin:0 auto;">@col</div>
+                                    </th>
+                                }
+                                <th scope="col" class="text-start" style="min-width:200px;">Comentario Subsidiaria</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.CapacidadesMatrixReport.Filas)
+                        {
+                            <tr data-empresa-id="@row.EmpresaId">
+                                <td class="text-start fw-bold text-dark text-nowrap">@row.EmpresaNombre</td>
+                                <td class="text-start text-primary small">@(row.TecnologiaAsIs ?? "WAF Local")</td>
+                                @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
+                                {
+                                    var cell = row.Capacidades.TryGetValue(col, out var c) ? c : null;
+                                    var code = cell?.EstadoCodigo ?? "NA";
+                                    var capId = cell?.CapacidadId ?? 0;
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-sm p-0 border-0 report-cap-toggle-btn"
+                                                data-empresa-id="@row.EmpresaId"
+                                                data-capacidad-id="@capId"
+                                                data-capacidad-name="@col"
+                                                data-state="@code"
+                                                title="Clic para cambiar: A -> F -> NA">
+                                            @if (code == "A")
+                                            {
+                                                <span class="badge bg-success text-white px-2 py-1 shadow-sm">A</span>
+                                            }
+                                            else if (code == "F")
+                                            {
+                                                <span class="badge bg-primary text-white px-2 py-1 shadow-sm">F</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">NA</span>
+                                            }
+                                        </button>
+                                    </td>
+                                }
+                                <td class="text-start small editable-report-comment-cell text-muted fst-italic"
+                                    contenteditable="true"
+                                    data-empresa-id="@row.EmpresaId"
+                                    title="Haga clic para editar comentario de la subsidiaria">
+                                    @(row.ComentarioSubsidiaria ?? "")
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 5: PROYECCIÓN DE COSTOS AS-IS -->
+        <div class="tab-pane fade" id="pane-costos" role="tabpanel" aria-labelledby="tab-costos">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0">💰 Proyección de Costos AS-IS (Valorización Financiera)</h2>
+                        <small class="text-muted">
+                            Valorización financiera de la tecnología instalada en cada subsidiaria a partir de sus drivers operativos, cantidades y precios unitarios
+                        </small>
+                    </div>
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                    {
+                        <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="costos"
+                           class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                           title="Exportar proyección de costos AS-IS a formato Excel">
+                            <span>📥 Exportar a Excel</span>
+                        </a>
+                    }
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0" style="font-size:0.85rem;">
+                        <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem;">
+                            <tr>
+                                <th scope="col" style="min-width:180px;">Empresa</th>
+                                <th scope="col" style="min-width:160px;">Tecnología AS-IS</th>
+                                <th scope="col">Descripción del Driver</th>
+                                <th scope="col">Unidad de Medida</th>
+                                <th scope="col" class="text-end">Cantidad</th>
+                                <th scope="col" class="text-end">Precio Unitario</th>
+                                <th scope="col" class="text-center">Moneda</th>
+                                <th scope="col" class="text-end">Costo Total Proyectado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @if (Model.CostosAsIsReport != null && Model.CostosAsIsReport.Filas.Count > 0)
+                        {
+                            foreach (var drv in Model.CostosAsIsReport.Filas)
+                            {
+                                <tr>
+                                    <td class="fw-bold text-dark">@drv.EmpresaNombre</td>
+                                    <td><span class="text-primary fw-semibold">@(drv.TecnologiaAsIs ?? "No configurada")</span></td>
+                                    <td>
+                                        @if (drv.DriverId > 0)
+                                        {
+                                            <span class="fw-semibold">@drv.DescripcionDriver</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">@drv.DescripcionDriver</span>
+                                        }
+                                    </td>
+                                    <td>@(drv.DriverId > 0 ? drv.UnidadMedida : "—")</td>
+                                    <td class="text-end fw-semibold">@(drv.DriverId > 0 ? drv.Cantidad.ToString("N2") : "—")</td>
+                                    <td class="text-end">@(drv.DriverId > 0 ? drv.PrecioUnitario.ToString("N2") : "—")</td>
+                                    <td class="text-center"><span class="badge bg-light text-secondary border">@drv.Moneda</span></td>
+                                    <td class="text-end fw-bold @(drv.CostoTotal > 0 ? "text-success" : "text-muted")">
+                                        @(drv.DriverId > 0 ? $"{drv.Moneda} {drv.CostoTotal:N2}" : "—")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No se registran empresas convocadas en este proceso.</td>
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot class="table-dark fw-bold" style="font-size:0.85rem;">
+                            <tr>
+                                <td colspan="4" class="text-start text-uppercase">TOTALES CONSOLIDADOS:</td>
+                                <td class="text-end">@(Model.CostosAsIsReport?.TotalItemsConCosto ?? 0) driver(s) con costo</td>
+                                <td colspan="2" class="text-end text-uppercase">INVERSIÓN PROYECTADA TOTAL:</td>
+                                <td class="text-end text-warning">USD @((Model.CostosAsIsReport?.TotalInversionGeneral ?? 0m).ToString("N2"))</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<form id="antiForgeryForm" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tokenEl = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]') ||
+                        document.querySelector('input[name="__RequestVerificationToken"]');
+        const getVerificationToken = () => tokenEl ? tokenEl.value : '';
+        const procesoId = '@Model.ProcesoId';
+
+        // ==========================================
+        // REPORTE 3: EDICIÓN EN LÍNEA DE VOLUMETRÍA
+        // ==========================================
+        const formatNumber = (num, decimals) => {
+            return Number(num).toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        };
+
+        const parseCellNumber = (text) => {
+            if (!text) return 0;
+            const cleaned = text.replace(/,/g, '').trim();
+            const val = parseFloat(cleaned);
+            return isNaN(val) ? 0 : val;
+        };
+
+        const updateVolTotals = (driverKey, decimals) => {
+            const cells = document.querySelectorAll(`.editable-vol-cell[data-driver-key="${driverKey}"]`);
+            let sum = 0;
+            cells.forEach(c => {
+                sum += parseCellNumber(c.textContent);
+            });
+            const totEl = document.querySelector(`.tot-${driverKey}`);
+            if (totEl) {
+                totEl.textContent = formatNumber(sum, decimals);
+            }
+
+            // Actualizar total consolidado Antibot + WAF en el pie
+            if (driverKey === 'antibot' || driverKey === 'waf') {
+                const totAntibot = parseCellNumber(document.querySelector('.tot-antibot')?.textContent || '0');
+                const totWaf = parseCellNumber(document.querySelector('.tot-waf')?.textContent || '0');
+                const totCombined = document.querySelector('.tot-antibot-waf');
+                if (totCombined) {
+                    totCombined.textContent = formatNumber(totAntibot + totWaf, 1);
+                }
+            }
+        };
+
+        document.querySelectorAll('.editable-vol-cell').forEach(cell => {
+            let originalText = '';
+
+            cell.addEventListener('focus', function () {
+                originalText = this.textContent.trim();
+            });
+
+            cell.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                } else if (e.key === 'Escape') {
+                    this.textContent = originalText;
+                    this.blur();
+                }
+            });
+
+            cell.addEventListener('blur', async function () {
+                const newText = this.textContent.trim();
+                if (newText === originalText) return;
+
+                const val = parseCellNumber(newText);
+                const decimals = parseInt(this.dataset.decimals || '1', 10);
+                this.textContent = formatNumber(val, decimals);
+
+                const row = this.closest('tr');
+                const empresaId = row ? row.dataset.empresaId : null;
+                const driverKey = this.dataset.driverKey;
+
+                if (!empresaId || !driverKey) return;
+
+                // Actualizar celda sumatoria fila (Antibot + WAF) si corresponde
+                if (driverKey === 'antibot' || driverKey === 'waf') {
+                    const rowAntibot = parseCellNumber(row.querySelector('.col-antibot')?.textContent || '0');
+                    const rowWaf = parseCellNumber(row.querySelector('.col-waf')?.textContent || '0');
+                    const combinedCell = row.querySelector('.col-antibot-waf');
+                    if (combinedCell) {
+                        combinedCell.textContent = formatNumber(rowAntibot + rowWaf, 1);
+                    }
+                }
+
+                updateVolTotals(driverKey, decimals);
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/driver-volume`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            driverKey: driverKey,
+                            cantidad: val
+                        })
+                    });
+
+                    if (res.ok) {
+                        this.classList.add('cell-flash-success');
+                        setTimeout(() => this.classList.remove('cell-flash-success'), 900);
+                    } else {
+                        this.classList.add('cell-flash-error');
+                        setTimeout(() => this.classList.remove('cell-flash-error'), 1200);
+                    }
+                } catch (err) {
+                    console.error('Error al guardar driver de volumetría:', err);
+                    this.classList.add('cell-flash-error');
+                    setTimeout(() => this.classList.remove('cell-flash-error'), 1200);
+                }
+            });
+        });
+
+        // Edición de celdas de matriz dinámica (no-WAAP)
+        document.querySelectorAll('.editable-matrix-driver-cell').forEach(cell => {
+            let origVal = '';
+            cell.addEventListener('focus', function () {
+                origVal = this.textContent.trim();
+            });
+            cell.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                } else if (e.key === 'Escape') {
+                    this.textContent = origVal;
+                    this.blur();
+                }
+            });
+            cell.addEventListener('blur', async function () {
+                const newText = this.textContent.trim();
+                if (newText === origVal) return;
+
+                const val = parseCellNumber(newText);
+                this.textContent = formatNumber(val, 2);
+
+                const row = this.closest('tr');
+                const empresaId = row ? row.dataset.empresaId : null;
+                const driverKey = this.dataset.driverKey;
+
+                if (!empresaId || !driverKey) return;
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/driver-volume`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            driverKey: driverKey,
+                            cantidad: val
+                        })
+                    });
+
+                    if (res.ok) {
+                        this.classList.add('cell-flash-success');
+                        setTimeout(() => this.classList.remove('cell-flash-success'), 900);
+                    }
+                } catch (err) {
+                    console.error('Error al actualizar driver:', err);
+                }
+            });
+        });
+
+        // ====================================================
+        // REPORTE 4: INTERACTIVIDAD DE MATRIZ DE CAPACIDADES
+        // ====================================================
+        const badgeTemplates = {
+            'A': '<span class="badge bg-success text-white px-2 py-1 shadow-sm">A</span>',
+            'F': '<span class="badge bg-primary text-white px-2 py-1 shadow-sm">F</span>',
+            'NA': '<span class="badge bg-secondary-subtle text-secondary border px-2 py-1">NA</span>'
+        };
+
+        const nextStateCycle = {
+            'A': 'F',
+            'F': 'NA',
+            'NA': 'A'
+        };
+
+        document.querySelectorAll('.report-cap-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const empresaId = this.dataset.empresaId;
+                const capacidadId = parseInt(this.dataset.capacidadId, 10);
+                const currentState = (this.dataset.state || 'NA').trim().toUpperCase();
+                const nextState = nextStateCycle[currentState] || 'A';
+
+                this.dataset.state = nextState;
+                this.innerHTML = badgeTemplates[nextState] || badgeTemplates['NA'];
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/capability-state`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            capacidadId: capacidadId,
+                            estadoCodigo: nextState
+                        })
+                    });
+
+                    if (!res.ok) {
+                        // revert on failure
+                        this.dataset.state = currentState;
+                        this.innerHTML = badgeTemplates[currentState] || badgeTemplates['NA'];
+                    }
+                } catch (err) {
+                    console.error('Error al cambiar estado de capacidad en reporte:', err);
+                    this.dataset.state = currentState;
+                    this.innerHTML = badgeTemplates[currentState] || badgeTemplates['NA'];
+                }
+            });
+        });
+
+        // Edición en línea del comentario de subsidiaria en el Reporte 4
+        document.querySelectorAll('.editable-report-comment-cell').forEach(cell => {
+            let origComment = '';
+            cell.addEventListener('focus', function () {
+                origComment = this.textContent.trim();
+            });
+            cell.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                } else if (e.key === 'Escape') {
+                    this.textContent = origComment;
+                    this.blur();
+                }
+            });
+            cell.addEventListener('blur', async function () {
+                const newComment = this.textContent.trim();
+                if (newComment === origComment) return;
+
+                const empresaId = this.dataset.empresaId;
+                if (!empresaId) return;
+
+                try {
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/empresa/${empresaId}/capability-comment`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getVerificationToken()
+                        },
+                        body: JSON.stringify({
+                            comentario: newComment
+                        })
+                    });
+
+                    if (res.ok) {
+                        this.classList.add('cell-flash-success');
+                        setTimeout(() => this.classList.remove('cell-flash-success'), 900);
+                    }
+                } catch (err) {
+                    console.error('Error al guardar comentario de subsidiaria:', err);
+                }
+            });
+        });
+        // ====================================================
+        // REPORTE 5: SELECCIÓN DINÁMICA DE DRIVERS Y TIMELINE
+        // ====================================================
+        const rawVencimientoDataEl = document.getElementById('vencimientoReportData');
+        if (rawVencimientoDataEl) {
+            let vData = null;
+            try {
+                vData = JSON.parse(rawVencimientoDataEl.textContent);
+            } catch (e) {
+                console.error('Error parsing vencimientoReportData:', e);
+            }
+
+            if (vData) {
+                const chkDrivers = document.querySelectorAll('.chk-vencimiento-driver');
+                const badgeCount = document.getElementById('badgeSelectedDriversCount');
+                const statusBadge = document.getElementById('statusDriverSave');
+                const thGroupDrivers = document.getElementById('thGroupDrivers');
+                const trDriverHeaders = document.getElementById('trDriverHeaders');
+                const tbodyVencimientos = document.getElementById('tbodyVencimientosReport');
+                const tfootVencimientos = document.getElementById('tfootVencimientosReport');
+                const tdSubAcumLabel = document.getElementById('tdSubsidiariasAcumuladasLabel');
+
+                const escapeHtml = (str) => {
+                    if (!str) return '';
+                    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                };
+
+                const formatDriverNumber = (val) => {
+                    if (val === null || val === undefined || isNaN(val) || val === 0) return '—';
+                    const num = Number(val);
+                    if (num > 0 && num < 0.05) return num.toFixed(3);
+                    if (num % 1 === 0) return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+                };
+
+                const getSelectedDrivers = () => {
+                    const sel = [];
+                    document.querySelectorAll('.chk-vencimiento-driver:checked').forEach(c => {
+                        sel.push(c.value);
+                    });
+                    return sel;
+                };
+
+                let saveTimer = null;
+                const debouncedPersistDrivers = (drivers) => {
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${vData.procesoId}/update-vencimientos-drivers`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': getVerificationToken()
+                                },
+                                body: JSON.stringify({ drivers: drivers })
+                            });
+                            if (res.ok) {
+                                if (statusBadge) {
+                                    statusBadge.style.display = 'inline-block';
+                                    setTimeout(() => {
+                                        statusBadge.style.display = 'none';
+                                    }, 2500);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Error al persistir drivers en BD:', err);
+                        }
+                    }, 400);
+                };
+
+                const renderVencimientoTable = (selectedDrivers) => {
+                    if (badgeCount) badgeCount.textContent = selectedDrivers.length;
+
+                    if (thGroupDrivers) {
+                        thGroupDrivers.colSpan = Math.max(1, selectedDrivers.length);
+                    }
+
+                    if (trDriverHeaders) {
+                        trDriverHeaders.querySelectorAll('.th-driver-vertical').forEach(el => el.remove());
+                        const firstMilestoneTh = trDriverHeaders.querySelector('.th-milestone');
+
+                        selectedDrivers.forEach(d => {
+                            const unit = vData.driverUnits[d] || '';
+                            const th = document.createElement('th');
+                            th.scope = 'col';
+                            th.className = 'th-driver-vertical';
+                            th.dataset.driverHeader = d;
+                            th.title = unit ? `${d} (${unit})` : d;
+                            th.innerHTML = `
+                                <div class="th-driver-vertical-cell">
+                                    <div class="th-driver-vertical-container">
+                                        <span class="th-driver-vertical-text">${escapeHtml(d)}</span>
+                                    </div>
+                                    ${unit ? `<span class="th-driver-unit-badge" title="Unidad: ${escapeHtml(unit)}">${escapeHtml(unit)}</span>` : ''}
+                                </div>`;
+                            if (firstMilestoneTh) {
+                                trDriverHeaders.insertBefore(th, firstMilestoneTh);
+                            } else {
+                                trDriverHeaders.appendChild(th);
+                            }
+                        });
+                    }
+
+                    if (tbodyVencimientos) {
+                        tbodyVencimientos.querySelectorAll('tr').forEach(row => {
+                            const empresaId = parseInt(row.dataset.empresaId, 10);
+                            const compData = vData.companies.find(c => c.empresaId === empresaId);
+
+                            row.querySelectorAll('.td-driver-val').forEach(el => el.remove());
+                            const firstMilestoneTd = row.querySelector('.td-milestone');
+
+                            selectedDrivers.forEach(d => {
+                                const val = (compData && compData.drivers && compData.drivers[d] !== undefined) ? compData.drivers[d] : 0;
+                                const td = document.createElement('td');
+                                td.className = 'text-end fw-semibold small td-driver-val';
+                                td.dataset.driverKey = d;
+                                td.textContent = formatDriverNumber(val);
+
+                                if (firstMilestoneTd) {
+                                    row.insertBefore(td, firstMilestoneTd);
+                                } else {
+                                    row.appendChild(td);
+                                }
+                            });
+                        });
+                    }
+
+                    if (tfootVencimientos) {
+                        if (tdSubAcumLabel) {
+                            tdSubAcumLabel.colSpan = 3 + selectedDrivers.length;
+                        }
+
+                        tfootVencimientos.querySelectorAll('tr[data-footer-driver]').forEach(el => el.remove());
+                        const trSubAcum = document.getElementById('trSubsidiariasAcumuladas');
+
+                        selectedDrivers.forEach(d => {
+                            const unit = vData.driverUnits[d] || '';
+                            const totalVal = vData.companies.reduce((sum, c) => sum + (c.drivers[d] || 0), 0);
+
+                            const driverColsHtml = selectedDrivers.map(otherD => {
+                                if (otherD === d) {
+                                    return `<td class="text-end fw-bold bg-secondary bg-opacity-25" data-driver-total="${escapeHtml(d)}">${formatDriverNumber(totalVal)}</td>`;
+                                }
+                                return `<td class="text-center text-muted" data-driver-placeholder="${escapeHtml(otherD)}">—</td>`;
+                            }).join('');
+
+                            let runSum = 0;
+                            const milestoneCellsHtml = vData.milestones.map(m => {
+                                const sumInHito = vData.companies
+                                    .filter(c => c.assignedHito === m)
+                                    .reduce((sum, c) => sum + (c.drivers[d] || 0), 0);
+                                runSum += sumInHito;
+                                return `<td class="text-center fw-bold bg-dark border-start" data-hito-accum="${escapeHtml(m)}">${formatDriverNumber(runSum)}</td>`;
+                            }).join('');
+
+                            const tr = document.createElement('tr');
+                            tr.dataset.footerDriver = d;
+                            tr.innerHTML = `
+                                <td colspan="3" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
+                                    ${escapeHtml(d)} ${unit ? `(${escapeHtml(unit)})` : ''} ACUM:
+                                </td>
+                                ${driverColsHtml}
+                                ${milestoneCellsHtml}
+                            `;
+
+                            if (trSubAcum) {
+                                tfootVencimientos.insertBefore(tr, trSubAcum);
+                            } else {
+                                tfootVencimientos.appendChild(tr);
+                            }
+                        });
+                    }
+                };
+
+                chkDrivers.forEach(chk => {
+                    chk.addEventListener('change', function () {
+                        let sel = getSelectedDrivers();
+                        if (sel.length === 0) {
+                            this.checked = true;
+                            sel = [this.value];
+                        }
+                        renderVencimientoTable(sel);
+                        debouncedPersistDrivers(sel);
+                    });
+                });
+
+                const btnDefault = document.getElementById('btnDriversDefault');
+                if (btnDefault) {
+                    btnDefault.addEventListener('click', () => {
+                        const defaults = vData.defaultDrivers || [];
+                        chkDrivers.forEach(chk => {
+                            chk.checked = defaults.some(def => def.toLowerCase() === chk.value.toLowerCase());
+                        });
+                        let sel = getSelectedDrivers();
+                        if (sel.length === 0 && chkDrivers.length > 0) {
+                            chkDrivers[0].checked = true;
+                            sel = [chkDrivers[0].value];
+                        }
+                        renderVencimientoTable(sel);
+                        debouncedPersistDrivers(sel);
+                    });
+                }
+
+                const btnAll = document.getElementById('btnDriversAll');
+                if (btnAll) {
+                    btnAll.addEventListener('click', () => {
+                        chkDrivers.forEach(chk => { chk.checked = true; });
+                        const sel = getSelectedDrivers();
+                        renderVencimientoTable(sel);
+                        debouncedPersistDrivers(sel);
+                    });
+                }
+
+                const btnClear = document.getElementById('btnDriversClear');
+                if (btnClear) {
+                    btnClear.addEventListener('click', () => {
+                        chkDrivers.forEach((chk, idx) => {
+                            chk.checked = (idx === 0);
+                        });
+                        const sel = getSelectedDrivers();
+                        renderVencimientoTable(sel);
+                        debouncedPersistDrivers(sel);
+                    });
+                }
+            }
+        }
+    });
+</script>
+
+<style>
+    .editable-vol-cell, .editable-matrix-driver-cell, .editable-report-comment-cell {
+        cursor: cell;
+        transition: background-color 0.2s ease, outline 0.15s ease;
+    }
+    .editable-vol-cell:hover, .editable-matrix-driver-cell:hover, .editable-report-comment-cell:hover {
+        background-color: rgba(13, 110, 253, 0.08) !important;
+        outline: 1px dashed #0d6efd;
+    }
+    .editable-vol-cell:focus, .editable-matrix-driver-cell:focus, .editable-report-comment-cell:focus {
+        background-color: #fff9db !important;
+        outline: 2px solid #fd7e14 !important;
+        color: #000 !important;
+    }
+    .cell-flash-success {
+        background-color: #d1e7dd !important;
+        color: #0f5132 !important;
+        transition: background-color 0.4s ease;
+    }
+    .cell-flash-error {
+        background-color: #f8d7da !important;
+        color: #842029 !important;
+        transition: background-color 0.4s ease;
+    }
+    .report-cap-toggle-btn {
+        background: transparent;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+    }
+    .report-cap-toggle-btn:hover {
+        transform: scale(1.25);
+    }
+
+    /* ==================================================== */
+    /* REPORTE 5: ENCABEZADOS VERTICALES A 90 GRADOS       */
+    /* ==================================================== */
+    .th-driver-vertical {
+        vertical-align: bottom !important;
+        text-align: center;
+        width: 52px;
+        min-width: 48px;
+        max-width: 62px;
+        height: 165px;
+        padding: 6px 2px 4px 2px !important;
+        background-color: #f8fafc;
+        border-bottom: 2px solid #cbd5e1 !important;
+    }
+    .th-driver-vertical-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 155px;
+        margin: 0 auto;
+        gap: 3px;
+    }
+    .th-driver-vertical-container {
+        display: inline-block;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        max-height: 118px;
+        line-height: 1.15;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0 auto;
+    }
+    .th-driver-vertical-text {
+        font-weight: 700;
+        font-size: 0.72rem;
+        color: #1e293b;
+        letter-spacing: 0.2px;
+        display: inline-block;
+    }
+    .th-driver-unit-badge {
+        display: inline-block;
+        font-size: 0.62rem;
+        color: #475569;
+        font-weight: 600;
+        background-color: #e2e8f0;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 3px;
+        max-width: 48px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.1;
+    }
+    .td-driver-val {
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+    }
+    #dropdownVencimientoDrivers .dropdown-menu {
+        z-index: 1050;
+    }
+</style>
+}
+

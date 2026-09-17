@@ -1,0 +1,16 @@
+@model Landscape.Tsi.Web.Models.TechnologyMappingViewModel
+<h3>Familia seleccionada: @Model.FamilyReport.SelectedFamilyName <span class="result-count">(@Model.FamilyReport.TotalCount Building Blocks)</span></h3>
+@if (Model.FamilyReport.Rows.Count == 0)
+{
+    <p class="empty-state">No existen Building Blocks relacionados con Tecnologías TSI de esta Familia.</p>
+}
+else
+{
+    <div class="responsive-table" role="region" aria-label="Building Blocks por Familia" tabindex="0">
+        <table><thead><tr><th>Building Block</th><th>Tecnologías TSI de esta Familia</th><th>Cantidad Tecnologías</th><th>Acciones</th></tr></thead>
+        <tbody>@foreach (var row in Model.FamilyReport.Rows) { <tr><td data-label="Building Block">@row.BuildingBlockName</td><td data-label="Tecnologías TSI">@string.Join(", ", row.TechnologyNames)</td><td data-label="Cantidad">@row.TechnologyCount</td><td><a class="md-button md-button-text" href="@row.DetailRoute">Ver</a></td></tr> }</tbody>
+        </table>
+    </div>
+    <p class="result-count">Página @Model.FamilyReport.Page de @Model.FamilyReportTotalPages · @Model.FamilyReport.TotalCount registros</p>
+    <div class="pagination-shell">@if (Model.FamilyReport.Page > 1) { <a class="md-button md-button-text" href="?reportFamilyId=@Model.FamilyReport.SelectedFamilyId&amp;reportPage=@(Model.FamilyReport.Page - 1)">Anterior</a> }@if (Model.FamilyReport.Page < Model.FamilyReportTotalPages) { <a class="md-button md-button-text" href="?reportFamilyId=@Model.FamilyReport.SelectedFamilyId&amp;reportPage=@(Model.FamilyReport.Page + 1)">Siguiente</a> }</div>
+}

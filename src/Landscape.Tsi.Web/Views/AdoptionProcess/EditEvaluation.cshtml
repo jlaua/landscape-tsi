@@ -1,0 +1,165 @@
+@model Landscape.Tsi.Web.Models.EditEvaluationViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = $"Editar Evaluación - {Model.Codigo}";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Evaluations">Procesos de Adopción TSI</a></li>
+        <li><a asp-action="Evaluations">Evaluaciones</a></li>
+        <li aria-current="page">Editar @Model.Codigo</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="edit-eval-title">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · FASE 2: EVALUACIÓN</p>
+            <h1 id="edit-eval-title" class="h2 mb-1">Editar Evaluación: @Model.Codigo</h1>
+            <p class="supporting-text mb-0">
+                Modifique los metadatos de la evaluación, el estado de avance o el líder asignado. Para gestionar empresas, estándares y contratos locales, acceda a la ficha detallada.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" asp-action="Details" asp-route-id="@Model.Id">
+                📋 Ficha Detallada Operativa
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Error: </strong> @error
+        </div>
+    }
+
+    <div class="card p-4 shadow-sm border-0 mb-4">
+        <form method="post" asp-action="SaveEditEvaluation" asp-route-id="@Model.Id" class="needs-validation">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="Codigo" />
+            <input type="hidden" asp-for="BuildingBlockId" />
+            <input type="hidden" asp-for="BuildingBlockNombre" />
+            <input type="hidden" asp-for="DominioNombre" />
+
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold text-muted">Código del Proceso</label>
+                    <input type="text" class="form-control font-monospace fw-bold bg-light" value="@Model.Codigo" readonly />
+                </div>
+                <div class="col-md-9">
+                    <label asp-for="Nombre" class="form-label fw-semibold">Nombre de la Evaluación <span class="text-danger">*</span></label>
+                    <input asp-for="Nombre" class="form-control" required />
+                    <span asp-validation-for="Nombre" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Dominio TSI</label>
+                    <input type="text" class="form-control bg-light" value="@Model.DominioNombre" readonly />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Building Block</label>
+                    <input type="text" class="form-control bg-light" value="@Model.BuildingBlockNombre" readonly />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="EstadoAdopcionId" class="form-label fw-semibold">Estado de Adopción (TMEstadoAdopcionTSI) <span class="text-danger">*</span></label>
+                    <select asp-for="EstadoAdopcionId" class="form-select">
+                        @foreach (var e in Model.EstadosAdopcion)
+                        {
+                            <option value="@e.Id" selected="@(Model.EstadoAdopcionId == e.Id ? "selected" : null)">
+                                @e.Label
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="LiderCorporativo" class="form-label fw-semibold">Líder Corporativo TSI</label>
+                    <input asp-for="LiderCorporativo" class="form-control" placeholder="Nombre del líder o arquitecto evaluador" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="FechaInicio" class="form-label fw-semibold">Fecha de Inicio <span class="text-danger">*</span></label>
+                    <input asp-for="FechaInicio" type="date" class="form-control" required />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="FechaEstimadaCierre" class="form-label fw-semibold">Fecha Estimada de Cierre</label>
+                    <input asp-for="FechaEstimadaCierre" type="date" class="form-control" />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Objetivo" class="form-label fw-semibold">Objetivo de la Evaluación</label>
+                    <textarea asp-for="Objetivo" class="form-control" rows="4"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Alcance" class="form-label fw-semibold">Alcance y Restricciones</label>
+                    <textarea asp-for="Alcance" class="form-control" rows="4"></textarea>
+                </div>
+            </div>
+
+            <!-- Estándar Corporativo Oficial -->
+            <div class="card p-3 bg-light border-0 mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h3 class="h6 fw-bold text-primary mb-0">🎯 Estándar Tecnológico Corporativo (Resultado de Evaluación)</h3>
+                    @if (Model.TecnologiaEstandarId.HasValue)
+                    {
+                        <span class="badge bg-success">Estándar Actual: @Model.TecnologiaEstandarNombre (@Model.RolEstandar)</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">Pendiente de definición tras evaluación</span>
+                    }
+                </div>
+                <p class="text-muted small mb-3">
+                    Si esta evaluación ya determinó cuál es la tecnología que debe oficializarse como estándar corporativo, selecciónela aquí. Al guardar, se registrará y actualizará el estándar corporativo oficial en la taxonomía y trazabilidad histórica.
+                </p>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Corporativa Seleccionada</label>
+                        <select asp-for="TecnologiaEstandarId" class="form-select">
+                            <option value="">-- Sin estándar oficial asignado (En Evaluación) --</option>
+                            @foreach (var t in Model.TecnologiasDisponibles)
+                            {
+                                <option value="@t.Id" selected="@(Model.TecnologiaEstandarId == t.Id ? "selected" : null)">
+                                    @t.Label
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="MotivoCambioEstandar" class="form-label fw-semibold">Motivo / Decisión de la Evaluación</label>
+                        <input asp-for="MotivoCambioEstandar" class="form-control" placeholder="Ej: Adjudicación de estándar tras evaluación técnica 2026" />
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="SustentoArquitecturaEstandar" class="form-label fw-semibold">Sustento de Arquitectura</label>
+                        <textarea asp-for="SustentoArquitecturaEstandar" class="form-control" rows="2" placeholder="Resumen ejecutivo del sustento de arquitectura que concluye esta evaluación..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                <a asp-action="Evaluations" class="btn btn-outline-secondary">← Volver a Evaluaciones</a>
+                <div class="d-flex gap-2">
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-primary">Ver Ficha Detallada</a>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">Guardar Cambios</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+}

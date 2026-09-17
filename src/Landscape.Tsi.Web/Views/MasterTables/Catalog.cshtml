@@ -1,0 +1,574 @@
+@using Landscape.Tsi.Application.Catalogs
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogPageViewModel
+@{
+    ViewData["Title"] = Model.Definition.Name;
+    var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Options = Model.Options };
+    var isImplementedTech = Model.Definition.Route == "tecnologia-tsi-implementada";
+    var isVendor = Model.Definition.Route == "vendor";
+    var isPartner = Model.Definition.Route == "partner";
+    var isEmpresaSubsidiaria = Model.Definition.Route == "empresa-subsidiaria";
+    var canDelete = Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete);
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li>
+        <li aria-current="page"><span aria-hidden="true">/</span> @Model.Definition.Name</li>
+    </ol>
+</nav>
+<section class="catalog-shell" aria-labelledby="catalog-detail-title">
+    <div class="page-heading">
+        <div><p class="eyebrow">TABLA MAESTRA</p><h1 id="catalog-detail-title">@Model.Definition.Name</h1><p class="supporting-text">Consulte y mantenga la información registrada.</p></div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport))
+            {
+                <a class="md-button md-button-tonal d-inline-flex align-items-center gap-1"
+                   asp-action="ExportToExcel"
+                   asp-route-catalogRoute="@Model.Definition.Route"
+                   asp-route-search="@Model.Search"
+                   title="Exportar registros filtrados a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Exportar a Excel</span>
+                </a>
+            }
+            @if (!Model.Definition.IsReadOnly && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+            {
+                @if (Model.Definition.EditorMode == CatalogEditorMode.Page)
+                {
+                    <a class="md-button md-button-filled" asp-action="CatalogCreateForm" asp-route-catalogRoute="@Model.Definition.Route">Crear registro</a>
+                }
+                else
+                {
+                    <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-catalog-modal">Crear registro</button>
+                }
+            }
+        </div>
+    </div>
+    @if (TempData["SuccessMessage"] is string success) { <div class="app-alert app-alert-success" role="status">@success</div> }
+    @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
+    <form class="filter-bar" method="get" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" data-loading-form>
+        <div class="md-field"><label for="catalog-search">Buscar</label><input id="catalog-search" name="search" value="@Model.Search" type="search" class="form-control" placeholder="Buscar en @Model.Definition.Name…" /></div>
+        <div class="md-field page-size-field"><label for="page-size">Filas</label><select id="page-size" name="pageSize" class="form-select" onchange="this.form.submit()">@foreach (var size in new[] { 10, 25, 50, 100 }) { <option value="@size" selected="@(Model.Result.PageSize == size)">@size</option> }</select></div>
+        @if (!string.IsNullOrWhiteSpace(Model.SortColumn))
+        {
+            <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.SortDirection))
+        {
+            <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+        }
+        <button class="md-button md-button-tonal" type="submit">Buscar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search) || !string.IsNullOrWhiteSpace(Model.SortColumn)) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Limpiar</a> }
+        <span class="loading-status" role="status" aria-live="polite" hidden>Consultando…</span>
+    </form>
+    @if (Model.Result.Items.Count == 0)
+    {
+        <div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">⌕</div><h2>Sin resultados</h2><p>No se encontraron registros con los criterios indicados.</p></div>
+    }
+    else
+    {
+        <p class="result-count">@Model.Result.TotalCount registro(s) encontrado(s)</p>
+
+        @if (isImplementedTech && canDelete)
+        {
+            <div class="bulk-actions-toolbar" id="bulk-actions-bar" style="display: none;" aria-live="polite">
+                <div class="bulk-actions-info">
+                    <span class="bulk-badge" id="bulk-selection-count">0</span>
+                    <span>tecnología(s) seleccionada(s)</span>
+                </div>
+                <div class="bulk-actions-buttons">
+                    <button type="button" class="md-button md-button-danger" data-bs-toggle="modal" data-bs-target="#bulk-delete-modal">
+                        Eliminar seleccionados
+                    </button>
+                    <button type="button" class="md-button md-button-text" id="clear-selection-btn">
+                        Limpiar selección
+                    </button>
+                </div>
+            </div>
+        }
+
+        <div class="responsive-table" role="region" aria-label="Registros de @Model.Definition.Name" tabindex="0">
+            <table>
+                <thead>
+                    <tr>
+                        @if (isImplementedTech && canDelete)
+                        {
+                            <th scope="col" class="row-selector-header" style="width: 44px; text-align: center;">
+                                <input type="checkbox" id="select-all-tech" class="form-check-input" aria-label="Seleccionar todas las filas" />
+                            </th>
+                        }
+                        @foreach (var code in Model.Definition.ListColumnCodes)
+                        {
+                            var column = Model.Definition.Columns.Single(c => c.Code == code);
+                            var headerLabel = (isVendor && code == "tecnologia") ? "Tecnologías TSI" : column.Label;
+                            var isSorted = string.Equals(Model.SortColumn, code, StringComparison.OrdinalIgnoreCase);
+                            var currentDir = isSorted ? (Model.SortDirection?.ToLowerInvariant() == "desc" ? "desc" : "asc") : null;
+                            var nextDir = isSorted && currentDir == "asc" ? "desc" : "asc";
+                            var sortIcon = isSorted ? (currentDir == "desc" ? " \u25bc" : " \u25b2") : "";
+                            var ariaSort = isSorted ? (currentDir == "desc" ? "descending" : "ascending") : "none";
+                            <th scope="col" aria-sort="@ariaSort">
+                                <a class="table-sort-link" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route"
+                                   asp-route-search="@Model.Search" asp-route-pageSize="@Model.Result.PageSize"
+                                   asp-route-sortColumn="@code" asp-route-sortDirection="@nextDir">
+                                    <span>@headerLabel</span><span aria-hidden="true">@sortIcon</span>
+                                </a>
+                            </th>
+                        }
+                        @if (isVendor || isPartner || isEmpresaSubsidiaria)
+                        {
+                            <th scope="col">Contactos</th>
+                        }
+                        <th><span class="visually-hidden">Acciones</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Result.Items)
+                    {
+                        var rowTechName = row.DisplayValues.GetValueOrDefault("tecnologia") ?? row.Id.ToString();
+                        var rowCompanyName = row.DisplayValues.GetValueOrDefault("empresa") ?? "";
+                        var deleteRowName = isImplementedTech
+                            ? $"{rowCompanyName} — {rowTechName}"
+                            : (row.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? row.Id.ToString());
+
+                        <tr>
+                            @if (isImplementedTech && canDelete)
+                            {
+                                <td class="row-selector-cell" style="width: 44px; text-align: center;">
+                                    <input type="checkbox" class="form-check-input tech-row-select" value="@row.Id"
+                                           data-tech-name="@rowTechName" data-company-name="@rowCompanyName"
+                                           aria-label="Seleccionar @rowTechName de @rowCompanyName" />
+                                </td>
+                            }
+                            @foreach (var code in Model.Definition.ListColumnCodes)
+                            {
+                                var column = Model.Definition.Columns.Single(c => c.Code == code);
+                                if (isVendor && code == "tecnologia")
+                                {
+                                    var count = 0;
+                                    if (Model.VendorTechnologyCounts != null && Model.VendorTechnologyCounts.TryGetValue(row.Id, out var c))
+                                    {
+                                        count = c;
+                                    }
+                                    else if (!string.IsNullOrEmpty(row.DisplayValues.GetValueOrDefault("tecnologia")))
+                                    {
+                                        count = 1;
+                                    }
+                                    var vendorName = row.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{row.Id}";
+                                    <td data-label="Tecnologías TSI">
+                                        <button type="button"
+                                                class="md-button md-button-chip vendor-tech-count-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#vendor-technologies-modal"
+                                                data-vendor-id="@row.Id"
+                                                data-vendor-name="@vendorName"
+                                                data-tech-count="@count"
+                                                title="Ver las @count tecnologías TSI de @vendorName"
+                                                aria-label="Ver @count tecnologías TSI de @vendorName">
+                                            <span class="badge rounded-pill @(count > 0 ? "bg-primary text-white" : "bg-secondary text-white") me-1">@count</span>
+                                            <span>@(count == 1 ? "tecnología" : "tecnologías")</span>
+                                        </button>
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td data-label="@column.Label">@(row.DisplayValues.GetValueOrDefault(code) ?? "—")</td>
+                                }
+                            }
+                            @if (isVendor || isPartner || isEmpresaSubsidiaria)
+                            {
+                                var contactCount = 0;
+                                if (Model.ContactCounts != null && Model.ContactCounts.TryGetValue(row.Id, out var cc))
+                                {
+                                    contactCount = cc;
+                                }
+                                var entityType = isVendor ? "vendor" : (isPartner ? "partner" : "empresa-subsidiaria");
+                                var entityName = isVendor
+                                    ? (row.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{row.Id}")
+                                    : (isPartner
+                                        ? (row.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{row.Id}")
+                                        : (row.DisplayValues.GetValueOrDefault("nombreEmpresa") ?? $"Empresa #{row.Id}"));
+                                <td data-label="Contactos">
+                                    <button type="button"
+                                            class="md-button md-button-chip entity-contact-count-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#contacts-modal"
+                                            data-entity-type="@entityType"
+                                            data-entity-id="@row.Id"
+                                            data-entity-name="@entityName"
+                                            data-contact-count="@contactCount"
+                                            title="Ver los @contactCount contactos de @entityName"
+                                            aria-label="Ver @contactCount contactos de @entityName">
+                                        <span class="badge rounded-pill @(contactCount > 0 ? "bg-success text-white" : "bg-secondary text-white") me-1" id="contact-badge-row-@row.Id">@contactCount</span>
+                                        <span id="contact-label-row-@row.Id">@(contactCount == 1 ? "contacto" : "contactos")</span>
+                                    </button>
+                                </td>
+                            }
+                            <td data-label="Acciones" class="table-actions">
+                                @if (canDelete)
+                                {
+                                    <button class="md-button md-button-danger" type="button"
+                                            data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                                            data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = row.Id })"
+                                            data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = row.Id })"
+                                            data-delete-row-name="@deleteRowName">
+                                        Eliminar
+                                    </button>
+                                }
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@row.Id">Ver detalle</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <nav class="pagination-shell" aria-label="Paginación"><span>Página @Model.Result.Page de @Model.Result.TotalPages</span><div>
+            @if (Model.Result.Page > 1) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-sortColumn="@Model.SortColumn" asp-route-sortDirection="@Model.SortDirection">Anterior</a> }
+            @if (Model.Result.Page < Model.Result.TotalPages) { <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-search="@Model.Search" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-sortColumn="@Model.SortColumn" asp-route-sortDirection="@Model.SortDirection">Siguiente</a> }
+        </div></nav>
+    }
+</section>
+
+@if (isImplementedTech)
+{
+    <section class="report-card company-technologies-dashboard mt-5" aria-labelledby="company-tech-analytics-title">
+        <div class="report-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <p class="eyebrow">REPORTE GRÁFICO</p>
+                <h2 id="company-tech-analytics-title">Tecnologías TSI Implementadas por Empresa</h2>
+                <p class="supporting-text">Distribución de tecnologías implementadas en cada empresa subsidiaria. Haga clic en una barra del gráfico para consultar el detalle de tecnologías.</p>
+            </div>
+            <div class="analytics-metrics-summary d-flex gap-3">
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-total-companies">—</span>
+                    <span class="kpi-mini-label">Empresas con Tecnologías</span>
+                </div>
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-total-technologies">—</span>
+                    <span class="kpi-mini-label">Total Implementadas</span>
+                </div>
+                <div class="kpi-mini-card">
+                    <span class="kpi-mini-value" id="kpi-avg-technologies">—</span>
+                    <span class="kpi-mini-label">Promedio / Empresa</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-chart-wrap" style="height: 340px; position: relative;">
+            <canvas id="company-tech-chart" aria-label="Tecnologías por Empresa"></canvas>
+        </div>
+
+        <div class="company-tech-drilldown mt-4" id="company-tech-drilldown" hidden>
+            <div class="drilldown-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+                <div>
+                    <h3 class="h5 mb-0" id="drilldown-company-title">Tecnologías Implementadas</h3>
+                    <p class="supporting-text small mb-0" id="drilldown-company-subtitle">Detalle de tecnologías asignadas a la empresa.</p>
+                </div>
+                <button type="button" class="md-button md-button-text" id="drilldown-close-btn">Ocultar detalle</button>
+            </div>
+
+            <div class="responsive-table" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tecnología TSI</th>
+                            <th>Building Block</th>
+                            <th>Versión desplegada</th>
+                            <th>Instancia corporativa</th>
+                            <th>Primaria</th>
+                            <th style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="drilldown-tech-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}
+@if (!Model.Definition.IsReadOnly && Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+{
+    <div class="modal fade @(Model.Definition.UsesResponsiveDrawer ? "catalog-editor-drawer" : null)" id="create-catalog-modal" tabindex="-1" aria-labelledby="create-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <form method="post" asp-action="CreateCatalog" asp-route-catalogRoute="@Model.Definition.Route" data-confirm-message="¿Desea crear este registro?" data-loading-form data-protect-unsaved="@(Model.Definition.UsesResponsiveDrawer ? "true" : null)">
+            <div class="modal-header"><div><p class="eyebrow">NUEVO REGISTRO</p><h2 class="modal-title" id="create-catalog-title">Crear @Model.Definition.Name</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body"><partial name="_CatalogFields" model="editorModel" /></div>
+            <div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar</button></div>
+        </form>
+    </div></div></div>
+}
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-catalog-modal" tabindex="-1" aria-labelledby="delete-catalog-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-catalog-title">Eliminar registro</h2></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" data-delete-impact-panel>
+                    <p data-delete-impact-status role="status">Analizando dependencias…</p>
+                    <div data-delete-impact-content hidden>
+                        <p>Está a punto de eliminar:</p>
+                        <p class="impact-root"><strong>@Model.Definition.Name:</strong> <span data-delete-root-name></span></p>
+                        <h3>Dependencias afectadas</h3>
+                        <p class="empty-state" data-delete-empty-dependents hidden>No existen registros dependientes en otras tablas.</p>
+                        <ul class="deletion-impact-tree" data-delete-impact-tree></ul>
+                        <p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p>
+                        <p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p>
+                        <p class="app-alert app-alert-warning" data-delete-blocking hidden></p>
+                        <label class="md-field" data-delete-confirmation-field hidden>
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" form="delete-catalog-form" autocomplete="off" data-delete-confirmation />
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="delete-catalog-form" method="post" action="">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                        <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isImplementedTech && canDelete)
+{
+    <div class="modal fade" id="bulk-delete-modal" tabindex="-1" aria-labelledby="bulk-delete-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <form method="post" asp-action="BulkDeleteImplementedTechnologies" id="bulk-delete-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <div id="bulk-selected-ids-container"></div>
+                    <div class="modal-header">
+                        <div>
+                            <p class="eyebrow">ACCIÓN DESTRUCTIVA MASIVA</p>
+                            <h2 class="modal-title" id="bulk-delete-title">Eliminar tecnologías seleccionadas</h2>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="app-alert app-alert-warning mb-3">
+                            <strong>¡Atención!</strong> Está a punto de eliminar <span id="bulk-modal-count">0</span> tecnología(s) implementada(s).
+                            Esta operación eliminará en cascada todos los contratos, adendas, drivers operativos y modelos de operación asociados a cada una.
+                        </div>
+                        <p class="mb-2"><strong>Registros seleccionados:</strong></p>
+                        <ul class="bulk-selected-list" id="bulk-modal-list"></ul>
+                        <label class="md-field mt-3">
+                            <span>Escriba <strong>ELIMINAR</strong> para confirmar</span>
+                            <input class="form-control" name="confirmation" id="bulk-confirmation-input" autocomplete="off" placeholder="ELIMINAR" required />
+                        </label>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="md-button md-button-danger" id="bulk-modal-submit-btn" disabled>
+                            Eliminar masivamente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isVendor)
+{
+    <div class="modal fade" id="vendor-technologies-modal" tabindex="-1" aria-labelledby="vendor-technologies-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow">TECNOLOGÍAS DEL FABRICANTE</p>
+                        <h2 class="modal-title" id="vendor-technologies-title">Tecnologías TSI Asociadas</h2>
+                        <p class="supporting-text small mb-0">Fabricante: <span id="vendor-modal-vendor-name" class="fw-semibold">—</span></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="vendor-modal-loading" class="text-center py-4" hidden>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando tecnologías...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Consultando tecnologías TSI del fabricante...</p>
+                    </div>
+
+                    <div id="vendor-modal-error" class="app-alert app-alert-error mb-3" hidden>
+                        <span>No fue posible cargar las tecnologías del fabricante. Intente nuevamente.</span>
+                    </div>
+
+                    <div id="vendor-modal-content">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="vendor-modal-badge-count">0 tecnologías registradas</span>
+                        </div>
+                        <div class="responsive-table" tabindex="0">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">ID</th>
+                                        <th scope="col">Tecnología TSI (Corporativo)</th>
+                                        <th scope="col">Nombre alternativo / Local</th>
+                                        <th scope="col">Familia</th>
+                                        <th scope="col">Estado de Adopción</th>
+                                        <th scope="col">Licenciamiento</th>
+                                        <th scope="col">Entorno</th>
+                                        <th scope="col" style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vendor-modal-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="empty-state text-center py-4 my-2" id="vendor-modal-empty" hidden>
+                            No existen tecnologías TSI asociadas a este fabricante en el sistema.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isVendor || isPartner || isEmpresaSubsidiaria)
+{
+    <div class="modal fade" id="contacts-modal" tabindex="-1" aria-labelledby="contacts-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow" id="contacts-modal-eyebrow">CONTACTOS DE LA ENTIDAD</p>
+                        <h2 class="modal-title" id="contacts-modal-title">Contactos Registrados</h2>
+                        <p class="supporting-text small mb-0"><span id="contacts-modal-entity-type-label">Fabricante</span>: <span id="contacts-modal-entity-name" class="fw-semibold">—</span></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Alertas de estado dentro del modal -->
+                    <div id="contacts-modal-alert" class="app-alert mb-3" style="display: none;" role="alert"></div>
+
+                    <!-- Barra de herramientas: Búsqueda en tiempo real, contador y botón de nuevo contacto -->
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 450px;">
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0" id="contacts-search-addon">🔍</span>
+                                <input type="search" id="contacts-modal-search" class="form-control border-start-0" placeholder="Buscar por nombre, cargo, email, teléfono..." aria-label="Buscar contactos" aria-describedby="contacts-search-addon" />
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="contacts-modal-badge-count">0 contactos</span>
+                            <button type="button" class="md-button md-button-filled" id="contacts-modal-toggle-form-btn">
+                                + Nuevo Contacto
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Formulario desplegable para Registro / Edición -->
+                    <div id="contacts-form-card" class="card border mb-3 shadow-sm" style="display: none; border-radius: 8px;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                            <strong id="contacts-form-title">Registrar Nuevo Contacto</strong>
+                            <button type="button" class="btn-close" id="contacts-form-close-btn" aria-label="Cerrar formulario"></button>
+                        </div>
+                        <div class="card-body">
+                            <form id="contact-edit-form" autocomplete="off">
+                                <input type="hidden" id="contact-field-id" value="" />
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="contact-field-nombre" class="form-label fw-semibold">Nombre Completo <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="contact-field-nombre" required placeholder="Ej. Juan Pérez" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-rol" class="form-label fw-semibold">Rol / Cargo</label>
+                                        <input type="text" class="form-control" id="contact-field-rol" placeholder="Ej. Territory Manager / Especialista" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-email" class="form-label fw-semibold">Correo Electrónico</label>
+                                        <input type="email" class="form-control" id="contact-field-email" placeholder="ejemplo@empresa.com" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-telefono" class="form-label fw-semibold">Teléfono</label>
+                                        <input type="tel" class="form-control" id="contact-field-telefono" placeholder="+51 999 888 777" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-otro" class="form-label fw-semibold">Otro / Contacto Adicional</label>
+                                        <input type="text" class="form-control" id="contact-field-otro" placeholder="Detalle adicional" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="contact-field-notas" class="form-label fw-semibold">Notas / Observaciones</label>
+                                        <input type="text" class="form-control" id="contact-field-notas" placeholder="Anotaciones relevantes" />
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2 mt-3">
+                                    <button type="button" class="md-button md-button-text" id="contact-form-cancel-btn">Cancelar</button>
+                                    <button type="submit" class="md-button md-button-filled" id="contact-form-submit-btn">Guardar Contacto</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Indicador de carga -->
+                    <div id="contacts-modal-loading" class="text-center py-4" hidden>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando contactos...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Consultando contactos de la entidad...</p>
+                    </div>
+
+                    <!-- Grilla de contactos -->
+                    <div id="contacts-modal-content">
+                        <div class="responsive-table" tabindex="0">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" style="width: 25%;">Nombre Contacto</th>
+                                        <th scope="col" style="width: 18%;">Rol / Cargo</th>
+                                        <th scope="col" style="width: 22%;">Correo Electrónico</th>
+                                        <th scope="col" style="width: 14%;">Teléfono</th>
+                                        <th scope="col" style="width: 11%;">Notas</th>
+                                        <th scope="col" style="text-align: right; width: 10%;"><span class="visually-hidden">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contacts-modal-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="empty-state text-center py-4 my-2" id="contacts-modal-empty" hidden>
+                            No existen contactos registrados para esta entidad.
+                        </p>
+                        <p class="empty-state text-center py-4 my-2" id="contacts-modal-no-search" hidden>
+                            No se encontraron contactos que coincidan con el criterio de búsqueda.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (canDelete)
+    {
+        <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+    }
+    @if (isImplementedTech)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+        <script src="~/js/implemented-tech-admin.js" asp-append-version="true"></script>
+    }
+    @if (isVendor)
+    {
+        <script src="~/js/vendor-admin.js" asp-append-version="true"></script>
+    }
+    @if (isVendor || isPartner || isEmpresaSubsidiaria)
+    {
+        <script src="~/js/vendor-partner-contacts-admin.js" asp-append-version="true"></script>
+    }
+}

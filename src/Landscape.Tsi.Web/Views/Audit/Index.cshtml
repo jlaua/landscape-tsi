@@ -1,0 +1,50 @@
+@model Landscape.Tsi.Web.Models.AuditQueryViewModel
+@{
+    ViewData["Title"] = "Auditoría";
+    var totalPages = Model.TotalCount == 0 ? 1 : (int)Math.Ceiling(Model.TotalCount / (double)Model.PageSize);
+    var localZone = TimeZoneInfo.Local;
+}
+<section class="admin-shell" aria-labelledby="audit-title">
+    <p class="eyebrow">TRAZABILIDAD</p>
+    <h1 id="audit-title">Auditoría</h1>
+    <p class="supporting-text">Actividad administrativa y eventos de seguridad dentro de su alcance autorizado.</p>
+    @if (!string.IsNullOrWhiteSpace(Model.QueryError)) { <div class="app-alert app-alert-error" role="alert">@Model.QueryError</div> }
+    <form method="get" asp-controller="Audit" asp-action="Index" class="filter-bar" aria-label="Filtros de auditoría">
+        <div class="md-field"><label for="search">Buscar</label><input id="search" name="search" value="@Model.Search" /></div>
+        <div class="md-field"><label for="action">Acción</label><select id="action" name="action"><option value="">Todas</option>@foreach (var option in new[] { "CREATE", "UPDATE", "DELETE", "RESTORE", "LOGIN", "LOGIN_FAILED", "LOGOUT", "AUTHORIZATION_DENIED", "RELATION_ADD", "RELATION_REMOVE" }) { <option value="@option" selected="@(Model.Action == option ? "selected" : null)">@option</option> }</select></div>
+        <div class="md-field"><label for="entity">Entidad</label><select id="entity" name="entity"><option value="">Todas</option>@foreach (var option in Model.EntityOptions) { <option value="@option.Value" selected="@(Model.Entity == option.Value ? "selected" : null)">@option.DisplayName</option> }</select></div>
+        <div class="md-field"><label for="actorUserId">Usuario</label><select id="actorUserId" name="actorUserId"><option value="">Todos</option>@foreach (var option in Model.UserOptions) { <option value="@option.Value" selected="@(Model.ActorUserId?.ToString() == option.Value ? "selected" : null)">@option.DisplayName</option> }</select></div>
+        <div class="md-field"><label for="empresaSubsidiariaId">Empresa / Subsidiaria</label><select id="empresaSubsidiariaId" name="empresaSubsidiariaId"><option value="">Todas</option>@foreach (var option in Model.SubsidiaryOptions) { <option value="@option.Value" selected="@(Model.EmpresaSubsidiariaId?.ToString() == option.Value ? "selected" : null)">@option.DisplayName</option> }</select></div>
+        <div class="md-field"><label for="dateFrom">Fecha desde</label><input id="dateFrom" name="dateFrom" type="date" value="@Model.DateFrom.ToString("yyyy-MM-dd")" /></div>
+        <div class="md-field"><label for="dateTo">Fecha hasta</label><input id="dateTo" name="dateTo" type="date" value="@Model.DateTo.ToString("yyyy-MM-dd")" /></div>
+        <div class="filter-actions"><a class="md-button md-button-text" asp-controller="Audit" asp-action="Index">Limpiar filtros</a><button class="md-button md-button-filled" type="submit">Consultar</button></div>
+    </form>
+    <p role="status">Eventos encontrados: @Model.TotalCount. Página @Model.Page de @totalPages.</p>
+    <div class="responsive-table" role="region" aria-label="Eventos de auditoría autorizados" tabindex="0">
+        <table>
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Registro</th><th>Impacto</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            @if (Model.DashboardEvents.Count == 0) { <tr><td colspan="8">No se encontraron eventos para los filtros seleccionados.</td></tr> }
+            @foreach (var item in Model.DashboardEvents)
+            {
+                <tr>
+                    <td data-label="Fecha"><time datetime="@item.OccurredAtUtc.ToString("O")">@TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(item.OccurredAtUtc, DateTimeKind.Utc), localZone).ToString("g")</time></td>
+                    <td data-label="Usuario">@(item.ActorUserName ?? "Sistema")</td>
+                    <td data-label="Acción"><span class="status-text">@item.Action</span></td>
+                    <td data-label="Entidad">@(item.Entity ?? "-")</td>
+                    <td data-label="Registro">@(item.RecordDisplayName ?? item.RecordId ?? "-")</td>
+                    <td data-label="Impacto">@item.AffectedRecordCount</td>
+                    <td data-label="Estado">@item.Result</td>
+                    <td>@if (item.OperationId is Guid operationId) { <a class="md-button md-button-text" asp-controller="Audit" asp-action="Operation" asp-route-operationId="@operationId">Ver detalle</a> } else { <a class="md-button md-button-text" asp-controller="Audit" asp-action="Operation" asp-route-operationId="@item.Id">Ver detalle</a> }@if (item.CanRestore) { <span class="status-text">Deshacer disponible</span> }</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Paginación de auditoría" class="pagination">
+            @for (var p = 1; p <= totalPages; p++) { <a class="@(p == Model.Page ? "is-active" : "")" asp-route-search="@Model.Search" asp-route-action="@Model.Action" asp-route-entity="@Model.Entity" asp-route-actorUserId="@Model.ActorUserId" asp-route-empresaSubsidiariaId="@Model.EmpresaSubsidiariaId" asp-route-dateFrom="@Model.DateFrom.ToString("yyyy-MM-dd")" asp-route-dateTo="@Model.DateTo.ToString("yyyy-MM-dd")" asp-route-page="@p">@p</a> }
+        </nav>
+    }
+</section>

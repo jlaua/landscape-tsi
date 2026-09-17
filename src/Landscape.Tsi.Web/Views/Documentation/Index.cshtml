@@ -1,0 +1,151 @@
+@{
+    ViewData["Title"] = "Documentación de Arquitectura";
+}
+
+<section class="home-hero mb-4" aria-labelledby="doc-title">
+    <p class="eyebrow">DOCUMENTACIÓN TÉCNICA</p>
+    <h1 id="doc-title">Arquitectura de Landscape TSI</h1>
+    <p>Diagrama interactivo de arquitectura técnica generado y validado con el motor Archify a partir del código fuente existente.</p>
+</section>
+
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold text-primary">Diagrama Interactivo del Sistema</h5>
+            <small class="text-muted">Exploración con vistas guiadas, cambio de tema claro/oscuro, zoom y trazado de dependencias.</small>
+        </div>
+        <div class="d-flex gap-2">
+            @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+            {
+                <a asp-controller="EntityView" asp-action="Index" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+                    <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    <span>Vista de entidades</span>
+                </a>
+            }
+            <a href="@Url.Action("Diagram", "Documentation")" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                <span>Abrir en pantalla completa</span>
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <iframe src="@Url.Action("Diagram", "Documentation")"
+                title="Diagrama de Arquitectura Landscape TSI"
+                style="width: 100%; height: 750px; border: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"
+                loading="lazy">
+        </iframe>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-info text-dark">Hecho Comprobado</span>
+                    <h6 class="card-title mb-0 fw-bold">Capa Web y Presentación</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    <code>Landscape.Tsi.Web</code> está construida sobre ASP.NET Core 10 MVC. Controladores dedicados organizan la lógica de interfaz: <em>Account</em>, <em>Administration</em>, <em>MasterTables</em>, <em>AdoptionProcess</em> y <em>Reporting</em>.
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li>Protección contra ataques de fuerza bruta mediante <code>RateLimiter</code> (política de 10 req/min en login).</li>
+                    <li>Vistas Razor con soporte temático dinámico (claro y corporativo).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-danger">Hecho Comprobado</span>
+                    <h6 class="card-title mb-0 fw-bold">Seguridad, IAM y OIDC</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    Sesión controlada por Cookie segura con prefijo <code>__Host-LandscapeTsi.Auth</code>, <code>SameSite=Lax</code>, <code>HttpOnly</code> y expiración deslizante de 30 minutos.
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li>Autorización granular basada en políticas y requerimientos de permisos (<code>PermissionAuthorizationHandler</code>).</li>
+                    <li>Integración OIDC corporativa opcional con resolución estable en <code>IamUsuarioLoginExterno</code>.</li>
+                    <li>Auditoría inmutable de accesos y flujo de emergencia (Break-Glass).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-success">Hecho Comprobado</span>
+                    <h6 class="card-title mb-0 fw-bold">Aplicación y Dominio</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    Separación en capas bajo el patrón Monolito Modular:
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li><code>Landscape.Tsi.Application</code>: Servicios de casos de uso, contratos, validaciones de comando y reporting.</li>
+                    <li><code>Landscape.Tsi.Domain</code>: Entidades agregadas, reglas invariantes de catálogo y modelos de seguridad e identidad.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-warning text-dark">Hecho Comprobado</span>
+                    <h6 class="card-title mb-0 fw-bold">Persistencia y SQL Server</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    <code>Landscape.Tsi.Infrastructure</code> implementa persistencia con Entity Framework Core 10 mediante <code>IdentityDbContext</code> y <code>CatalogDbContext</code>.
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li><code>DatabaseSafetyValidator</code> valida obligatoriamente que el <code>InitialCatalog</code> coincida con la configuración esperada.</li>
+                    <li>Fallback seguro a <code>InMemoryDatabase</code> para pruebas y desarrollo local.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary">Externo Verificado</span>
+                    <h6 class="card-title mb-0 fw-bold">Integraciones Externas</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    Servicios e integraciones externas con código comprobado:
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li><strong>Microsoft SQL Server:</strong> Almacén relacional protegido.</li>
+                    <li><strong>Azure App Services:</strong> Extensiones de inicio de hospedaje y registro configuradas en proyecto.</li>
+                    <li><strong>IdP Corporativo:</strong> Proveedor OpenID Connect para federación de identidades.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-secondary">Propuestas / Roadmap</span>
+                    <h6 class="card-title mb-0 fw-bold">Diferenciación de Propuestas</h6>
+                </div>
+                <p class="card-text small text-muted">
+                    Funcionalidades planificadas claramente diferenciadas del código actual:
+                </p>
+                <ul class="small ps-3 mb-0 text-secondary">
+                    <li><strong>Módulos UI:</strong> Opciones <em>Exploraciones</em> e <em>Implementaciones</em> marcadas explícitamente en la barra de menú con badge "Próximamente".</li>
+                    <li><strong>Arquitectura Asíncrona:</strong> Bus de eventos proyectado para replicación de cambios de catálogo entre subsidiarias.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

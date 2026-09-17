@@ -1,0 +1,21 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.LocalUsersPageViewModel
+@{ ViewData["Title"] = "Usuarios locales"; }
+<nav class="breadcrumbs" aria-label="Migas de pan"><a asp-action="Index">Administración</a><span aria-hidden="true">›</span><span>Usuarios locales</span></nav>
+<section class="admin-shell" aria-labelledby="users-title">
+    <div class="page-heading"><div><p class="eyebrow">IDENTIDAD LOCAL</p><h1 id="users-title">Usuarios</h1><p class="supporting-text">Administre cuentas locales mediante ASP.NET Core Identity.</p></div><a class="md-button md-button-filled" asp-action="CreateUser">Crear usuario</a></div>
+    @if (TempData["StatusMessage"] is string status) { <p class="success-message" role="status">@status</p> }
+    <form method="get" asp-action="Users" class="filter-bar" aria-label="Filtros de usuarios">
+        <label for="search">Buscar</label><input id="search" name="Search" value="@Model.Query.Search" placeholder="Nombre de usuario" />
+        <label for="role">Rol</label><select id="role" name="RoleCode"><option value="">Todos</option>@foreach (var role in Model.Roles) { <option value="@role.Code" selected="@(Model.Query.RoleCode == role.Code)">@role.Name</option> }</select>
+        <label for="active">Estado</label><select id="active" name="IsActive"><option value="">Todos</option><option value="true" selected="@(Model.Query.IsActive == true)">Activo</option><option value="false" selected="@(Model.Query.IsActive == false)">Inactivo</option></select>
+        <button class="md-button md-button-filled" type="submit">Filtrar</button><a class="md-button md-button-text" asp-action="Users">Limpiar</a>
+    </form>
+    <div class="responsive-table" role="region" aria-label="Usuarios locales" tabindex="0">
+        <table><caption class="visually-hidden">Usuarios locales</caption><thead><tr><th>Usuario</th><th>Estado</th><th>Roles</th><th>Vigencia</th><th>Acciones</th></tr></thead><tbody>
+        @if (Model.Page.Items.Count == 0) { <tr><td colspan="5">No se encontraron usuarios.</td></tr> }
+        @foreach (var user in Model.Page.Items) { <tr><td><a asp-action="UserDetails" asp-route-userId="@user.Id">@user.UserName</a></td><td>@(user.IsActive ? "Activo" : "Inactivo")</td><td>@(user.Roles.Count == 0 ? "Sin roles" : string.Join(", ", user.Roles.Select(role => role.Name)))</td><td>@(user.ValidUntilUtc?.ToString("yyyy-MM-dd") ?? "Sin vencimiento")</td><td><a class="md-button md-button-text" asp-action="UserDetails" asp-route-userId="@user.Id">Ver detalle</a></td></tr> }
+        </tbody></table>
+    </div>
+    @if (Model.Page.TotalPages > 1) { <nav aria-label="Paginación"><a class="md-button md-button-text" asp-action="Users" asp-route-Page="@(Model.Page.Page - 1)" asp-route-Search="@Model.Query.Search" asp-route-RoleCode="@Model.Query.RoleCode" asp-route-IsActive="@Model.Query.IsActive" aria-disabled="@(Model.Page.Page == 1)">Anterior</a><span>Página @Model.Page.Page de @Model.Page.TotalPages</span><a class="md-button md-button-text" asp-action="Users" asp-route-Page="@(Model.Page.Page + 1)" asp-route-Search="@Model.Query.Search" asp-route-RoleCode="@Model.Query.RoleCode" asp-route-IsActive="@Model.Query.IsActive" aria-disabled="@(Model.Page.Page == Model.Page.TotalPages)">Siguiente</a></nav> }
+</section>

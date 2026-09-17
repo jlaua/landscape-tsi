@@ -1,0 +1,64 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogMapViewModel
+@{
+    ViewData["Title"] = "Mapa de Tablas Maestras";
+    var groups = Model.Entities
+        .Where(entity => entity.IsAdministrable)
+        .Select(entity => entity.Group)
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-controller="MasterTables" asp-action="Index">Administración</a></li>
+        <li aria-current="page">Mapa de Tablas Maestras</li>
+    </ol>
+</nav>
+
+<section class="home-hero" aria-labelledby="map-title">
+    <p class="eyebrow">ARQUITECTURA DE DATOS TSI</p>
+    <h1 id="map-title">Mapa de Tablas Maestras y Transaccionales</h1>
+    <p>Explore las 26 entidades del catálogo maestro y sus relaciones verificadas en el modelo relacional.</p>
+</section>
+
+@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogView))
+{
+    <section class="catalog-map-shell" aria-labelledby="catalog-map-title">
+        <div class="page-heading">
+            <div>
+                <p class="eyebrow">CATÁLOGO LANDSCAPE TSI</p>
+                <h2 id="catalog-map-title">Mosaico de Entidades Relacionales</h2>
+            </div>
+            <div class="logical-map-legend" aria-label="Tipos de entidad">
+                <span class="entity-badge entity-badge-master" aria-label="Tabla maestra">M <span>Tabla maestra</span></span>
+                <span class="entity-badge entity-badge-transactional" aria-label="Tabla transaccional">T <span>Tabla transaccional</span></span>
+            </div>
+        </div>
+        <div class="catalog-map-groups">
+            @foreach (var group in groups)
+            {
+                var entities = Model.Entities.Where(entity => entity.IsAdministrable && entity.Group == group).ToArray();
+                if (entities.Length == 0) continue;
+                <section class="catalog-map-group" aria-labelledby="group-@group.GetHashCode()">
+                    <h3 id="group-@group.GetHashCode()">@group</h3>
+                    <div class="catalog-map-nodes">
+                        @foreach (var entity in entities)
+                        {
+                            <a class="catalog-map-node" data-catalog-code="@entity.Code" href="@entity.Route" aria-label="@entity.EntityTypeLabel: @entity.LogicalName">
+                                <span class="entity-badge @(entity.EntityType == Landscape.Tsi.Application.Catalogs.CatalogEntityType.Master ? "entity-badge-master" : "entity-badge-transactional")" aria-label="@entity.EntityTypeLabel">@entity.Badge</span>
+                                <span>@entity.LogicalName</span>
+                            </a>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+        <div class="catalog-map-detail-link d-flex align-items-center gap-3 flex-wrap">
+            <a class="md-button md-button-outlined" asp-controller="EntityView" asp-action="Index">Explorar vista de entidades</a>
+            <a class="btn btn-primary d-inline-flex align-items-center gap-2 text-decoration-none" asp-controller="MasterTables" asp-action="Index">
+                <span>Ir a Gestión de Tablas Maestras →</span>
+            </a>
+        </div>
+    </section>
+}

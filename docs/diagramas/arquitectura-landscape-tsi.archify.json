@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de Landscape TSI",
+    "output": "arquitectura-landscape-tsi.archify.html",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 580],
+    "views": [
+      {
+        "id": "flujo-principal",
+        "label": "Flujo Principal",
+        "focus": ["navegador", "web_mvc", "capa_aplicacion", "capa_infraestructura", "sql_server"],
+        "note": "Peticiones web procesadas por MVC, coordinadas por la capa de aplicación y persistidas en SQL Server."
+      },
+      {
+        "id": "autenticacion-iam",
+        "label": "Autenticación e IAM",
+        "focus": ["idp_corporativo", "web_mvc", "seguridad_auth", "capa_aplicacion"],
+        "note": "Acceso seguro mediante cookies __Host, SSO federado con OpenID Connect y autorización por permisos."
+      },
+      {
+        "id": "persistencia-seguridad",
+        "label": "Seguridad de Datos",
+        "focus": ["capa_infraestructura", "validador_seguridad", "sql_server"],
+        "note": "Contextos EF Core protegidos por el validador de catálogo antes de interactuar con SQL Server."
+      },
+      {
+        "id": "hechos-vs-propuestas",
+        "label": "Hechos vs Propuestas",
+        "focus": ["web_mvc", "propuesta_modulos", "propuesta_bus"],
+        "note": "Diferenciación entre el código actualmente implementado y las capacidades en estado de propuesta o Próximamente."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "idp_corporativo",
+      "type": "external",
+      "label": "IdP Corporativo",
+      "sublabel": "OpenID Connect / OAuth 2",
+      "tag": "Externo Verificado",
+      "pos": [40, 50],
+      "size": [200, 68]
+    },
+    {
+      "id": "azure_services",
+      "type": "cloud",
+      "label": "Azure App Services",
+      "sublabel": "Hosting & Logging",
+      "tag": "Externo Verificado",
+      "pos": [360, 50],
+      "size": [200, 68]
+    },
+    {
+      "id": "seguridad_auth",
+      "type": "security",
+      "label": "Seguridad e IAM",
+      "sublabel": "Cookies + RateLimit",
+      "tag": "Hecho Comprobado",
+      "pos": [680, 50],
+      "size": [200, 68]
+    },
+    {
+      "id": "propuesta_modulos",
+      "type": "frontend",
+      "label": "Módulos Roadmap",
+      "sublabel": "Exploración e Impl.",
+      "tag": "Propuesta UI",
+      "pos": [1000, 50],
+      "size": [200, 68]
+    },
+    {
+      "id": "navegador",
+      "type": "frontend",
+      "label": "Navegador Cliente",
+      "sublabel": "Razor MVC + Bootstrap",
+      "tag": "Hecho Comprobado",
+      "pos": [40, 190],
+      "size": [200, 68]
+    },
+    {
+      "id": "web_mvc",
+      "type": "backend",
+      "label": "Landscape.Tsi.Web",
+      "sublabel": "ASP.NET Core 10 MVC",
+      "tag": "Hecho Comprobado",
+      "brand": "dotnet",
+      "pos": [360, 190],
+      "size": [200, 68]
+    },
+    {
+      "id": "capa_aplicacion",
+      "type": "backend",
+      "label": "Landscape.Tsi.Application",
+      "sublabel": "Casos de Uso y CQRS",
+      "tag": "Hecho Comprobado",
+      "brand": "dotnet",
+      "pos": [680, 190],
+      "size": [200, 68]
+    },
+    {
+      "id": "capa_dominio",
+      "type": "backend",
+      "label": "Landscape.Tsi.Domain",
+      "sublabel": "Entidades y Reglas",
+      "tag": "Hecho Comprobado",
+      "brand": "dotnet",
+      "pos": [1000, 190],
+      "size": [200, 68]
+    },
+    {
+      "id": "propuesta_bus",
+      "type": "messagebus",
+      "label": "Bus de Eventos",
+      "sublabel": "Sincronización Asíncrona",
+      "tag": "Propuesta Técnica",
+      "pos": [40, 330],
+      "size": [200, 68]
+    },
+    {
+      "id": "capa_infraestructura",
+      "type": "backend",
+      "label": "Landscape.Tsi.Infrastructure",
+      "sublabel": "EF Core 10 y Servicios",
+      "tag": "Hecho Comprobado",
+      "brand": "dotnet",
+      "pos": [680, 330],
+      "size": [200, 68]
+    },
+    {
+      "id": "validador_seguridad",
+      "type": "security",
+      "label": "DatabaseSafetyValidator",
+      "sublabel": "Verificación de Catálogo",
+      "tag": "Hecho Comprobado",
+      "pos": [1000, 330],
+      "size": [200, 68]
+    },
+    {
+      "id": "sql_server",
+      "type": "database",
+      "label": "Microsoft SQL Server",
+      "sublabel": "IdentityDb + CatalogDb",
+      "tag": "Externo Verificado",
+      "pos": [680, 470],
+      "size": [200, 68]
+    }
+  ],
+  "connections": [
+    {
+      "id": "nav-web",
+      "from": "navegador",
+      "to": "web_mvc",
+      "label": "HTTPS",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "idp-web",
+      "from": "idp_corporativo",
+      "to": "web_mvc",
+      "label": "Tokens OIDC",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top",
+      "labelDy": 20
+    },
+    {
+      "id": "azure-web",
+      "from": "azure_services",
+      "to": "web_mvc",
+      "label": "Hosting & Logs",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "web-sec",
+      "from": "web_mvc",
+      "to": "seguridad_auth",
+      "label": "Valida acceso",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "web-app",
+      "from": "web_mvc",
+      "to": "capa_aplicacion",
+      "label": "Comandos",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "app-propuesta",
+      "from": "capa_aplicacion",
+      "to": "propuesta_modulos",
+      "label": "UI Próximamente",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "app-dom",
+      "from": "capa_aplicacion",
+      "to": "capa_dominio",
+      "label": "Aplica reglas",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "app-infra",
+      "from": "capa_aplicacion",
+      "to": "capa_infraestructura",
+      "label": "Contratos",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "infra-val",
+      "from": "capa_infraestructura",
+      "to": "validador_seguridad",
+      "label": "Valida catálogo",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "infra-sql",
+      "from": "capa_infraestructura",
+      "to": "sql_server",
+      "label": "EF Core / TDS",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "infra-bus",
+      "from": "capa_infraestructura",
+      "to": "propuesta_bus",
+      "label": "Eventos futuros",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Capa Web y Seguridad IAM (Hecho Comprobado)",
+      "items": [
+        "Landscape.Tsi.Web implementa ASP.NET Core 10 MVC con vistas Razor, RateLimiter (10 req/min) y cookies __Host.",
+        "Autenticación corporativa OIDC/OAuth 2.0 opcional y autorización granular por políticas de permisos."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Arquitectura y Persistencia (Hecho Comprobado)",
+      "items": [
+        "Landscape.Tsi.Application y Domain desacoplan casos de uso, CQRS, entidades y registros de auditoría.",
+        "Landscape.Tsi.Infrastructure opera IdentityDbContext y CatalogDbContext sobre SQL Server validado."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Integraciones y Roadmap (Diferenciación Clara)",
+      "items": [
+        "Verificado: Microsoft SQL Server, Azure App Services (Hosting y Logging) e IdP Corporativo OIDC.",
+        "Propuestas: Módulos 'Exploraciones' e 'Implementaciones' marcados Próximamente y bus asíncrono."
+      ]
+    }
+  ]
+}

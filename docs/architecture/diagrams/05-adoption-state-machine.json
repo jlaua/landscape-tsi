@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Contrato de estados para adopción tecnológica",
+    "output": "05-adoption-state-machine.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 700],
+    "views": [
+      {"id":"contract","label":"Transición controlada","focus":["currentState","transitionRequested","policyEvaluation","decision","targetState"],"note":"El estado concreto y la transición deben estar declarados antes de ejecutarse."},
+      {"id":"denial","label":"Transición prohibida","focus":["policyEvaluation","decision","denied","currentState"],"note":"Permiso, ámbito, asignación, estado o SoD fallidos conservan el estado actual."}
+    ]
+  },
+  "lanes": [
+    {"id":"main","label":"Contrato de ciclo de vida"},
+    {"id":"auditLane","label":"Auditoría"},
+    {"id":"pending","label":"Definición pendiente"},
+    {"id":"terminal","label":"Resultado denegado"}
+  ],
+  "states": [
+    {"id":"currentState","type":"start","label":"Estado actual","sublabel":"valor del catálogo","lane":"main","col":0,"step":"01"},
+    {"id":"transitionRequested","type":"active","label":"Solicitar cambio","sublabel":"actor + acción + destino","lane":"main","col":1,"step":"02"},
+    {"id":"policyEvaluation","type":"active","label":"Evaluar políticas","sublabel":"permiso • ámbito • SoD","lane":"main","col":2,"step":"03"},
+    {"id":"decision","type":"decision","label":"¿Permitida?","sublabel":"regla explícita","lane":"main","col":3,"step":"04"},
+    {"id":"targetState","type":"success","label":"Estado destino","sublabel":"cambio autorizado","lane":"main","col":4,"step":"05"},
+    {"id":"denied","type":"failure","label":"Transición denegada","sublabel":"sin cambio parcial","lane":"terminal","col":1,"tag":"auditable"},
+    {"id":"auditEvent","type":"neutral","label":"Evento de auditoría","sublabel":"actor • estado • resultado","lane":"auditLane","col":2,"tag":"append-only"},
+    {"id":"catalogPending","type":"waiting","label":"Estados oficiales","sublabel":"catálogo no aprobado","lane":"pending","col":0,"yOffset":-40,"tag":"pendiente"},
+    {"id":"matrixPending","type":"waiting","label":"Matriz de transición","sublabel":"roles y condiciones pendientes","lane":"pending","col":0,"yOffset":55,"width":140,"tag":"pendiente"}
+  ],
+  "transitions": [
+    {"id":"requestTransition","from":"currentState","to":"transitionRequested","label":"solicitar","labelAt":[171,202],"variant":"emphasis"},
+    {"id":"evaluateTransition","from":"transitionRequested","to":"policyEvaluation","label":"servidor","labelAt":[325,202],"variant":"security"},
+    {"id":"policyDecision","from":"policyEvaluation","to":"decision","label":"condiciones","labelAt":[479,202],"variant":"security"},
+    {"id":"allowTransition","from":"decision","to":"targetState","label":"permitir","labelAt":[633,202],"variant":"emphasis"},
+    {"id":"denyTransition","from":"decision","to":"denied","label":"denegar","labelAt":[556,202],"variant":"security","route":"straight","fromSide":"bottom","toSide":"top"},
+    {"id":"deniedAudit","from":"denied","to":"auditEvent","label":"registrar regla","variant":"dashed"},
+    {"id":"allowedAudit","from":"targetState","to":"auditEvent","label":"registrar cambio","variant":"dashed","route":"right-channel","fromSide":"right","toSide":"right"},
+    {"id":"retainState","from":"denied","to":"currentState","label":"conservar estado","variant":"security","route":"left-channel","fromSide":"left","toSide":"left"},
+    {"id":"catalogToMatrix","from":"catalogPending","to":"matrixPending","variant":"dashed","route":"straight","fromSide":"bottom","toSide":"top"}
+  ],
+  "cards": [
+    {"dot":"rose","title":"Regla vigente","items":["Solo se permiten transiciones declaradas","El servidor aplica permiso, ámbito, asignación, estado y segregación"]},
+    {"dot":"amber","title":"Brecha documental","items":["OpenSpec aún no enumera estados oficiales","Tampoco define roles, condiciones ni evidencias por transición"]},
+    {"dot":"emerald","title":"Auditoría","items":["Cada transición autorizada debe ser explícita y auditable","Las denegaciones por segregación también se registran"]}
+  ]
+}

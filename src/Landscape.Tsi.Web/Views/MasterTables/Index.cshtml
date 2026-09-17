@@ -1,0 +1,233 @@
+@model IReadOnlyList<Landscape.Tsi.Application.Catalogs.CatalogEntityMetadata>
+@{
+    ViewData["Title"] = "Administración de Tablas Maestras";
+    var totalCount = Model.Count;
+    var masterCount = Model.Count(c => c.Badge == "M");
+    var transactionalCount = Model.Count(c => c.Badge == "T");
+    var groups = Model.GroupBy(c => c.Group).OrderBy(g => g.Key).ToList();
+}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li>
+        <li><span aria-hidden="true">/</span> Administración</li>
+        <li aria-current="page"><span aria-hidden="true">/</span> Tablas Maestras</li>
+    </ol>
+</nav>
+
+<section class="catalog-shell" aria-labelledby="catalog-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">ADMINISTRACIÓN</p>
+            <h1 id="catalog-title">Administración de Tablas Maestras</h1>
+            <p class="supporting-text">Consulte y mantenga los catálogos y entidades maestras y transaccionales del sistema.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <span class="badge bg-light text-dark border px-3 py-2 fs-6">
+                <strong>@totalCount</strong> tablas registradas
+            </span>
+            <span class="badge px-3 py-2 fs-6 entity-badge-master" title="Tablas Maestras">
+                <strong>M</strong> @masterCount Maestras
+            </span>
+            <span class="badge px-3 py-2 fs-6 entity-badge-transactional" title="Tablas Transaccionales">
+                <strong>T</strong> @transactionalCount Transaccionales
+            </span>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros y Búsqueda -->
+    <div class="card p-3 shadow-sm border-0 rounded-4" style="background: var(--md-surface, #ffffff);">
+        <div class="row g-2 align-items-center">
+            <!-- Filtro por Tipo (M / T / Todos) -->
+            <div class="col-12 col-md-auto">
+                <div class="btn-group" role="group" aria-label="Filtro por tipo de tabla">
+                    <button type="button" class="btn btn-sm btn-outline-primary active filter-type-btn" data-type="ALL">
+                        Todas (@totalCount)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success filter-type-btn" data-type="M">
+                        Maestras (@masterCount)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info filter-type-btn" data-type="T">
+                        Transaccionales (@transactionalCount)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtro por Grupo Funcional -->
+            <div class="col-12 col-md-auto">
+                <select id="group-filter" class="form-select form-select-sm" aria-label="Filtro por grupo funcional">
+                    <option value="ALL">Todos los grupos funcionales (@totalCount)</option>
+                    @foreach (var g in groups)
+                    {
+                        <option value="@g.Key">@g.Key (@g.Count())</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Búsqueda Instantánea -->
+            <div class="col-12 col-md">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="search" id="catalog-search" class="form-control border-start-0" 
+                           placeholder="Buscar por nombre, código o tabla física (ej. TTipoServicio, Contrato...)" 
+                           aria-label="Buscar catálogo" />
+                </div>
+            </div>
+
+            <!-- Contador de resultados visibles -->
+            <div class="col-12 col-md-auto text-end">
+                <span id="visible-counter" class="text-muted small fw-semibold">Mostrando @totalCount de @totalCount tablas</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grupos de Catálogos (Agrupados como en la página de inicio) -->
+    <div id="catalog-groups-container" class="d-flex flex-column gap-4 mt-3" aria-label="Catálogos agrupados por función">
+        @foreach (var g in groups)
+        {
+            <section class="catalog-group-section p-4 border rounded-4 bg-white shadow-sm" data-group-name="@g.Key">
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
+                    <h2 class="h5 mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                        <span class="text-primary">📂</span> @g.Key
+                    </h2>
+                    <span class="badge bg-light text-muted border px-3 py-1 group-table-count">@g.Count() tablas</span>
+                </div>
+                <div class="catalog-grid">
+                    @foreach (var catalog in g)
+                    {
+                        <article class="catalog-card @(catalog.IsAdministrable ? "catalog-card-enabled" : "catalog-card-pending") d-flex flex-column justify-content-between"
+                                 data-badge="@catalog.Badge"
+                                 data-group="@catalog.Group"
+                                 data-name="@catalog.LogicalName.ToLowerInvariant()"
+                                 data-table="@catalog.PhysicalTableName.ToLowerInvariant()"
+                                 data-code="@catalog.Code.ToLowerInvariant()">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="entity-badge @(catalog.Badge == "M" ? "entity-badge-master" : "entity-badge-transactional")"
+                                          aria-label="@catalog.EntityTypeLabel">@catalog.Badge</span>
+                                    <h3 class="h5 mb-0 fw-bold text-primary">@catalog.LogicalName</h3>
+                                </div>
+                                <p class="text-muted small mb-3">@catalog.Description</p>
+                            </div>
+                            <div class="pt-2 border-top d-flex justify-content-between align-items-center gap-2">
+                                <div class="d-flex flex-column" style="line-height: 1.25;">
+                                    <span class="text-muted small fw-semibold" style="font-size: 0.78rem;">@catalog.EntityTypeLabel</span>
+                                    <code class="text-secondary small fw-bold" style="font-size: 0.78rem;">@catalog.PhysicalTableName</code>
+                                </div>
+                                <a class="md-button md-button-tonal" href="@catalog.Route">Administrar</a>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+
+    <!-- Estado vacío si ningún catálogo coincide -->
+    <div id="no-results-state" class="empty-state d-none my-4">
+        <div class="empty-state-icon"><i class="bi bi-folder-x"></i></div>
+        <h2>No se encontraron tablas coincidentes</h2>
+        <p class="text-muted">Pruebe ajustando el término de búsqueda o cambiando los filtros seleccionados.</p>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="reset-filters-btn">Restablecer filtros</button>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+    (function () {
+        const searchInput = document.getElementById('catalog-search');
+        const groupFilter = document.getElementById('group-filter');
+        const typeButtons = document.querySelectorAll('.filter-type-btn');
+        const cards = document.querySelectorAll('.catalog-card');
+        const groupSections = document.querySelectorAll('.catalog-group-section');
+        const visibleCounter = document.getElementById('visible-counter');
+        const noResults = document.getElementById('no-results-state');
+        const resetBtn = document.getElementById('reset-filters-btn');
+
+        let selectedType = 'ALL';
+        let selectedGroup = 'ALL';
+
+        function applyFilter() {
+            const query = (searchInput.value || '').trim().toLowerCase();
+            let totalVisibleCount = 0;
+
+            groupSections.forEach(section => {
+                const sectionGroup = section.dataset.groupName;
+                const sectionCards = section.querySelectorAll('.catalog-card');
+                let groupVisibleCount = 0;
+
+                const groupMatchesFilter = (selectedGroup === 'ALL' || sectionGroup === selectedGroup);
+
+                sectionCards.forEach(card => {
+                    const badge = card.dataset.badge;
+                    const name = card.dataset.name;
+                    const table = card.dataset.table;
+                    const code = card.dataset.code;
+
+                    const matchesType = (selectedType === 'ALL' || badge === selectedType);
+                    const matchesQuery = !query || name.includes(query) || table.includes(query) || code.includes(query);
+
+                    if (groupMatchesFilter && matchesType && matchesQuery) {
+                        card.classList.remove('d-none');
+                        groupVisibleCount++;
+                        totalVisibleCount++;
+                    } else {
+                        card.classList.add('d-none');
+                    }
+                });
+
+                const groupCountBadge = section.querySelector('.group-table-count');
+                if (groupCountBadge) {
+                    groupCountBadge.textContent = `${groupVisibleCount} de ${sectionCards.length} tablas`;
+                }
+
+                if (groupVisibleCount === 0) {
+                    section.classList.add('d-none');
+                } else {
+                    section.classList.remove('d-none');
+                }
+            });
+
+            visibleCounter.textContent = `Mostrando ${totalVisibleCount} de ${cards.length} tablas`;
+
+            if (totalVisibleCount === 0) {
+                noResults.classList.remove('d-none');
+            } else {
+                noResults.classList.add('d-none');
+            }
+        }
+
+        searchInput.addEventListener('input', applyFilter);
+
+        groupFilter.addEventListener('change', function () {
+            selectedGroup = this.value;
+            applyFilter();
+        });
+
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                typeButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                selectedType = this.dataset.type;
+                applyFilter();
+            });
+        });
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                groupFilter.value = 'ALL';
+                selectedGroup = 'ALL';
+                selectedType = 'ALL';
+                typeButtons.forEach(b => {
+                    b.classList.remove('active');
+                    if (b.dataset.type === 'ALL') b.classList.add('active');
+                });
+                applyFilter();
+            });
+        }
+    })();
+</script>
+}

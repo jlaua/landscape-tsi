@@ -1,8 +1,9 @@
 # Análisis del modelo del Catálogo Landscape TSI
 
 **Estado:** borrador para validación funcional  
-**Fuente:** `00 - definicion de landscape tsi/Modelado Catalogo Landscape TSI - depurado.drawio`  
-**Vista de referencia:** [diagrama JPG](../00%20-%20definicion%20de%20landscape%20tsi/Modelado%20Catalogo%20Landscape%20TSI%20-%20depurado-MODELADO-CATALOGO.jpg)
+**Fuente:** `00 - definicion de landscape tsi/Modelado Catalogo Landscape TSI - Flujos de trabajo.drawio`  
+**Vista de referencia:** [diagrama JPG](../00%20-%20definicion%20de%20landscape%20tsi/Modelado%20Catalogo%20Landscape%20TSI%20-%20Flujos%20de%20trabajo-MODELADO-CATALOGO.jpg)  
+**Corrección incorporada:** el catálogo de estado de capacidad está identificado como `M:EstadoCapacidad`.
 
 ## 1. Propósito y alcance
 
@@ -95,7 +96,7 @@ Se complementa con:
 | Capacidad de Seguridad | Capacidad ofrecida o requerida. | `idCapacidad`, `idBuildingBlock`, nombre, descripción, estado. |
 | Feature | Funcionalidad que concreta una capacidad. | `idFuncionalidad`, `idCapacidad`, descripción, estado de cobertura. Falta un nombre explícito. |
 | Estado Fase Adopción | Catálogo del estado del building block. | Identificador, nombre y descripción. |
-| Estado Capacidad | Catálogo del estado de la capacidad. | Identificador, nombre y descripción. En el dibujo está rotulado por error como `M:EstadoFaseAdopcion`. |
+| Estado Capacidad | Catálogo del estado de la capacidad. | `M:EstadoCapacidad`; identificador, nombre y descripción. |
 | Estado Funcionalidad | Catálogo de cobertura de features. | Identificador, nombre y descripción. |
 
 ### 5.2. Tecnología y proveedores
@@ -179,7 +180,7 @@ Estas reglas son propuestas derivadas del modelo, no definiciones aprobadas:
 
 ### Prioridad media
 
-- Entidades maestras usan el prefijo `M:` de forma irregular y dos catálogos comparten el rótulo `M:EstadoFaseAdopcion`.
+- Las entidades maestras usan el prefijo `M:` de forma irregular; la nueva revisión ya diferencia correctamente `M:EstadoFaseAdopcion` de `M:EstadoCapacidad`.
 - Hay mezcla de idioma, espacios en nombres, abreviaturas y ortografía variable (`Vendor`, `Feature`, `Cantidqad`, `Subscripcion`, `Grupo q Pertenece`).
 - No se especifican tipos, longitudes, campos obligatorios, claves únicas ni reglas de auditoría.
 - `Contacto/Focal` en Empresa duplica la entidad Contacto Empresa Subsidiaria.

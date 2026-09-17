@@ -1,0 +1,312 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogTreemapHomeViewModel
+@{
+    ViewData["Title"] = "Mapa Landscape TSI";
+    var maxDomain = Model.Dominios.OrderByDescending(d => d.BuildingBlocks.Count).FirstOrDefault();
+}
+
+<div class="container-fluid px-3 px-md-4 py-2">
+    <!-- Header Principal -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary px-2 py-1 fw-semibold" data-catalog-code="building-block" style="letter-spacing:0.5px;">CATÁLOGO LANDSCAPE TSI</span>
+                <span class="badge bg-secondary-subtle text-secondary border">Visualización Ejecutiva de Arquitectura</span>
+            </div>
+            <h1 class="h2 mb-1 fw-bold text-dark">Mapa Landscape TSI</h1>
+            <p class="text-muted mb-0" style="font-size:0.95rem;">
+                Superficie proporcional calculada sobre el total de <strong>@Model.TotalBuildingBlocks Building Blocks</strong> registrados. El área de cada rectángulo refleja su peso relativo en el Catálogo TSI.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="AdoptionProcess" asp-action="Evaluations" class="btn btn-primary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                <span>📋 Evaluaciones de Adopción</span>
+            </a>
+            <a asp-controller="Reporting" asp-action="Index" class="btn btn-outline-primary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                <span>📊 Distribución de Dominios</span>
+            </a>
+            <a asp-controller="Reporting" asp-action="Catalogs" class="btn btn-outline-secondary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                <span>🗂️ Reportería de Catálogos</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Indicadores Clave de Distribución (KPIs) -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #0d6efd !important;">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Dominios Activos</span>
+                <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalDominios</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #198754 !important;">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Total Building Blocks</span>
+                <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalBuildingBlocks</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #ffc107 !important;">
+                <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Dominio Dominante</span>
+                <div class="h4 fw-bold text-dark mb-0 mt-1 text-truncate" title="@maxDomain?.Nombre">
+                    @(maxDomain?.Nombre ?? "—") <span class="text-muted" style="font-size:0.9rem;">(@(maxDomain?.PorcentajeBb.ToString("0.0"))%)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mosaico Treemap Proporcional por Área -->
+    <div class="card shadow-sm border-0 mb-4" style="border-radius:12px;">
+        <div class="card-header bg-white border-0 pt-3 px-3 px-md-4 d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                <span>📐</span> Mosaico Treemap Proporcional
+            </h2>
+            <span class="text-muted small">Haga clic en cualquier Dominio para ver su desglose detallado</span>
+        </div>
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex flex-wrap gap-3 treemap-layout-container" style="min-height: 420px;" id="treemap-grid">
+                @foreach (var dom in Model.Dominios)
+                {
+                    var weight = Math.Max(1, (int)Math.Round(dom.PorcentajeBb));
+                    var minWidthPx = dom.PorcentajeBb >= 15 ? 260 : (dom.PorcentajeBb >= 8 ? 200 : 160);
+                    <div class="card shadow-sm border p-3 d-flex flex-column justify-content-between rounded-3 treemap-card"
+                         data-domain-id="@dom.Id"
+                         data-domain-name="@dom.Nombre"
+                         data-domain-pct="@dom.PorcentajeBb"
+                         data-domain-count="@dom.BuildingBlocks.Count"
+                         onclick="selectDomain(@dom.Id)"
+                         style="flex-grow: @weight; flex-basis: @(minWidthPx)px; min-height: 160px; background-color: @dom.PastelHex; border-color: @dom.BorderHex !important; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;">
+
+                        <div>
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                <h3 class="h6 fw-bold mb-0" style="color: @dom.TextHex;">
+                                    @dom.Nombre
+                                </h3>
+                                <span class="badge rounded-pill fw-bold" style="background-color: @dom.TextHex; color: #ffffff; font-size: 0.75rem;">
+                                    @(dom.PorcentajeBb.ToString("0.0"))%
+                                </span>
+                            </div>
+                            <div class="small fw-semibold mb-2" style="color: @dom.TextHex; opacity: 0.9;">
+                                @dom.BuildingBlocks.Count Building Blocks
+                            </div>
+
+                            <!-- Chips de Building Blocks principales -->
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                @foreach (var bb in dom.BuildingBlocks.Take(dom.PorcentajeBb >= 15 ? 6 : (dom.PorcentajeBb >= 8 ? 4 : 2)))
+                                {
+                                    <span class="badge bg-white shadow-xs text-truncate"
+                                          style="color: @dom.TextHex; max-width: 140px; font-weight: 500; font-size: 0.72rem; border: 1px solid @dom.BorderHex;"
+                                          title="@bb.Nombre">
+                                        @bb.Nombre
+                                    </span>
+                                }
+                                @if (dom.BuildingBlocks.Count > (dom.PorcentajeBb >= 15 ? 6 : (dom.PorcentajeBb >= 8 ? 4 : 2)))
+                                {
+                                    var remaining = dom.BuildingBlocks.Count - (dom.PorcentajeBb >= 15 ? 6 : (dom.PorcentajeBb >= 8 ? 4 : 2));
+                                    <span class="badge bg-white shadow-xs"
+                                          style="color: @dom.TextHex; font-size: 0.72rem; opacity: 0.85; border: 1px solid @dom.BorderHex;">
+                                        +@remaining más
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Pie de tarjeta: Sólo acción ver desglose (sin código hex de color) -->
+                        <div class="pt-2 border-top d-flex justify-content-end align-items-center" style="border-color: @dom.BorderHex !important; font-size: 0.75rem;">
+                            <span class="fw-bold" style="color: @dom.TextHex;">Ver desglose →</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Desglose del Dominio Seleccionado -->
+    <div class="card shadow-sm border-0 mb-5" id="domain-breakdown-panel" style="border-radius:12px; display:none;">
+        <div class="card-header bg-dark text-white p-3 px-md-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="border-radius:12px 12px 0 0;">
+            <div>
+                <h3 class="h5 mb-0 fw-bold text-white" id="breakdown-title">Desglose del Dominio</h3>
+                <span class="small text-white-50" id="breakdown-subtitle">0 Building Blocks (0% del catálogo)</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <button type="button" class="btn btn-success btn-sm fw-semibold d-inline-flex align-items-center gap-1" onclick="downloadDomainBreakdownCsv()">
+                        <span>📥 Descargar (.csv)</span>
+                    </button>
+                }
+                <button type="button" class="btn btn-outline-light btn-sm" onclick="closeBreakdown()">✕ Cerrar</button>
+            </div>
+        </div>
+        <div class="card-body p-3 p-md-4 bg-white">
+            <div class="table-responsive border rounded">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                    <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; user-select:none;">
+                        <tr>
+                            <th scope="col" style="width:45px; cursor:pointer;" onclick="sortDomainBreakdown('idx')" title="Ordenar por número"># <span id="sort-dom-idx">↕</span></th>
+                            <th scope="col" style="cursor:pointer;" onclick="sortDomainBreakdown('nombre')" title="Ordenar por nombre">Building Block <span id="sort-dom-nombre">↕</span></th>
+                            <th scope="col" style="cursor:pointer;" onclick="sortDomainBreakdown('pilar')" title="Ordenar por pilar">Pilar Zero Trust <span id="sort-dom-pilar">↕</span></th>
+                            <th scope="col" style="cursor:pointer;" onclick="sortDomainBreakdown('fase')" title="Ordenar por fase">Fase de Adopción <span id="sort-dom-fase">↕</span></th>
+                            <th scope="col" class="text-center" style="cursor:pointer;" onclick="sortDomainBreakdown('funcs')" title="Ordenar por funcionalidades">Funcionalidades <span id="sort-dom-funcs">↕</span></th>
+                            <th scope="col" class="text-center" style="cursor:pointer;" onclick="sortDomainBreakdown('emps')" title="Ordenar por subsidiarias">Subsidiarias Activas <span id="sort-dom-emps">↕</span></th>
+                            <th scope="col" class="text-end" style="width:120px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakdown-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .treemap-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1) !important;
+    }
+    .treemap-card.selected-card {
+        outline: 3px solid #0d6efd;
+        box-shadow: 0 8px 24px rgba(13, 110, 253, 0.25) !important;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        const domainData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Dominios, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+        let currentSelectedDomain = null;
+        let currentBreakdownRows = [];
+        let domSortCol = 'idx';
+        let domSortAsc = true;
+
+        function selectDomain(domainId) {
+            const dom = domainData.find(d => d.id === domainId);
+            if (!dom) return;
+
+            currentSelectedDomain = dom;
+
+            document.querySelectorAll('.treemap-card').forEach(c => c.classList.remove('selected-card'));
+            const card = document.querySelector(`.treemap-card[data-domain-id="${domainId}"]`);
+            if (card) card.classList.add('selected-card');
+
+            const panel = document.getElementById('domain-breakdown-panel');
+            panel.style.display = 'block';
+
+            document.getElementById('breakdown-title').textContent = `Dominio: ${dom.nombre}`;
+            document.getElementById('breakdown-subtitle').textContent = `${dom.buildingBlocks.length} Building Blocks (${dom.porcentajeBb.toFixed(1)}% del catálogo TSI)`;
+
+            currentBreakdownRows = dom.buildingBlocks.map((bb, index) => ({
+                idx: index + 1,
+                id: bb.id,
+                nombre: bb.nombre,
+                pilar: bb.pilarZt || 'General',
+                fase: bb.faseAdopcionNombre || 'En Definición',
+                funcs: bb.funcionalidadesCount || 0,
+                emps: bb.empresasCount || 0
+            }));
+
+            domSortCol = 'idx';
+            domSortAsc = true;
+            renderDomainBreakdownTable();
+
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderDomainBreakdownTable() {
+            const tbody = document.getElementById('breakdown-table-body');
+            if (!tbody) return;
+
+            currentBreakdownRows.sort((a, b) => {
+                let valA = a[domSortCol];
+                let valB = b[domSortCol];
+                if (typeof valA === 'string') {
+                    const cmp = valA.localeCompare(valB, 'es', { sensitivity: 'base' });
+                    return domSortAsc ? cmp : -cmp;
+                }
+                return domSortAsc ? (valA - valB) : (valB - valA);
+            });
+
+            const sortIcons = ['idx', 'nombre', 'pilar', 'fase', 'funcs', 'emps'];
+            sortIcons.forEach(col => {
+                const el = document.getElementById(`sort-dom-${col}`);
+                if (el) {
+                    el.textContent = (col === domSortCol) ? (domSortAsc ? '▲' : '▼') : '↕';
+                }
+            });
+
+            if (currentBreakdownRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No hay Building Blocks registrados en este dominio.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = currentBreakdownRows.map(r => `
+                <tr>
+                    <td class="text-muted fw-bold">${r.idx}</td>
+                    <td class="fw-semibold text-dark">${escapeHtml(r.nombre)}</td>
+                    <td><span class="badge bg-light text-dark border">${escapeHtml(r.pilar)}</span></td>
+                    <td><span class="badge bg-secondary-subtle text-secondary border">${escapeHtml(r.fase)}</span></td>
+                    <td class="text-center"><span class="badge bg-info-subtle text-info-emphasis border">${r.funcs} func.</span></td>
+                    <td class="text-center"><span class="badge bg-success-subtle text-success border">${r.emps} emp.</span></td>
+                    <td class="text-end">
+                        <a href="/reporteria?tab=dominios" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.75rem;" title="Ver en Distribución de Dominios">
+                            Ficha BB →
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function sortDomainBreakdown(col) {
+            if (domSortCol === col) {
+                domSortAsc = !domSortAsc;
+            } else {
+                domSortCol = col;
+                domSortAsc = true;
+            }
+            renderDomainBreakdownTable();
+        }
+
+        function downloadDomainBreakdownCsv() {
+            if (!currentSelectedDomain || currentBreakdownRows.length === 0) return;
+            const headers = ["#", "Building Block", "Pilar Zero Trust", "Fase de Adopción", "Funcionalidades", "Subsidiarias Activas"];
+            const rows = currentBreakdownRows.map(r => [
+                r.idx,
+                `"${(r.nombre || '').replace(/"/g, '""')}"`,
+                `"${(r.pilar || '').replace(/"/g, '""')}"`,
+                `"${(r.fase || '').replace(/"/g, '""')}"`,
+                r.funcs,
+                r.emps
+            ]);
+
+            let csvContent = "\uFEFF";
+            csvContent += `Dominio: ${currentSelectedDomain.nombre} (${currentSelectedDomain.porcentajeBb}% del Catálogo)\r\n`;
+            csvContent += headers.join(",") + "\r\n";
+            rows.forEach(rowArray => {
+                csvContent += rowArray.join(",") + "\r\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const safeName = currentSelectedDomain.nombre.replace(/[^a-zA-Z0-9]/g, "_");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Landscape_TSI_Dominio_${safeName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function closeBreakdown() {
+            const panel = document.getElementById('domain-breakdown-panel');
+            panel.style.display = 'none';
+            document.querySelectorAll('.treemap-card').forEach(c => c.classList.remove('selected-card'));
+            currentSelectedDomain = null;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+}

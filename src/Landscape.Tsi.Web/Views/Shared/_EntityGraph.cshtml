@@ -1,0 +1,55 @@
+@model Landscape.Tsi.Web.Models.CatalogMapViewModel
+
+<section id="catalog-entity-graph" class="logical-map-shell" aria-labelledby="entity-graph-title">
+    <div class="page-heading logical-map-heading">
+        <div>
+            <p class="eyebrow">EXPLORADOR ARQUITECTÓNICO</p>
+            <h1 id="entity-graph-title">Vista de entidades</h1>
+            <p class="supporting-text">Explore el modelo lógico y físico, sus relaciones verificadas y las rutas administrativas.</p>
+        </div>
+        <div class="logical-map-legend" aria-label="Tipos de entidad">
+            <span class="entity-badge entity-badge-master" aria-label="Tabla maestra">M <span>Tabla maestra</span></span>
+            <span class="entity-badge entity-badge-transactional" aria-label="Tabla transaccional">T <span>Tabla transaccional</span></span>
+        </div>
+    </div>
+    <div class="logical-map-toolbar" role="toolbar" aria-label="Controles del diagrama">
+        <div class="map-segmented" role="group" aria-label="Vista del diagrama">
+            <span class="toolbar-label">Vista</span>
+            <button type="button" class="map-segment is-selected" data-map-view="logical" aria-pressed="true">Lógica</button>
+            <button type="button" class="map-segment" data-map-view="physical" aria-pressed="false">Física</button>
+        </div>
+        <label class="map-check"><input type="checkbox" data-map-cardinality checked /> Cardinalidades</label>
+        <label class="map-check"><input type="checkbox" data-map-bridges checked /> Tablas puente</label>
+        <label class="map-check"><input type="checkbox" data-map-physical-secondary /> Nombre físico secundario</label>
+        <div class="map-zoom-controls" role="group" aria-label="Escala del diagrama">
+            <button type="button" class="md-button md-button-text" data-map-action="zoom-out" aria-label="Reducir zoom">−</button>
+            <output data-map-zoom-value aria-live="polite">100 %</output>
+            <button type="button" class="md-button md-button-text" data-map-action="zoom-in" aria-label="Aumentar zoom">+</button>
+            <button type="button" class="md-button md-button-text" data-map-action="fit">Ajustar</button>
+        </div>
+    </div>
+    <p class="sr-only" data-map-status role="status">Vista lógica seleccionada.</p>
+    <div class="logical-map-viewport" data-catalog-graph tabindex="0" aria-label="Diagrama lógico interactivo del modelo Landscape TSI"></div>
+    <aside class="logical-map-inspector" data-map-inspector aria-live="polite" hidden>
+        <div>
+            <p class="eyebrow">ENTIDAD SELECCIONADA</p>
+            <h2 data-map-inspector-title></h2>
+            <p data-map-inspector-description></p>
+            <dl class="map-inspector-details">
+                <div><dt>Tabla física</dt><dd data-map-inspector-physical></dd></div>
+                <div><dt>Tipo</dt><dd data-map-inspector-type></dd></div>
+                <div><dt>Grupo</dt><dd data-map-inspector-group></dd></div>
+            </dl>
+        </div>
+        <a class="md-button md-button-filled" data-map-inspector-route hidden>Administrar entidad</a>
+    </aside>
+    <details class="logical-map-accessible" open>
+        <summary>Alternativa accesible: entidades y relaciones</summary>
+        <div class="logical-map-accessible-grid">
+            <div><h2>Entidades</h2><ul data-map-entity-list></ul></div>
+            <div><h2>Relaciones verificadas</h2><ul data-map-relation-list></ul></div>
+        </div>
+    </details>
+    <script type="application/json" data-map-entities>@Html.Raw(Model.EntityMetadataJson)</script>
+    <script type="application/json" data-map-relationships>@Html.Raw(Model.RelationshipMetadataJson)</script>
+</section>

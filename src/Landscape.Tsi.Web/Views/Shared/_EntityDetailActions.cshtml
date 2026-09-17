@@ -1,0 +1,27 @@
+@using Landscape.Tsi.Application.Identity
+@using Landscape.Tsi.Application.Catalogs
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+
+<div class="heading-actions" aria-label="Acciones del registro">
+    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">Volver al listado</a>
+    @if (!Model.Definition.IsReadOnly && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+    {
+        if (Model.Definition.EditorMode == CatalogEditorMode.Page)
+        {
+            <a class="md-button md-button-filled" asp-action="CatalogEditForm" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">Editar</a>
+        }
+        else
+        {
+            <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#edit-catalog-modal">Editar</button>
+        }
+    }
+    @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+    {
+        <button class="md-button md-button-danger" type="button"
+                data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })"
+                data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })"
+                data-delete-row-name="@(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? Model.Record.Id.ToString())"
+                aria-label="Eliminar @Model.Definition.Name">Eliminar</button>
+    }
+</div>

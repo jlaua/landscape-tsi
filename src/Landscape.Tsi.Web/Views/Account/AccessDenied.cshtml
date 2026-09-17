@@ -1,0 +1,68 @@
+@{
+    ViewData["Title"] = "Acceso Restringido por Políticas de Seguridad";
+    var userName = User.Identity?.Name ?? "Usuario";
+    var roles = User.Claims
+        .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+        .Select(c => c.Value)
+        .ToList();
+}
+
+<section class="container py-5" aria-labelledby="denied-title">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden text-center">
+                <div class="card-header bg-warning bg-opacity-10 py-4 border-0">
+                    <div class="d-inline-flex p-3 bg-warning bg-opacity-25 rounded-circle mb-2">
+                        <svg style="width:48px;height:48px;" class="text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    </div>
+                    <h1 id="denied-title" class="h4 fw-bold text-dark mb-1">Acceso denegado</h1>
+                    <p class="text-muted small mb-0">Control de Acceso Granular Basado en Políticas (PBAC)</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-light border text-start small mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Usuario autenticado:</span>
+                            <strong class="text-dark">@userName</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Roles asignados:</span>
+                            <span>
+                                @if (roles.Count > 0)
+                                {
+                                    @foreach (var role in roles)
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border me-1">@role</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted border">Sin roles específicos</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                    <p class="text-secondary mb-4">
+                        No dispone de permisos para realizar esta acción con su perfil actual (por ejemplo, <em>exportación de tablas maestras</em> o <em>visualización de datos confidenciales de contacto</em>).
+                    </p>
+
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <button type="button" onclick="window.history.back()" class="btn btn-outline-secondary px-4 py-2 d-inline-flex align-items-center gap-2">
+                            <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                            <span>Regresar</span>
+                        </button>
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-primary px-4 py-2 d-inline-flex align-items-center gap-2">
+                            <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <span>Ir al Panel Principal</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-light py-3 border-0">
+                    <small class="text-muted">Si considera que requiere acceso a esta función para sus labores, comuníquese con el <strong>Administrador de Seguridad del Sistema</strong> para solicitar una elevación de privilegios.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,36 @@
+@using Landscape.Tsi.Application.Catalogs
+@model Landscape.Tsi.Web.Models.CatalogEditorViewModel
+<div class="form-grid @(Model.Definition.EditorMode == CatalogEditorMode.Page ? "form-grid-wide-editor" : null)">
+@if (Model.IsEdit) { <input type="hidden" name="ConcurrencyToken" value="@CatalogConcurrencyToken.Create(Model.Record!)" /> }
+@foreach (var column in Model.Definition.Columns)
+{
+    var sensitiveEdit = Model.IsEdit && CatalogDisplayPrivacy.IsSensitive(Model.Definition, column.Code);
+    var rawValue = sensitiveEdit ? null : (Model.Record?.Values.GetValueOrDefault(column.Code)?.ToString() ?? Model.InitialValues?.GetValueOrDefault(column.Code));
+    <div class="md-field @(column.IsMultiline ? "form-grid-wide" : null)">
+        <label for="field-@column.Code">@column.Label</label>
+        @if (column.Type == CatalogFieldType.ForeignKey)
+        {
+            <select id="field-@column.Code" name="Values[@column.Code]" class="form-select">
+                <option value="">Sin seleccionar</option>
+                @foreach (var option in Model.Options.GetValueOrDefault(column.Code) ?? [])
+                {
+                    <option value="@option.Id" selected="@(rawValue == option.Id.ToString())">@option.Label</option>
+                }
+            </select>
+        }
+        else if (column.Type == CatalogFieldType.DateTime)
+        {
+            var dateValue = DateTime.TryParse(rawValue, out var date) ? date.ToString("yyyy-MM-dd") : rawValue;
+            <input id="field-@column.Code" name="Values[@column.Code]" value="@dateValue" type="date" class="form-control" />
+        }
+        else if (column.IsMultiline)
+        {
+            <textarea id="field-@column.Code" name="Values[@column.Code]" class="form-control" rows="3">@rawValue</textarea>
+        }
+        else
+        {
+            <input id="field-@column.Code" name="Values[@column.Code]" value="@rawValue" class="form-control" placeholder="@(sensitiveEdit ? "Dejar vacío para conservar el valor actual" : null)" autocomplete="@(sensitiveEdit ? "off" : null)" />
+        }
+    </div>
+}
+</div>

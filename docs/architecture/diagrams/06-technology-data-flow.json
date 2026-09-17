@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Flujo de datos de tecnologías de seguridad",
+    "output": "06-technology-data-flow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 780],
+    "views": [
+      {"id":"catalog","label":"Datos de catálogo","focus":["users","securityCatalog","technologyCatalog","sqlServer"],"note":"Taxonomía y tecnologías conservan una definición corporativa común."},
+      {"id":"transaction","label":"Datos transaccionales","focus":["adoptionRequest","assessment","workflow","evidence","sqlServer"],"note":"Solicitud, evaluación, gobierno y evidencias quedan acotados por organización."},
+      {"id":"auditReporting","label":"Auditoría e informes","focus":["audit","reporting","sqlServer"],"note":"La auditoría append-only se distingue de las consultas de reporting."}
+    ]
+  },
+  "stages": [
+    {"label":"Origen"},
+    {"label":"Catálogos"},
+    {"label":"Adopción y gobierno"},
+    {"label":"Persistencia"},
+    {"label":"Consumo"}
+  ],
+  "nodes": [
+    {"id":"users","type":"external","label":"Usuarios y roles","sublabel":"ámbito","stage":0,"row":2},
+    {"id":"securityCatalog","type":"backend","label":"Catálogo Seguridad","sublabel":"dominios • capacidades","stage":0,"row":0,"width":140},
+    {"id":"technologyCatalog","type":"backend","label":"Catálogo Tecnológico","sublabel":"TSI • casos de uso","stage":1,"row":0,"width":140},
+    {"id":"adoptionRequest","type":"backend","label":"Solicitud adopción","sublabel":"empresa + tecnología","stage":1,"row":2,"width":140},
+    {"id":"assessment","type":"backend","label":"Evaluación","sublabel":"actor asignado","stage":2,"row":1},
+    {"id":"workflow","type":"security","label":"Workflow y gobierno","sublabel":"políticas + estado + SoD","stage":2,"row":3,"width":140},
+    {"id":"evidence","type":"database","label":"Evidencias","sublabel":"documentos y observaciones","stage":1,"row":4,"width":140},
+    {"id":"sqlServer","type":"database","label":"SQL Server","sublabel":"base actual + IAM propuesto","stage":3,"row":1,"width":140},
+    {"id":"audit","type":"security","label":"Auditoría","sublabel":"eventos append-only","stage":3,"row":4},
+    {"id":"reporting","type":"backend","label":"Reporting","sublabel":"consultas acotadas","stage":4,"row":1},
+    {"id":"dashboards","type":"frontend","label":"Paneles por rol","sublabel":"solo datos autorizados","stage":4,"row":3}
+  ],
+  "flows": [
+    {"id":"usersRequest","from":"users","to":"adoptionRequest","label":"solicitud","classification":"transaccional","variant":"emphasis","route":"straight"},
+    {"id":"securityTechnology","from":"securityCatalog","to":"technologyCatalog","label":"clasificación","classification":"catálogo","variant":"default","route":"straight"},
+    {"id":"technologyRequest","from":"technologyCatalog","to":"adoptionRequest","label":"tecnología","labelAt":[315,200],"classification":"transaccional","variant":"emphasis","route":"straight"},
+    {"id":"requestAssessment","from":"adoptionRequest","to":"assessment","label":"caso","labelAt":[400,314],"classification":"transaccional","variant":"emphasis"},
+    {"id":"assessmentWorkflow","from":"assessment","to":"workflow","label":"resultado","labelAt":[560,342],"classification":"gobierno","variant":"security","route":"straight"},
+    {"id":"evidenceAssessment","from":"evidence","to":"assessment","label":"evidencia","labelAt":[450,542],"classification":"evidencia","variant":"dashed","fromSide":"right","toSide":"bottom","via":[[450,613],[450,320],[530,320]]},
+    {"id":"catalogSql","from":"technologyCatalog","to":"sqlServer","label":"catálogo","classification":"catálogo","variant":"default","route":"top-channel"},
+    {"id":"requestSql","from":"workflow","to":"sqlServer","label":"estado transaccional","classification":"transaccional","variant":"emphasis"},
+    {"id":"workflowAudit","from":"workflow","to":"audit","label":"transición y decisión","labelAt":[650,542],"classification":"auditoría","variant":"security"},
+    {"id":"auditSql","from":"audit","to":"sqlServer","label":"evento inmutable","labelAt":[745,500],"classification":"auditoría","variant":"security","route":"straight"},
+    {"id":"sqlReporting","from":"sqlServer","to":"reporting","label":"consultas con ámbito","labelAt":[860,314],"classification":"lectura autorizada","variant":"default"},
+    {"id":"reportingDashboards","from":"reporting","to":"dashboards","label":"indicadores","labelAt":[960,314],"classification":"informes","variant":"emphasis","route":"straight"}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"Catálogo","items":["Taxonomía de seguridad y tecnología corporativa","Tecnología TSI se relaciona con building blocks y casos de uso"]},
+    {"dot":"amber","title":"Transaccional","items":["Adopción por empresa, evaluación, workflow y evidencias","El catálogo oficial de estados sigue pendiente"]},
+    {"dot":"rose","title":"Auditoría y confianza","items":["El servidor aplica permiso y ámbito antes de procesar o consultar","Eventos append-only se distinguen de reporting"]}
+  ]
+}

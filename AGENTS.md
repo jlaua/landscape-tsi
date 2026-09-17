@@ -1,24 +1,24 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+This repository is an ASP.NET Core (.NET 10) application structured as a modular monolith under `Landscape.Tsi.slnx`:
 
-This repository is currently a project seed: the root contains `.gitignore` and a database-connection reference image, but no solution, source, or test project yet. When implementation begins, keep the root uncluttered and use the conventional .NET layout:
-
-- `src/<ProjectName>/` for application code and `.csproj` files.
-- `tests/<ProjectName>.Tests/` for automated tests.
-- `docs/` for sanitized diagrams and operational notes.
-- `assets/` for non-sensitive images used by the application or documentation.
-
-Add the solution file at the root so commands can be run consistently from this directory.
+- `src/Landscape.Tsi.Domain/` for domain models, invariants, and catalog/IAM entities.
+- `src/Landscape.Tsi.Application/` for application use cases, contracts, validation, and services.
+- `src/Landscape.Tsi.Infrastructure/` for EF Core contexts, SQL Server mappings, IAM, and external services.
+- `src/Landscape.Tsi.Web/` for the ASP.NET Core MVC presentation layer (controllers, views, viewmodels).
+- `tests/Landscape.Tsi.Tests/` for unit, integration, and architecture tests.
+- `tools/Landscape.Tsi.PasswordReset/` for administrative security maintenance utilities.
+- `docs/` for sanitized diagrams, architecture notes, and reconciliations.
+- `scripts/` for sanitized SQL validation and reconciliation scripts.
 
 ## Build, Test, and Development Commands
 
-There are no runnable projects or repository-defined scripts yet. After adding a solution, contributors should support these standard commands:
+Contributors should use the following standard commands from the solution root:
 
 - `dotnet restore` — restore NuGet dependencies.
 - `dotnet build --configuration Release` — compile all projects and surface warnings.
 - `dotnet test --configuration Release` — run the complete test suite.
-- `dotnet run --project src/<ProjectName>` — start the application locally.
+- `dotnet run --project src/Landscape.Tsi.Web` — start the web application locally.
 
 Document any required SDK version in `global.json` and update this section when custom tooling is introduced.
 

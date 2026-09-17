@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de identidad y acceso",
+    "output": "02-identity-access-architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [1260, 760],
+    "views": [
+      {"id":"identity","label":"Identidad autenticada","focus":["user","oidc","session"],"note":"OIDC vincula emisor y sujeto con un usuario local activo."},
+      {"id":"decision","label":"Decisión de autorización","focus":["policyEngine","roles","permissions","organizationScope","sod","resource"],"note":"Todas las condiciones se vuelven a evaluar del lado servidor."},
+      {"id":"trace","label":"Persistencia y trazabilidad","focus":["audit","sqlServer"],"note":"Cambios y decisiones privilegiadas quedan auditados."}
+    ]
+  },
+  "components": [
+    {"id":"user","type":"external","label":"Usuario","sublabel":"Identidad corporativa","pos":[30,330],"size":[165,74]},
+    {"id":"oidc","type":"external","label":"Proveedor OIDC","sublabel":"Autenticación federada","pos":[30,105],"size":[165,74]},
+    {"id":"session","type":"security","label":"Sesión autenticada","sublabel":"Perfil local activo","pos":[245,330],"size":[185,78]},
+    {"id":"roles","type":"security","label":"Roles","sublabel":"Paquetes de permisos","pos":[490,105],"size":[170,72]},
+    {"id":"permissions","type":"security","label":"Permisos atómicos","sublabel":"Denegación predeterminada","pos":[490,225],"size":[190,76]},
+    {"id":"policyEngine","type":"security","label":"Políticas del servidor","sublabel":"Evaluación integral","pos":[490,345],"size":[190,80]},
+    {"id":"organizationScope","type":"security","label":"Ámbito organizacional","sublabel":"Corporativo • empresas • subsidiarias","pos":[735,105],"size":[210,80]},
+    {"id":"sod","type":"security","label":"Segregación de funciones","sublabel":"Conflictos por actor y caso","pos":[735,235],"size":[210,78]},
+    {"id":"resource","type":"backend","label":"Recurso protegido","sublabel":"Propiedad • asignación • estado","pos":[735,365],"size":[210,78]},
+    {"id":"audit","type":"database","label":"Auditoría de autorización","sublabel":"Eventos append-only","pos":[1010,275],"size":[210,80]},
+    {"id":"sqlServer","type":"database","label":"SQL Server","sublabel":"IAM propuesto + catálogo existente","pos":[1010,520],"size":[210,80]}
+  ],
+  "boundaries": [
+    {"kind":"security-group","label":"Límite de confianza — proveedor externo","wraps":["oidc"],"pad":22},
+    {"kind":"security-group","label":"Controles del lado servidor","wraps":["session","roles","permissions","policyEngine","organizationScope","sod","resource","audit"],"pad":28},
+    {"kind":"security-group","label":"Límite de datos","wraps":["sqlServer"],"pad":22}
+  ],
+  "connections": [
+    {"id":"userOidc","from":"user","to":"oidc","label":"autentica","variant":"security","fromSide":"top","toSide":"bottom"},
+    {"id":"oidcSession","from":"oidc","to":"session","label":"emisor + sujeto","variant":"security"},
+    {"id":"userSession","from":"user","to":"session","variant":"emphasis"},
+    {"id":"sessionPolicy","from":"session","to":"policyEngine","variant":"security"},
+    {"id":"rolesPermissions","from":"roles","to":"permissions","label":"concede","variant":"security","fromSide":"bottom","toSide":"top"},
+    {"id":"permissionsPolicy","from":"permissions","to":"policyEngine","variant":"security","fromSide":"bottom","toSide":"top"},
+    {"id":"scopePolicy","from":"organizationScope","to":"policyEngine","variant":"security"},
+    {"id":"sodPolicy","from":"sod","to":"policyEngine","variant":"security"},
+    {"id":"policyResource","from":"policyEngine","to":"resource","label":"decisión","labelAt":[708,457],"variant":"emphasis"},
+    {"id":"policyAudit","from":"policyEngine","to":"audit","label":"decisión auditable","labelAt":[850,465],"variant":"dashed","fromSide":"bottom","toSide":"left","via":[[585,475],[975,475],[975,315]]},
+    {"id":"auditSql","from":"audit","to":"sqlServer","variant":"security","fromSide":"bottom","toSide":"top"}
+  ],
+  "cards": [
+    {"dot":"rose","title":"Regla de decisión","items":["Identidad activa + permiso + ámbito + asignación + estado + SoD","Una condición fallida produce denegación predeterminada"]},
+    {"dot":"cyan","title":"Roles iniciales","items":["Administrador • Arquitecto de Seguridad","Ingeniero de TSI • Punto de Contacto del Gobierno"]},
+    {"dot":"emerald","title":"Servidor como frontera","items":["La interfaz no sustituye la autorización","Acciones privilegiadas y denegaciones SoD son auditables"]}
+  ]
+}

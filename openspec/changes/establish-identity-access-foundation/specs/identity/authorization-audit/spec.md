@@ -1,0 +1,70 @@
+## Purpose
+
+Proporcionar trazabilidad inmutable y consultable de cambios y decisiones de autorizacion para investigacion, cumplimiento y rendicion de cuentas.
+
+## ADDED Requirements
+
+### Requirement: Auditoria de cambios de acceso
+El sistema MUST registrar altas y suspensiones de usuario, cambios de rol o permiso, cambios de alcance, excepciones y elevaciones administrativas.
+
+#### Scenario: Asignacion de rol
+- **WHEN** se crea, modifica, revoca o vence una asignacion de rol
+- **THEN** el sistema registra actor, beneficiario, valores anteriores y nuevos, justificacion, aprobacion, fecha y correlacion
+
+### Requirement: Auditoria de decisiones de autorizacion
+El sistema MUST registrar las autorizaciones empresariales de alto impacto, las denegaciones por segregacion de funciones y los intentos privilegiados fallidos.
+
+#### Scenario: Aprobacion permitida
+- **WHEN** una politica permite una aprobacion empresarial
+- **THEN** el sistema registra el permiso, alcance, estado, actor y resultado antes de confirmar la operacion
+
+#### Scenario: Autoaprobacion denegada
+- **WHEN** una accion se deniega por separacion de funciones
+- **THEN** el sistema registra la regla aplicada sin almacenar secretos ni contenido innecesario
+
+### Requirement: Auditoria de autenticacion y bootstrap
+El sistema MUST registrar los resultados de autenticacion local y corporativa, bloqueos y ejecuciones de bootstrap con fecha, mecanismo, identificador seguro, resultado y correlacion, sin almacenar credenciales, hashes, secretos ni tokens completos.
+
+#### Scenario: Login local fallido
+- **WHEN** se rechaza un intento de autenticacion local
+- **THEN** el sistema registra el resultado y mecanismo sin contrasena y sin confirmar si el usuario existe
+
+#### Scenario: Bootstrap omitido
+- **WHEN** el bootstrap no se ejecuta por ambiente no autorizado, secreto ausente o usuario manual preexistente
+- **THEN** el sistema registra una condicion administrativa segura sin incluir el secreto
+
+### Requirement: Auditoria de recuperacion administrativa
+La recuperacion administrativa de contraseña MUST registrar actor tecnico, usuario afectado, ambiente, servidor, base de datos, fecha UTC, accion y resultado, y MUST excluir contraseña, hash, token y cadena de conexion completa.
+
+#### Scenario: Recuperacion exitosa
+- **WHEN** una utilidad autorizada completa el cambio mediante ASP.NET Core Identity
+- **THEN** registra el resultado exitoso y los metadatos sanitizados de alcance sin material de credenciales
+
+#### Scenario: Operacion rechazada
+- **WHEN** el ambiente o la base no coinciden con la politica autorizada
+- **THEN** registra o informa un rechazo seguro sin iniciar el reset ni revelar secretos
+
+### Requirement: Inmutabilidad y disponibilidad
+Los eventos de auditoria MUST ser append-only para usuarios de la aplicacion y MUST permanecer disponibles segun la politica de retencion.
+
+#### Scenario: Intento de editar auditoria
+- **WHEN** cualquier usuario intenta modificar o eliminar directamente un evento retenido
+- **THEN** el sistema deniega la operacion
+
+### Requirement: Consulta restringida de auditoria
+El sistema MUST exigir `Audit.View` y un alcance de auditoria valido, y MUST auditar las consultas sensibles y exportaciones.
+
+#### Scenario: Consulta dentro del alcance
+- **WHEN** un actor autorizado consulta eventos de una subsidiaria incluida en su alcance
+- **THEN** el sistema presenta los eventos permitidos y registra el acceso sensible
+
+#### Scenario: Consulta fuera del alcance
+- **WHEN** un actor solicita eventos de una subsidiaria no autorizada
+- **THEN** el sistema deniega la consulta sin revelar su existencia o contenido
+
+### Requirement: Presentacion accesible de auditoria
+La interfaz de auditoria MUST ser adaptable, navegable por teclado y conforme con WCAG 2.2 AA, con estado y resultado comunicados mediante texto ademas de recursos visuales.
+
+#### Scenario: Revision de evento con lector de pantalla
+- **WHEN** una persona revisa el detalle de un evento usando tecnologia de asistencia
+- **THEN** actor, accion, resultado, fecha, alcance y justificacion tienen nombres accesibles y un orden comprensible

@@ -1,0 +1,1821 @@
+using System.Security.Claims;
+
+using Landscape.Tsi.Application.Adoption;
+using Landscape.Tsi.Application.Catalogs;
+using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Domain.Catalogs;
+using Landscape.Tsi.Infrastructure.Catalogs;
+using Landscape.Tsi.Infrastructure.Reporting;
+using Landscape.Tsi.Web.Models;
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Landscape.Tsi.Web.Controllers;
+
+[Authorize(Policy = Permissions.CatalogView)]
+[Route("Administration/MasterTables")]
+public sealed class MasterTablesController(
+    IDominioService dominioService,
+    ICatalogManagementService catalogService,
+    IDeletionImpactService deletionImpactService,
+    IBuildingBlockRelatedService buildingBlockRelatedService,
+    IBuildingBlockTechnologyMappingService technologyMappingService,
+    IAdoptionProcessService adoptionService,
+    IAssociationImpactService associationImpactService,
+    IAssignmentService assignmentService,
+    IEffectiveAccessService effectiveAccessService,
+    ILogger<MasterTablesController> logger,
+    CatalogDbContext? catalogDbContext = null) : Controller
+{
+    private CatalogDbContext DbContext => catalogDbContext ?? HttpContext.RequestServices.GetRequiredService<CatalogDbContext>();
+
+    [HttpGet("")]
+    public IActionResult Index() => View(MasterCatalogRegistry.EntityMetadata.Where(entity => entity.IsAdministrable).ToArray());
+
+    [HttpGet("Map")]
+    public IActionResult Map() => View(new CatalogMapViewModel
+    {
+        Entities = MasterCatalogRegistry.EntityMetadata,
+        Relationships = MasterCatalogRegistry.LogicalRelationships
+    });
+
+    [HttpGet("DomainDistribution")]
+    public IActionResult DomainDistribution() => RedirectToAction("Index", "Reporting");
+
+    [HttpGet("DomainColors")]
+    [HttpGet("colores-dominios")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> DomainColors(CancellationToken cancellationToken)
+    {
+        var domains = await DbContext.Domains.AsNoTracking().OrderBy(d => d.Dominio).ToListAsync(cancellationToken);
+        var bbs = await DbContext.BuildingBlocks.AsNoTracking().ToListAsync(cancellationToken);
+        var bbCountByDomain = bbs.GroupBy(b => b.IdDominio ?? 0).ToDictionary(g => g.Key, g => g.Count());
+        var customColors = CatalogDomainColorPalette.GetAllCustomColors();
+
+        var domainItems = domains.Select(d =>
+        {
+            var color = CatalogDomainColorPalette.GetColorForDomain(d.Dominio, d.Id);
+            var isCustom = customColors.ContainsKey(d.Id);
+            bbCountByDomain.TryGetValue(d.Id, out var bbCount);
+            return new DomainColorItemViewModel(
+                d.Id,
+                d.Dominio ?? $"Dominio #{d.Id}",
+                d.DescripcionDominio,
+                bbCount,
+                color.PastelHex,
+                color.BorderHex,
+                color.TextHex,
+                isCustom
+            );
+        }).ToList();
+
+        return View(new DomainColorsConfigViewModel
+        {
+            Domains = domainItems,
+            SuccessMessage = TempData["SuccessMessage"] as string,
+            ErrorMessage = TempData["ErrorMessage"] as string
+        });
+    }
+
+    [HttpPost("DomainColors/Save")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult SaveDomainColor([FromForm] int domainId, [FromForm] string pastelHex, [FromForm] string? borderHex, [FromForm] string? textHex)
+    {
+        if (domainId <= 0 || string.IsNullOrWhiteSpace(pastelHex))
+        {
+            TempData["ErrorMessage"] = "Debe proporcionar un identificador de dominio y un color válido.";
+            return RedirectToAction(nameof(DomainColors));
+        }
+
+        CatalogDomainColorPalette.SetCustomColor(domainId, pastelHex, borderHex, textHex);
+        TempData["SuccessMessage"] = "Color de dominio actualizado correctamente.";
+        return RedirectToAction(nameof(DomainColors));
+    }
+
+    [HttpPost("DomainColors/Reset")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResetDomainColor([FromForm] int domainId)
+    {
+        if (domainId > 0)
+        {
+            CatalogDomainColorPalette.ResetCustomColor(domainId);
+            TempData["SuccessMessage"] = "Color del dominio restablecido a la paleta institucional estándar.";
+        }
+        return RedirectToAction(nameof(DomainColors));
+    }
+
+    [HttpPost("DomainColors/ResetAll")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResetAllDomainColors()
+    {
+        CatalogDomainColorPalette.ResetAllCustomColors();
+        TempData["SuccessMessage"] = "Todos los colores de dominio han sido restablecidos a la paleta institucional estándar.";
+        return RedirectToAction(nameof(DomainColors));
+    }
+
+    [HttpGet("Domain")]
+    public async Task<IActionResult> Domain(
+        string? search,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureDomainIsEnabled();
+        return View(new DominioPageViewModel
+        {
+            Search = search,
+            Result = await dominioService.ListAsync(search, page, pageSize, cancellationToken)
+        });
+    }
+
+    [HttpGet("Domain/{id:int}")]
+    public async Task<IActionResult> DomainDetails(int id, string? relatedSearch, int relatedPage = 1, int relatedPageSize = 10, CancellationToken cancellationToken = default)
+    {
+        EnsureDomainIsEnabled();
+        var record = await dominioService.GetAsync(id, cancellationToken);
+        if (record is null) return NotFound();
+
+        var parent = MasterCatalogRegistry.GetByCode("dominio")!;
+        var child = MasterCatalogRegistry.GetByCode("building-block")!;
+        var foreignKey = child.Columns.Single(column => column.ReferenceCatalogCode == parent.Code);
+        var related = await catalogService.ListRelatedAsync(child, foreignKey, id, relatedSearch, relatedPage, relatedPageSize, cancellationToken);
+        var impact = await deletionImpactService.PreviewAsync("dominio", id, cancellationToken);
+        if (impact is null) return NotFound();
+
+        return View(new DominioDetailViewModel
+        {
+            Record = record,
+            Edit = DominioFormModel.FromRecord(record),
+            RelatedBuildingBlocks = related,
+            DependencyImpact = impact,
+            RelatedSearch = relatedSearch
+        });
+    }
+
+    [HttpGet("Domain/{id:int}/building-blocks-capacidades")]
+    public async Task<IActionResult> DomainBuildingBlocksCapabilities(int id, CancellationToken cancellationToken)
+    {
+        EnsureDomainIsEnabled();
+        var domain = await dominioService.GetAsync(id, cancellationToken);
+        if (domain is null) return NotFound();
+
+        var parent = MasterCatalogRegistry.GetByCode("dominio")!;
+        var bbDef = MasterCatalogRegistry.GetByCode("building-block")!;
+        var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad")!;
+        var foreignKeyDomain = bbDef.Columns.Single(c => c.ReferenceCatalogCode == parent.Code);
+        var foreignKeyBB = capDef.Columns.Single(c => c.ReferenceCatalogCode == bbDef.Code);
+
+        var bbResult = await catalogService.ListRelatedAsync(bbDef, foreignKeyDomain, id, null, 1, 50, cancellationToken);
+        var items = new List<object>();
+
+        foreach (var bb in bbResult.Items)
+        {
+            var capCount = await catalogService.GetRelatedCountAsync(capDef, foreignKeyBB, bb.Id, cancellationToken);
+            items.Add(new
+            {
+                id = bb.Id,
+                nombre = bb.DisplayValues.GetValueOrDefault("nombre") ?? $"BB #{bb.Id}",
+                capacidadesCount = capCount
+            });
+        }
+
+        return Json(new { items });
+    }
+
+    [HttpGet("Domain/{id:int}/delete-impact")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DomainDeleteImpact(int id, CancellationToken cancellationToken)
+    {
+        EnsureDomainIsEnabled();
+        var impact = await deletionImpactService.PreviewAsync("dominio", id, cancellationToken);
+        return impact is null ? NotFound() : Json(impact);
+    }
+
+    [HttpPost("Domain/{id:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteDomain(int id, string? confirmation, CancellationToken cancellationToken)
+    {
+        EnsureDomainIsEnabled();
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        try
+        {
+            var result = await deletionImpactService.DeleteAsync("dominio", id, confirmation, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            if (result.Succeeded)
+            {
+                TempData["SuccessMessage"] = $"Registro eliminado correctamente. Se eliminaron {result.TotalRecordsDeleted} registros relacionados.";
+                return RedirectToAction(nameof(Domain));
+            }
+
+            TempData["ErrorMessage"] = result.ErrorMessage ?? "No fue posible eliminar el registro.";
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al eliminar un dominio. Correlación: {CorrelationId}", HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible eliminar el registro. La operación fue revertida.";
+        }
+        return RedirectToAction(nameof(DomainDetails), new { id });
+    }
+
+    [HttpPost("Domain")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateDomain(
+        DominioFormModel model,
+        string? search,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureDomainIsEnabled();
+        if (!TryGetActorUserId(out var actorUserId))
+        {
+            return Forbid();
+        }
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        try
+        {
+            await dominioService.CreateAsync(model.ToCommand(), actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = "El dominio se creó correctamente.";
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al crear un registro de TMDominio. Correlación: {CorrelationId}", HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible crear el dominio. Intente nuevamente.";
+        }
+
+        return RedirectToAction(nameof(Domain), new { search, page, pageSize });
+    }
+
+    [HttpPost("Domain/{id:int}")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditDomain(
+        int id,
+        DominioFormModel model,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureDomainIsEnabled();
+        if (!TryGetActorUserId(out var actorUserId))
+        {
+            return Forbid();
+        }
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        try
+        {
+            if (!await dominioService.UpdateAsync(id, model.ToCommand(), actorUserId, HttpContext.TraceIdentifier, cancellationToken))
+            {
+                return NotFound();
+            }
+
+            TempData["SuccessMessage"] = "El dominio se actualizó correctamente.";
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al editar un registro de TMDominio. Correlación: {CorrelationId}", HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible actualizar el dominio. Intente nuevamente.";
+        }
+
+        return RedirectToAction(nameof(DomainDetails), new { id });
+    }
+
+    [HttpGet("{catalogRoute}")]
+    public async Task<IActionResult> Catalog(
+        string catalogRoute,
+        string? search,
+        int page = 1,
+        int pageSize = 10,
+        int? parentId = null,
+        string? sortColumn = null,
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null)
+        {
+            return NotFound();
+        }
+        if (definition.Code == "dominio")
+        {
+            return RedirectToAction(nameof(Domain), new { search, page, pageSize });
+        }
+        if (parentId.HasValue && definition.Code != "building-block")
+        {
+            return NotFound();
+        }
+
+        var result = parentId.HasValue
+            ? await catalogService.ListRelatedAsync(definition, definition.Columns.Single(column => column.ReferenceCatalogCode == "dominio"), parentId.Value, search, page, pageSize, cancellationToken)
+            : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken, sortColumn, sortDirection);
+
+        IReadOnlyDictionary<int, int>? vendorTechCounts = null;
+        IReadOnlyDictionary<int, int>? contactCounts = null;
+        if (definition.Code == "vendor" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            vendorTechCounts = await catalogService.GetVendorTechnologyCountsAsync(ids, cancellationToken);
+            contactCounts = await catalogService.GetVendorContactCountsAsync(ids, cancellationToken);
+        }
+        else if (definition.Code == "partner" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            contactCounts = await catalogService.GetPartnerContactCountsAsync(ids, cancellationToken);
+        }
+        else if (definition.Code == "empresa-subsidiaria" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            contactCounts = await catalogService.GetCompanyContactCountsAsync(ids, cancellationToken);
+        }
+
+        return View(new CatalogPageViewModel
+        {
+            Definition = definition,
+            Search = search,
+            Result = result,
+            SortColumn = sortColumn,
+            SortDirection = sortDirection,
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            VendorTechnologyCounts = vendorTechCounts,
+            ContactCounts = contactCounts
+        });
+    }
+
+    [HttpGet("{catalogRoute}/export-excel")]
+    [Authorize(Policy = Permissions.CatalogExport)]
+    public async Task<IActionResult> ExportToExcel(
+        string catalogRoute,
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null)
+        {
+            return NotFound();
+        }
+
+        // Obtener la totalidad de registros que coincidan con la búsqueda (hasta 100,000)
+        var result = await catalogService.ListAsync(definition, search, 1, 100000, cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        var workbook = new SimpleExcelWorkbook();
+        var sheet = workbook.CreateSheet(definition.Name);
+
+        // Cabeceras: Código y etiquetas de columnas
+        var headers = new List<string?> { "ID" };
+        headers.AddRange(definition.Columns.Select(c => c.Label));
+        sheet.AddHeader(headers);
+
+        // Filas de datos
+        foreach (var row in result.Items)
+        {
+            var cells = new List<object?> { row.Id };
+            foreach (var col in definition.Columns)
+            {
+                var displayVal = row.DisplayValues.GetValueOrDefault(col.Code);
+                var protectedVal = CatalogDisplayPrivacy.Protect(definition, col.Code, displayVal, canViewSensitive);
+                cells.Add(protectedVal ?? string.Empty);
+            }
+            sheet.AddRow(cells);
+        }
+
+        var fileBytes = workbook.Build();
+        var safeFileName = $"{definition.Route}_{DateTime.UtcNow:yyyyMMdd_HHmm}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", safeFileName);
+    }
+
+    [HttpGet("building-block/{id:int}/export-grid")]
+    [Authorize(Policy = Permissions.CatalogExport)]
+    public async Task<IActionResult> ExportBuildingBlockGrid(
+        int id,
+        string? grid = "all",
+        CancellationToken cancellationToken = default)
+    {
+        var bb = await DbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (bb is null) return NotFound();
+
+        var bbName = bb.Nombre ?? $"BB #{bb.Id}";
+        var safeBbName = string.Join("", bbName.Where(char.IsLetterOrDigit));
+        var workbook = new SimpleExcelWorkbook();
+
+        var exportAll = string.IsNullOrWhiteSpace(grid) || string.Equals(grid, "all", StringComparison.OrdinalIgnoreCase);
+        var exportCaps = exportAll || string.Equals(grid, "capacidades", StringComparison.OrdinalIgnoreCase);
+        var exportFuncs = exportAll || string.Equals(grid, "funcionalidades", StringComparison.OrdinalIgnoreCase);
+        var exportTechs = exportAll || string.Equals(grid, "tecnologias", StringComparison.OrdinalIgnoreCase);
+
+        // Capacidades
+        var caps = await DbContext.Capabilities.AsNoTracking()
+            .Where(c => c.IdBuildingBlock == id)
+            .OrderBy(c => c.Nombre)
+            .ToListAsync(cancellationToken);
+        var capStates = await DbContext.CapabilityStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+
+        if (exportCaps)
+        {
+            var sheetCaps = workbook.CreateSheet("Capacidades");
+            sheetCaps.AddHeader("Building Block:", bbName);
+            sheetCaps.AddHeader("Total Capacidades:", caps.Count.ToString());
+            sheetCaps.AddRow(string.Empty);
+            sheetCaps.AddHeader("ID", "Capacidad de Seguridad", "Estado", "Descripción");
+
+            foreach (var c in caps)
+            {
+                var stateName = c.IdEstado.HasValue && capStates.TryGetValue(c.IdEstado.Value, out var sn) ? sn : "—";
+                sheetCaps.AddRow(c.Id, c.Nombre ?? "—", stateName, c.Descripcion ?? "—");
+            }
+        }
+
+        // Funcionalidades
+        if (exportFuncs)
+        {
+            var capIds = caps.Select(c => c.Id).ToList();
+            var funcs = await DbContext.Functionalities.AsNoTracking()
+                .Where(f => f.IdCapacidad.HasValue && capIds.Contains(f.IdCapacidad.Value))
+                .OrderBy(f => f.Nombre)
+                .ToListAsync(cancellationToken);
+            var funcStates = await DbContext.FunctionalityStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+            var capMap = caps.ToDictionary(c => c.Id, c => c.Nombre ?? "—");
+
+            var sheetFuncs = workbook.CreateSheet("Funcionalidades");
+            sheetFuncs.AddHeader("Building Block:", bbName);
+            sheetFuncs.AddHeader("Total Funcionalidades:", funcs.Count.ToString());
+            sheetFuncs.AddRow(string.Empty);
+            sheetFuncs.AddHeader("ID", "Capacidad de Seguridad", "Funcionalidad", "Estado", "Descripción");
+
+            foreach (var f in funcs)
+            {
+                var cName = f.IdCapacidad.HasValue && capMap.TryGetValue(f.IdCapacidad.Value, out var cn) ? cn : "—";
+                var stateName = f.IdEstado.HasValue && funcStates.TryGetValue(f.IdEstado.Value, out var sn) ? sn : "—";
+                sheetFuncs.AddRow(f.Id, cName, f.Nombre ?? "—", stateName, f.Descripcion ?? "—");
+            }
+        }
+
+        // Tecnologías TSI Relacionadas
+        if (exportTechs)
+        {
+            var techMapping = await technologyMappingService.GetBuildingBlockRelationsAsync(id, null, null, cancellationToken);
+            var techIds = techMapping?.Technologies.Select(t => t.Id).ToList() ?? [];
+            var techs = await DbContext.Technologies.AsNoTracking()
+                .Where(t => techIds.Contains(t.Id))
+                .OrderBy(t => t.NombreCorporativo ?? t.NombreLocal)
+                .ToListAsync(cancellationToken);
+            var families = await DbContext.Families.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.Nombre ?? "—", cancellationToken);
+            var adoptionStates = await DbContext.TechnologyAdoptionStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+            var roadmapPostures = await DbContext.RoadmapPostures.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nombre ?? "—", cancellationToken);
+
+            var sheetTechs = workbook.CreateSheet("Tecnologias TSI");
+            sheetTechs.AddHeader("Building Block:", bbName);
+            sheetTechs.AddHeader("Total Tecnologías Relacionadas:", techs.Count.ToString());
+            sheetTechs.AddRow(string.Empty);
+            sheetTechs.AddHeader("ID", "Tecnología Corporativa", "Tecnología Local", "Familia", "Estado Adopción", "Postura Roadmap", "Licenciamiento", "Entorno");
+
+            foreach (var t in techs)
+            {
+                var famName = t.IdFamilia.HasValue && families.TryGetValue(t.IdFamilia.Value, out var fn) ? fn : "—";
+                var adoptName = t.IdEstadoAdopcion.HasValue && adoptionStates.TryGetValue(t.IdEstadoAdopcion.Value, out var an) ? an : "—";
+                var postName = t.IdPostura.HasValue && roadmapPostures.TryGetValue(t.IdPostura.Value, out var pn) ? pn : "—";
+
+                sheetTechs.AddRow(
+                    t.Id,
+                    t.NombreCorporativo ?? "—",
+                    t.NombreLocal ?? "—",
+                    famName,
+                    adoptName,
+                    postName,
+                    t.Licenciamiento ?? "—",
+                    t.Entorno ?? "—");
+            }
+        }
+
+        var fileName = exportAll
+            ? $"BB_{id}_{safeBbName}_FichaCompleta.xlsx"
+            : $"BB_{id}_{safeBbName}_{grid}.xlsx";
+
+        return File(workbook.Build(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    [HttpGet("vendor/{id:int}/technologies")]
+    public async Task<IActionResult> GetVendorTechnologies(int id, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        var vendorName = vendor.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{id}";
+        var technologies = await catalogService.GetVendorTechnologiesAsync(id, cancellationToken);
+
+        return Json(new
+        {
+            vendorId = id,
+            vendorName,
+            totalCount = technologies.Count,
+            items = technologies.Select(t => new
+            {
+                id = t.Id,
+                nombreCorporativo = t.NombreCorporativo,
+                nombreLocal = t.NombreLocal ?? "—",
+                familia = t.Familia ?? "—",
+                estadoAdopcion = t.EstadoAdopcion ?? "—",
+                licenciamiento = t.Licenciamiento ?? "—",
+                entorno = t.Entorno ?? "—",
+                detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "tecnologia-tsi", id = t.Id })
+            })
+        });
+    }
+
+    [HttpGet("vendor/{id:int}/contacts")]
+    public async Task<IActionResult> GetVendorContacts(int id, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        var vendorName = vendor.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{id}";
+        var relatedVendorIds = await DbContext.Vendors.AsNoTracking()
+            .Where(v => v.Id == id || (!string.IsNullOrEmpty(vendorName) && v.NombreVendor == vendorName))
+            .Select(v => v.Id)
+            .ToListAsync(cancellationToken);
+
+        var contacts = await DbContext.VendorContacts.AsNoTracking()
+            .Where(c => c.IdVendor == id || (c.IdVendor.HasValue && relatedVendorIds.Contains(c.IdVendor.Value)))
+            .OrderBy(c => c.NombreContactoVendor)
+            .ToListAsync(cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = vendorName,
+            entityType = "vendor",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoVendor ?? "—",
+                rol = c.Rol ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreateVendorContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var contact = new TContactoVendor
+        {
+            IdVendor = id,
+            NombreContactoVendor = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.VendorContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditVendorContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.VendorContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoVendor = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeleteVendorContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.VendorContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.VendorContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
+    }
+
+    [HttpGet("partner/{id:int}/contacts")]
+    public async Task<IActionResult> GetPartnerContacts(int id, CancellationToken cancellationToken)
+    {
+        var partnerDefinition = MasterCatalogRegistry.GetByCode("partner");
+        if (partnerDefinition is null) return NotFound();
+
+        var partner = await catalogService.GetAsync(partnerDefinition, id, cancellationToken);
+        if (partner is null) return NotFound();
+
+        var partnerName = partner.DisplayValues.GetValueOrDefault("nombrePartner") ?? $"Partner #{id}";
+        var relatedPartnerIds = await DbContext.Partners.AsNoTracking()
+            .Where(p => p.Id == id || (!string.IsNullOrEmpty(partnerName) && p.NombrePartner == partnerName))
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        var contacts = await DbContext.PartnerContacts.AsNoTracking()
+            .Where(c => c.IdPartner == id || (c.IdPartner.HasValue && relatedPartnerIds.Contains(c.IdPartner.Value)))
+            .OrderBy(c => c.NombreContactoPartner)
+            .ToListAsync(cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = partnerName,
+            entityType = "partner",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoPartner ?? "—",
+                rol = c.Rol ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreatePartnerContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var partner = await DbContext.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        var contact = new TContactoPartner
+        {
+            IdPartner = id,
+            IdVendor = partner?.IdVendor,
+            NombreContactoPartner = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.PartnerContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditPartnerContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.PartnerContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoPartner = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("partner/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeletePartnerContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.PartnerContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.PartnerContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
+    }
+
+    [HttpGet("empresa-subsidiaria/{id:int}/contacts")]
+    [HttpGet("/MasterTables/empresa-subsidiaria/{id:int}/contacts")]
+    public async Task<IActionResult> GetCompanyContacts(int id, CancellationToken cancellationToken)
+    {
+        var companyDefinition = MasterCatalogRegistry.GetByCode("empresa-subsidiaria");
+        string companyName = $"Empresa #{id}";
+
+        if (companyDefinition is not null)
+        {
+            var company = await catalogService.GetAsync(companyDefinition, id, cancellationToken);
+            if (company is not null)
+            {
+                companyName = company.DisplayValues.GetValueOrDefault("nombreEmpresa") ?? companyName;
+            }
+            else
+            {
+                var fallbackCompany = await DbContext.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+                if (fallbackCompany is not null)
+                {
+                    companyName = fallbackCompany.Nombre ?? companyName;
+                }
+            }
+        }
+
+        var contacts = await DbContext.CompanyContacts.AsNoTracking()
+            .Where(c => c.IdEmpresaSubsidiaria == id)
+            .OrderBy(c => c.NombreContactoEmpresaSubsidiaria)
+            .ToListAsync(cancellationToken);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+
+        return Json(new
+        {
+            entityId = id,
+            entityName = companyName,
+            entityType = "empresa-subsidiaria",
+            totalCount = contacts.Count,
+            items = contacts.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.NombreContactoEmpresaSubsidiaria ?? "—",
+                rol = c.Rol ?? "—",
+                email = canViewSensitive ? (c.Email ?? "—") : SensitiveDataMasker.MaskEmail(c.Email),
+                telefono = canViewSensitive ? (c.Telefono ?? "—") : SensitiveDataMasker.MaskPhone(c.Telefono),
+                otro = c.Otro ?? "—",
+                notas = c.Notas ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreateCompanyContact(int id, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        var contact = new TContactoEmpresaSubsidiaria
+        {
+            IdEmpresaSubsidiaria = id,
+            NombreContactoEmpresaSubsidiaria = name,
+            Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim(),
+            Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim(),
+            Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim(),
+            Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim()
+        };
+
+        DbContext.CompanyContacts.Add(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = contact.Id,
+            message = "Contacto registrado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts/{contactId:int}/edit")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts/{contactId:int}/edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditCompanyContact(int id, int contactId, [FromBody] SaveMasterContactDto? model, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        var name = model?.Nombre?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "El nombre del contacto es obligatorio." });
+        }
+
+        contact.NombreContactoEmpresaSubsidiaria = name;
+        contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
+        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
+        contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto actualizado exitosamente."
+        });
+    }
+
+    [HttpPost("empresa-subsidiaria/{id:int}/contacts/{contactId:int}/delete")]
+    [HttpPost("/MasterTables/empresa-subsidiaria/{id:int}/contacts/{contactId:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> DeleteCompanyContact(int id, int contactId, CancellationToken cancellationToken)
+    {
+        var contact = await DbContext.CompanyContacts.FirstOrDefaultAsync(c => c.Id == contactId, cancellationToken);
+        if (contact is null) return NotFound(new { message = "Contacto no encontrado." });
+
+        DbContext.CompanyContacts.Remove(contact);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Contacto eliminado exitosamente."
+        });
+    }
+
+    [HttpPost("building-block/{id:int}/reorder-capabilities")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> ReorderCapabilities(int id, [FromBody] ReorderCapabilitiesDto model, CancellationToken cancellationToken)
+    {
+        if (model?.CapabilityIds is null || model.CapabilityIds.Count == 0)
+        {
+            return BadRequest(new { message = "La lista de capacidades está vacía." });
+        }
+
+        var capabilities = await DbContext.Capabilities
+            .Where(c => c.IdBuildingBlock == id)
+            .ToListAsync(cancellationToken);
+
+        var capMap = capabilities.ToDictionary(c => c.Id);
+
+        for (var i = 0; i < model.CapabilityIds.Count; i++)
+        {
+            var capId = model.CapabilityIds[i];
+            if (capMap.TryGetValue(capId, out var cap))
+            {
+                cap.OrdenVisualizacion = i + 1;
+            }
+        }
+
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Orden de capacidades guardado exitosamente."
+        });
+    }
+
+    [HttpGet("{catalogRoute}/details/{id:int}")]
+    public async Task<IActionResult> CatalogDetails(
+        string catalogRoute,
+        int id,
+        string? capabilitySearch,
+        string? functionalitySearch,
+        string? technologySearch,
+        string? contactSearch,
+        int capabilityPage = 1,
+        int functionalityPage = 1,
+        int technologyPage = 1,
+        int contactPage = 1,
+        int relatedPageSize = 10,
+        string? functionalitySortBy = null,
+        string? functionalitySortDirection = null,
+        string? capabilitySortBy = null,
+        string? capabilitySortDirection = null,
+        int capabilityPageSize = 10,
+        int functionalityPageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || definition.Code == "dominio")
+        {
+            return NotFound();
+        }
+        var record = await catalogService.GetAsync(definition, id, cancellationToken);
+        if (record is null) return NotFound();
+        var related = definition.Code == "building-block"
+            ? await buildingBlockRelatedService.GetAsync(
+                id, capabilitySearch, functionalitySearch, technologySearch,
+                capabilityPage, functionalityPage, technologyPage,
+                relatedPageSize, functionalitySortBy, functionalitySortDirection,
+                capabilitySortBy, capabilitySortDirection,
+                functionalityPageSize, capabilityPageSize,
+                cancellationToken)
+            : null;
+        var technologyMapping = definition.Code == "building-block"
+            ? await technologyMappingService.GetBuildingBlockRelationsAsync(id, technologySearch, null, cancellationToken)
+            : null;
+        var technologyRelations = definition.Code == "tecnologia-tsi"
+            ? await technologyMappingService.GetTechnologyRelationsAsync(id, cancellationToken)
+            : null;
+        CatalogPageResult? relatedRecords = null;
+        if (definition.Code == "capacidad-seguridad")
+        {
+            var child = MasterCatalogRegistry.GetByCode("funcionalidad")!;
+            var foreignKey = child.Columns.Single(column => column.ReferenceCatalogCode == definition.Code);
+            relatedRecords = await catalogService.ListRelatedAsync(child, foreignKey, id, functionalitySearch, functionalityPage, relatedPageSize, cancellationToken);
+        }
+
+        CatalogPageResult? implementedContracts = null;
+        CatalogPageResult? implementedOperationModels = null;
+        CatalogPageResult? implementedDrivers = null;
+        CatalogPageResult? implementedServices = null;
+
+        if (definition.Code == "tecnologia-tsi-implementada")
+        {
+            var contractDef = MasterCatalogRegistry.GetByCode("contrato-tecnologia");
+            if (contractDef is not null)
+            {
+                var fk = contractDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedContracts = await catalogService.ListRelatedAsync(contractDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var opModelDef = MasterCatalogRegistry.GetByCode("modelo-operacion");
+            if (opModelDef is not null)
+            {
+                var fk = opModelDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedOperationModels = await catalogService.ListRelatedAsync(opModelDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var driverDef = MasterCatalogRegistry.GetByCode("driver");
+            if (driverDef is not null)
+            {
+                var fk = driverDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedDrivers = await catalogService.ListRelatedAsync(driverDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var serviceDef = MasterCatalogRegistry.GetByCode("servicio-tecnologia");
+            if (serviceDef is not null)
+            {
+                var fk = serviceDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    implementedServices = await catalogService.ListRelatedAsync(serviceDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+        }
+
+        CatalogPageResult? processCompanies = null;
+        CatalogPageResult? processStandards = null;
+        CatalogPageResult? processServices = null;
+
+        if (definition.Code == "proceso-adopcion-tsi")
+        {
+            var compDef = MasterCatalogRegistry.GetByCode("proceso-adopcion-empresa");
+            if (compDef is not null)
+            {
+                var fk = compDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processCompanies = await catalogService.ListRelatedAsync(compDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var stdDef = MasterCatalogRegistry.GetByCode("estandar-tecnologia-historico");
+            if (stdDef is not null)
+            {
+                var fk = stdDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processStandards = await catalogService.ListRelatedAsync(stdDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+
+            var srvDef = MasterCatalogRegistry.GetByCode("servicio-tecnologia");
+            if (srvDef is not null)
+            {
+                var fk = srvDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == definition.Code);
+                if (fk is not null)
+                {
+                    processServices = await catalogService.ListRelatedAsync(srvDef, fk, id, null, 1, 50, cancellationToken);
+                }
+            }
+        }
+
+        var adoptionDetail = definition.Code == "building-block"
+            ? await adoptionService.GetProcessDetailByBuildingBlockAsync(id, cancellationToken)
+            : (definition.Code == "proceso-adopcion-tsi"
+                ? await adoptionService.GetProcessDetailAsync(id, cancellationToken)
+                : null);
+
+        var options = await catalogService.GetOptionsAsync(definition, cancellationToken);
+        if (definition.Code == "building-block")
+        {
+            var mutableOptions = options.ToDictionary(k => k.Key, k => k.Value, StringComparer.Ordinal);
+            var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad");
+            if (capDef is not null)
+            {
+                var capOptions = await catalogService.GetOptionsAsync(capDef, cancellationToken);
+                foreach (var (k, v) in capOptions)
+                {
+                    mutableOptions[k] = v;
+                }
+            }
+            var funcDef = MasterCatalogRegistry.GetByCode("funcionalidad");
+            if (funcDef is not null)
+            {
+                var funcOptions = await catalogService.GetOptionsAsync(funcDef, cancellationToken);
+                foreach (var (k, v) in funcOptions)
+                {
+                    mutableOptions[k] = v;
+                }
+            }
+            options = mutableOptions;
+        }
+
+        IReadOnlyList<VendorTechnologyDto>? vendorTechnologies = null;
+        if (definition.Code == "vendor")
+        {
+            vendorTechnologies = await catalogService.GetVendorTechnologiesAsync(id, cancellationToken);
+        }
+
+        CatalogPageResult? relatedContacts = null;
+        if (definition.Code == "vendor")
+        {
+            var contactoVendorDef = MasterCatalogRegistry.GetByCode("contacto-vendor");
+            if (contactoVendorDef is not null)
+            {
+                var fk = contactoVendorDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "vendor");
+                if (fk is not null)
+                {
+                    relatedContacts = await catalogService.ListRelatedAsync(contactoVendorDef, fk, id, contactSearch, contactPage, 50, cancellationToken);
+                }
+            }
+        }
+        else if (definition.Code == "partner")
+        {
+            var contactoPartnerDef = MasterCatalogRegistry.GetByCode("contacto-partner");
+            if (contactoPartnerDef is not null)
+            {
+                var fk = contactoPartnerDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "partner");
+                if (fk is not null)
+                {
+                    relatedContacts = await catalogService.ListRelatedAsync(contactoPartnerDef, fk, id, contactSearch, contactPage, 50, cancellationToken);
+                }
+            }
+        }
+
+        return View(new CatalogDetailViewModel
+        {
+            Definition = definition,
+            Record = record,
+            Options = options,
+            Related = related,
+            RelatedRecords = relatedRecords,
+            TechnologyMapping = technologyMapping,
+            TechnologyRelations = technologyRelations,
+            FunctionalitySortBy = functionalitySortBy,
+            FunctionalitySortDirection = functionalitySortDirection,
+            CapabilitySortBy = capabilitySortBy,
+            CapabilitySortDirection = capabilitySortDirection,
+            CapabilityPageSize = capabilityPageSize,
+            FunctionalityPageSize = functionalityPageSize,
+            FunctionalitySearch = functionalitySearch,
+            CapabilitySearch = capabilitySearch,
+            TechnologySearch = technologySearch,
+            AdoptionDetail = adoptionDetail,
+            ImplementedContracts = implementedContracts,
+            ImplementedOperationModels = implementedOperationModels,
+            ImplementedDrivers = implementedDrivers,
+            ImplementedServices = implementedServices,
+            ProcessCompanies = processCompanies,
+            ProcessStandards = processStandards,
+            ProcessServices = processServices,
+            VendorTechnologies = vendorTechnologies,
+            RelatedContacts = relatedContacts,
+            ContactSearch = contactSearch,
+            ContactPage = contactPage
+        });
+    }
+
+    [HttpGet("{catalogRoute}/{id:int}/delete-impact")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    public async Task<IActionResult> CatalogDeleteImpact(string catalogRoute, int id, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || !definition.IsDeletable) return NotFound();
+        try
+        {
+            var impact = await deletionImpactService.PreviewAsync(definition.Code, id, cancellationToken);
+            return impact is null ? NotFound() : Json(impact);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al calcular el impacto de eliminación para {Route} id {Id}. Correlación: {CorrelationId}", catalogRoute, id, HttpContext.TraceIdentifier);
+            return StatusCode(500, new { message = "Error al calcular el impacto de dependencias." });
+        }
+    }
+
+    [HttpGet("tecnologia-tsi-implementada/company-metrics")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> ImplementedTechnologiesCompanyMetrics(CancellationToken cancellationToken)
+    {
+        var parentDef = MasterCatalogRegistry.GetByCode("empresa-subsidiaria");
+        var childDef = MasterCatalogRegistry.GetByCode("tecnologia-tsi-implementada");
+        if (parentDef is null || childDef is null) return NotFound();
+
+        var fkCol = childDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "empresa-subsidiaria");
+        if (fkCol is null) return NotFound();
+
+        var buckets = await catalogService.GetRelationCountsAsync(parentDef, childDef, fkCol, cancellationToken);
+        var totalCompanies = buckets.Count(b => b.Total > 0);
+        var totalImplementations = buckets.Sum(b => b.Total);
+        var averagePerCompany = totalCompanies == 0 ? 0 : Math.Round((double)totalImplementations / totalCompanies, 1);
+
+        return Json(new
+        {
+            summary = new
+            {
+                totalCompanies,
+                totalImplementations,
+                averagePerCompany
+            },
+            companies = buckets.Select(b => new
+            {
+                companyId = b.ParentId,
+                companyName = b.ParentName,
+                count = b.Total
+            }).OrderByDescending(b => b.count).ThenBy(b => b.companyName).ToList()
+        });
+    }
+
+    [HttpGet("tecnologia-tsi-implementada/companies/{companyId:int}/technologies")]
+    [Authorize(Policy = Permissions.CatalogView)]
+    public async Task<IActionResult> ImplementedTechnologiesByCompany(int companyId, CancellationToken cancellationToken)
+    {
+        var childDef = MasterCatalogRegistry.GetByCode("tecnologia-tsi-implementada");
+        if (childDef is null) return NotFound();
+
+        var fkCol = childDef.Columns.FirstOrDefault(c => c.ReferenceCatalogCode == "empresa-subsidiaria");
+        if (fkCol is null) return NotFound();
+
+        var related = await catalogService.ListRelatedAsync(childDef, fkCol, companyId, null, 1, 100, cancellationToken);
+        var items = related.Items.Select(row => new
+        {
+            id = row.Id,
+            empresa = row.DisplayValues.GetValueOrDefault("empresa") ?? "—",
+            tecnologia = row.DisplayValues.GetValueOrDefault("tecnologia") ?? "—",
+            buildingBlock = row.DisplayValues.GetValueOrDefault("buildingBlock") ?? "—",
+            versionDesplegada = row.DisplayValues.GetValueOrDefault("versionDesplegada") ?? "—",
+            esInstanciaCorporativa = row.DisplayValues.GetValueOrDefault("esInstanciaCorporativa") ?? "—",
+            esTecnologiaPrimaria = row.DisplayValues.GetValueOrDefault("esTecnologiaPrimaria") ?? "—",
+            detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteImpactUrl = Url.Action(nameof(CatalogDeleteImpact), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteActionUrl = Url.Action(nameof(DeleteCatalog), new { catalogRoute = "tecnologia-tsi-implementada", id = row.Id }),
+            deleteRowName = $"{(row.DisplayValues.GetValueOrDefault("empresa") ?? "")} — {(row.DisplayValues.GetValueOrDefault("tecnologia") ?? row.Id.ToString())}"
+        }).ToList();
+
+        return Json(new { companyId, items, total = related.TotalCount });
+    }
+
+    [HttpPost("tecnologia-tsi-implementada/bulk-delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkDeleteImplementedTechnologies([FromForm] int[] selectedIds, [FromForm] string? confirmation, [FromForm] string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute("tecnologia-tsi-implementada");
+        if (definition is null || !definition.IsDeletable) return NotFound();
+
+        if (selectedIds == null || selectedIds.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Debe seleccionar al menos un registro para eliminar.";
+            return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+        }
+
+        if (!string.Equals(confirmation?.Trim(), "ELIMINAR", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Debe escribir ELIMINAR para confirmar la eliminación masiva.";
+            return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+        }
+
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var successCount = 0;
+        var totalCascadeRecords = 0;
+        var errors = new List<string>();
+
+        foreach (var id in selectedIds.Distinct())
+        {
+            try
+            {
+                var result = await deletionImpactService.DeleteAsync(definition.Code, id, confirmation, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+                if (result.Succeeded)
+                {
+                    successCount++;
+                    totalCascadeRecords += result.TotalRecordsDeleted;
+                }
+                else if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+                {
+                    errors.Add($"ID {id}: {result.ErrorMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error al eliminar masivamente id {Id} de {Catalog}. Correlación: {CorrelationId}", id, definition.Name, HttpContext.TraceIdentifier);
+                errors.Add($"ID {id}: Error interno al procesar.");
+            }
+        }
+
+        if (successCount > 0)
+        {
+            var message = $"Se eliminaron exitosamente {successCount} tecnología(s) implementada(s) ({totalCascadeRecords} registro(s) en cascada).";
+            if (errors.Count > 0)
+            {
+                message += $" Hubo errores en {errors.Count} elemento(s).";
+            }
+            TempData["SuccessMessage"] = message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = errors.Count > 0
+                ? $"No fue posible eliminar los registros seleccionados: {string.Join("; ", errors.Take(3))}"
+                : "No fue posible eliminar los registros seleccionados.";
+        }
+
+        return RedirectToLocalOrCatalog(returnUrl, "tecnologia-tsi-implementada");
+    }
+
+    private IActionResult RedirectToLocalOrCatalog(string? returnUrl, string catalogRoute)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+        return RedirectToAction(nameof(Catalog), new { catalogRoute });
+    }
+
+    [HttpPost("{catalogRoute}/{id:int}/delete")]
+    [Authorize(Policy = Permissions.CatalogDelete)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteCatalog(string catalogRoute, int id, string? confirmation, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || !definition.IsDeletable) return NotFound();
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+        try
+        {
+            var result = await deletionImpactService.DeleteAsync(definition.Code, id, confirmation, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] = result.Succeeded
+                ? (result.TotalRecordsDeleted == 1 ? "Registro eliminado correctamente. Se eliminó 1 registro." : $"Registro eliminado correctamente. Se eliminaron {result.TotalRecordsDeleted} registros relacionados.")
+                : result.ErrorMessage ?? "No fue posible eliminar el registro.";
+            if (result.Succeeded)
+            {
+                if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                {
+                    return Redirect(returnUrl);
+                }
+                return RedirectToAction(nameof(Catalog), new { catalogRoute });
+            }
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al eliminar {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible eliminar el registro. La operación fue revertida.";
+        }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
+    }
+
+    [HttpGet("{catalogRoute}/create")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CatalogCreateForm(string catalogRoute, string? returnUrl, string? initialKey, string? initialValue, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
+        {
+            return NotFound();
+        }
+        if (definition.EditorMode == CatalogEditorMode.Modal && string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return RedirectToAction(nameof(Catalog), new { catalogRoute });
+        }
+        var initialValues = new Dictionary<string, string?>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(initialKey) && !string.IsNullOrWhiteSpace(initialValue))
+        {
+            initialValues[initialKey] = initialValue;
+        }
+        return View("CatalogEditor", new CatalogEditorViewModel
+        {
+            Definition = definition,
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            ReturnUrl = returnUrl,
+            InitialValues = initialValues
+        });
+    }
+
+    [HttpGet("{catalogRoute}/edit/{id:int}")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> CatalogEditForm(string catalogRoute, int id, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
+        {
+            return NotFound();
+        }
+        var record = await catalogService.GetAsync(definition, id, cancellationToken);
+        return record is null ? NotFound() : View("CatalogEditor", new CatalogEditorViewModel
+        {
+            Definition = definition,
+            Record = record,
+            Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
+            ReturnUrl = returnUrl
+        });
+    }
+
+    [HttpPost("{catalogRoute}/create")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateCatalog(string catalogRoute, CatalogInputModel input, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
+        {
+            return NotFound();
+        }
+        if (!TryGetActorUserId(out var actorUserId))
+        {
+            return Forbid();
+        }
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+        try
+        {
+            var id = await catalogService.CreateAsync(definition, input.Values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = $"{definition.Name} se creó correctamente.";
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
+        }
+        catch (CatalogValidationException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al crear {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = $"No fue posible crear {definition.Name}. Intente nuevamente.";
+        }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return RedirectToAction(nameof(CatalogCreateForm), new { catalogRoute, returnUrl });
+        }
+        return RedirectToAction(definition.EditorMode == CatalogEditorMode.Page ? nameof(CatalogCreateForm) : nameof(Catalog), new { catalogRoute });
+    }
+
+    [HttpPost("{catalogRoute}/edit/{id:int}")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditCatalog(string catalogRoute, int id, CatalogInputModel input, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
+        if (definition is null || definition.Code == "dominio" || definition.IsReadOnly)
+        {
+            return NotFound();
+        }
+        if (!TryGetActorUserId(out var actorUserId))
+        {
+            return Forbid();
+        }
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+        try
+        {
+            var current = await catalogService.GetAsync(definition, id, cancellationToken);
+            if (current is null) return NotFound();
+            if (string.IsNullOrWhiteSpace(input.ConcurrencyToken) || !string.Equals(input.ConcurrencyToken, CatalogConcurrencyToken.Create(current), StringComparison.Ordinal))
+            {
+                TempData["ErrorMessage"] = "El registro fue modificado por otro usuario. Revise los cambios antes de volver a guardar.";
+                return RedirectToAction(nameof(CatalogEditForm), new { catalogRoute, id, returnUrl });
+            }
+            if (!await catalogService.UpdateAsync(definition, id, input.Values, actorUserId, HttpContext.TraceIdentifier, cancellationToken))
+            {
+                return NotFound();
+            }
+            TempData["SuccessMessage"] = $"{definition.Name} se actualizó correctamente.";
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute, id });
+        }
+        catch (CatalogValidationException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Error al editar {Catalog}. Correlación: {CorrelationId}", definition.Name, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = $"No fue posible actualizar {definition.Name}. Intente nuevamente.";
+        }
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return RedirectToAction(nameof(CatalogEditForm), new { catalogRoute, id, returnUrl });
+        }
+        return RedirectToAction(definition.EditorMode == CatalogEditorMode.Page ? nameof(CatalogEditForm) : nameof(CatalogDetails), new { catalogRoute, id });
+    }
+
+    [HttpGet("building-block/{id:int}/capability-candidates")]
+    public async Task<IActionResult> CapabilityCandidates(int id, string? search, CancellationToken cancellationToken)
+    {
+        var candidates = await associationImpactService.GetCapabilityCandidatesAsync(id, search, cancellationToken);
+        return Json(candidates);
+    }
+
+    [HttpGet("building-block/{id:int}/capability-reassign-impact")]
+    public async Task<IActionResult> CapabilityReassignImpact(int id, int capabilityId, int targetBuildingBlockId, CancellationToken cancellationToken)
+    {
+        var impact = await associationImpactService.PreviewCapabilityReassignmentAsync(capabilityId, targetBuildingBlockId, cancellationToken);
+        return impact is null ? NotFound() : Json(impact);
+    }
+
+    [HttpGet("building-block/{id:int}/functionality-candidates")]
+    public async Task<IActionResult> FunctionalityCandidates(int id, int? capabilityId, string? search, CancellationToken cancellationToken)
+    {
+        var candidates = await associationImpactService.GetFunctionalityCandidatesAsync(id, capabilityId, search, cancellationToken);
+        return Json(candidates);
+    }
+
+    [HttpGet("building-block/{id:int}/functionality-reassign-impact")]
+    public async Task<IActionResult> FunctionalityReassignImpact(int id, int functionalityId, int targetCapabilityId, CancellationToken cancellationToken)
+    {
+        var impact = await associationImpactService.PreviewFunctionalityReassignmentAsync(functionalityId, targetCapabilityId, cancellationToken);
+        return impact is null ? NotFound() : Json(impact);
+    }
+
+    [HttpGet("building-block-options")]
+    public async Task<IActionResult> GetBuildingBlockOptions(CancellationToken cancellationToken)
+    {
+        var capDefinition = MasterCatalogRegistry.GetByCode("capacidad-seguridad");
+        if (capDefinition is null) return NotFound();
+        var options = await catalogService.GetOptionsAsync(capDefinition, cancellationToken);
+        if (options.TryGetValue("idBuildingBlock", out var list))
+        {
+            return Json(list.Select(o => new { id = o.Id, name = o.Label }));
+        }
+        return Json(Array.Empty<object>());
+    }
+
+    [HttpGet("capability-options")]
+    public async Task<IActionResult> GetCapabilityOptions(CancellationToken cancellationToken)
+    {
+        var funcDefinition = MasterCatalogRegistry.GetByCode("funcionalidad");
+        if (funcDefinition is null) return NotFound();
+        var options = await catalogService.GetOptionsAsync(funcDefinition, cancellationToken);
+        if (options.TryGetValue("idCapacidad", out var list))
+        {
+            return Json(list.Select(o => new { id = o.Id, name = o.Label }));
+        }
+        return Json(Array.Empty<object>());
+    }
+
+    [HttpPost("building-block/{id:int}/associate-capability")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssociateCapability(int id, [FromForm] int capabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new AssignCapabilityCommand(capabilityId, id, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.AssignCapabilityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Capacidad de Seguridad fue asociada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/reassign-capability")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReassignCapability(int id, [FromForm] int capabilityId, [FromForm] int sourceBuildingBlockId, [FromForm] int targetBuildingBlockId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new ReassignCapabilityCommand(capabilityId, sourceBuildingBlockId, targetBuildingBlockId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.ReassignCapabilityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Capacidad de Seguridad fue reasignada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/associate-functionality")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssociateFunctionality(int id, [FromForm] int functionalityId, [FromForm] int targetCapabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new AssignFunctionalityCommand(functionalityId, targetCapabilityId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.AssignFunctionalityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Funcionalidad fue asociada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/reassign-functionality")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReassignFunctionality(int id, [FromForm] int functionalityId, [FromForm] int sourceCapabilityId, [FromForm] int targetCapabilityId, [FromForm] string concurrencyToken, [FromForm] string? justification, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var command = new ReassignFunctionalityCommand(functionalityId, sourceCapabilityId, targetCapabilityId, concurrencyToken, justification, actorUserId, HttpContext.TraceIdentifier);
+        var result = await assignmentService.ReassignFunctionalityAsync(command, cancellationToken);
+        if (result.IsConcurrencyConflict)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return StatusCode(StatusCodes.Status409Conflict, new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+        if (!result.Succeeded)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return BadRequest(new { message = result.ErrorMessage });
+            TempData["ErrorMessage"] = result.ErrorMessage;
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+        }
+
+        TempData["SuccessMessage"] = "La Funcionalidad fue reasignada exitosamente.";
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return Ok(new { message = TempData["SuccessMessage"] });
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{id:int}/quick-update")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateBuildingBlockQuickFields(
+        int id,
+        [FromForm] string? faseAdopcion,
+        [FromForm] string? rutaEntregable,
+        [FromForm] string? familia,
+        CancellationToken cancellationToken)
+    {
+        var definition = MasterCatalogRegistry.GetByCode("building-block")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        var existing = await catalogService.GetAsync(definition, id, cancellationToken);
+        if (existing is null) return NotFound();
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var col in definition.Columns)
+        {
+            values[col.Code] = existing.Values.GetValueOrDefault(col.Code)?.ToString();
+        }
+        values["faseAdopcion"] = faseAdopcion;
+        values["rutaEntregable"] = rutaEntregable;
+        values["familia"] = familia;
+
+        try
+        {
+            await catalogService.UpdateAsync(definition, id, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = "Campos del Building Block actualizados correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al actualizar campos rápidos de Building Block {Id}. Correlación: {CorrelationId}", id, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible actualizar los campos del Building Block.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id });
+    }
+
+    [HttpPost("building-block/{buildingBlockId:int}/create-capability")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateCapabilityForBuildingBlock(
+        int buildingBlockId,
+        [FromForm] string nombre,
+        [FromForm] string? estado,
+        [FromForm] string? descripcion,
+        CancellationToken cancellationToken)
+    {
+        var capDef = MasterCatalogRegistry.GetByCode("capacidad-seguridad")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            TempData["ErrorMessage"] = "El nombre de la Capacidad es obligatorio.";
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+        }
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["buildingBlock"] = buildingBlockId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["nombre"] = nombre.Trim(),
+            ["estado"] = estado,
+            ["descripcion"] = descripcion
+        };
+
+        try
+        {
+            await catalogService.CreateAsync(capDef, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = $"Capacidad \"{nombre.Trim()}\" creada correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al crear capacidad para Building Block {BuildingBlockId}. Correlación: {CorrelationId}", buildingBlockId, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible crear la capacidad.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+    }
+
+    [HttpPost("building-block/{buildingBlockId:int}/create-functionality")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateFunctionalityForBuildingBlock(
+        int buildingBlockId,
+        [FromForm] int capacidadId,
+        [FromForm] string nombre,
+        [FromForm] string? estado,
+        [FromForm] string? descripcion,
+        CancellationToken cancellationToken)
+    {
+        var funcDef = MasterCatalogRegistry.GetByCode("funcionalidad")!;
+        if (!TryGetActorUserId(out var actorUserId)) return Forbid();
+        if (!await HasCorporateScopeAsync(actorUserId, cancellationToken)) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            TempData["ErrorMessage"] = "El nombre de la Funcionalidad es obligatorio.";
+            return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+        }
+
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["capacidad"] = capacidadId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["nombre"] = nombre.Trim(),
+            ["estado"] = estado,
+            ["descripcion"] = descripcion
+        };
+
+        try
+        {
+            await catalogService.CreateAsync(funcDef, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+            TempData["SuccessMessage"] = $"Funcionalidad \"{nombre.Trim()}\" creada correctamente.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error al crear funcionalidad para Building Block {BuildingBlockId}. Correlación: {CorrelationId}", buildingBlockId, HttpContext.TraceIdentifier);
+            TempData["ErrorMessage"] = "No fue posible crear la funcionalidad.";
+        }
+
+        return RedirectToAction(nameof(CatalogDetails), new { catalogRoute = "building-block", id = buildingBlockId });
+    }
+
+    private static void EnsureDomainIsEnabled()
+    {
+        if (!MasterCatalogRegistry.IsAdministrable("dominio"))
+        {
+            throw new InvalidOperationException("TMDominio no está habilitado en la lista blanca de catálogos.");
+        }
+    }
+
+    private bool TryGetActorUserId(out Guid actorUserId) =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out actorUserId);
+
+    private Task<bool> HasCorporateScopeAsync(Guid actorUserId, CancellationToken cancellationToken) =>
+        effectiveAccessService.HasActiveCorporateScopeAsync(actorUserId, cancellationToken);
+}

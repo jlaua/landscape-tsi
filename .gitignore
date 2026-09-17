@@ -9,6 +9,9 @@
 # Local Landscape TSI secrets and temporary design backups
 00 - definicion de landscape tsi/variables.txt
 00 - definicion de landscape tsi/.$*.drawio.bkp
+~$*.docx
+~$*.xlsx
+~$*.pptx
 
 # User-specific files
 *.rsuser

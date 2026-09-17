@@ -1,0 +1,1596 @@
+@using Landscape.Tsi.Application.Catalogs
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+@{ ViewData["Title"] = $"Detalle de {Model.Definition.Name}"; var editorModel = new Landscape.Tsi.Web.Models.CatalogEditorViewModel { Definition = Model.Definition, Record = Model.Record, Options = Model.Options }; }
+<nav aria-label="Ruta de navegación"><ol class="breadcrumb-list"><li><a asp-controller="Home" asp-action="Index">Inicio</a></li><li><span aria-hidden="true">/</span> <a asp-controller="Home" asp-action="Index" asp-fragment="catalog-map">Mapa del Catálogo</a></li><li><span aria-hidden="true">/</span> <a asp-action="Index">Tablas Maestras</a></li><li><span aria-hidden="true">/</span> <a asp-action="Catalog" asp-route-catalogRoute="@Model.Definition.Route">@Model.Definition.Name</a></li><li aria-current="page"><span aria-hidden="true">/</span> Detalle</li></ol></nav>
+<section class="catalog-shell" aria-labelledby="catalog-record-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">DETALLE</p>
+            <h1 id="catalog-record-title">
+                @if (Model.Definition.Route == "tecnologia-tsi-implementada" && Model.Record.DisplayValues.ContainsKey("empresa") && Model.Record.DisplayValues.ContainsKey("tecnologia"))
+                {
+                    <span>@(Model.Record.DisplayValues.GetValueOrDefault("empresa") ?? "Empresa") — @(Model.Record.DisplayValues.GetValueOrDefault("tecnologia") ?? "Tecnología")</span>
+                }
+                else
+                {
+                    @(Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode) ?? "Registro sin nombre")
+                }
+            </h1>
+        </div>
+        <partial name="_EntityDetailActions" model="Model" />
+    </div>
+    @if (TempData["SuccessMessage"] is string success) { <div class="app-alert app-alert-success" role="status">@success</div> }
+    @if (TempData["ErrorMessage"] is string error) { <div class="app-alert app-alert-error" role="alert">@error</div> }
+    @if (Model.Definition.Route == "building-block" && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+    {
+        <form id="quick-bb-form" method="post" asp-action="UpdateBuildingBlockQuickFields" asp-route-id="@Model.Record.Id">
+            @Html.AntiForgeryToken()
+            <dl class="detail-grid">
+                @foreach (var column in Model.Definition.Columns)
+                {
+                    if (column.Code == "faseAdopcion")
+                    {
+                        <div class="detail-field">
+                            <dt>@column.Label</dt>
+                            <dd>
+                                <select class="form-select form-select-sm" name="faseAdopcion" style="max-width: 280px; display: inline-block;">
+                                    <option value="">-- Sin asignar --</option>
+                                    @if (Model.Options.TryGetValue("faseAdopcion", out var fases))
+                                    {
+                                        var currentVal = Model.Record.Values.GetValueOrDefault("faseAdopcion")?.ToString();
+                                        foreach (var f in fases)
+                                        {
+                                            var isSelected = string.Equals(f.Id.ToString(), currentVal, StringComparison.OrdinalIgnoreCase)
+                                                || string.Equals(f.Label, Model.Record.DisplayValues.GetValueOrDefault("faseAdopcion"), StringComparison.OrdinalIgnoreCase);
+                                            if (isSelected)
+                                            {
+                                                <option value="@f.Id" selected>@f.Label</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@f.Id">@f.Label</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </dd>
+                        </div>
+                    }
+                    else if (column.Code == "rutaEntregable")
+                    {
+                        <div class="detail-field detail-field-wide">
+                            <dt>@column.Label</dt>
+                            <dd>
+                                <input type="text" class="form-control form-control-sm" name="rutaEntregable" value="@Model.Record.DisplayValues.GetValueOrDefault("rutaEntregable")" placeholder="Ruta documental o repositorio del entregable" />
+                            </dd>
+                        </div>
+                    }
+                    else if (column.Code == "familia")
+                    {
+                        <div class="detail-field">
+                            <dt>@column.Label</dt>
+                            <dd>
+                                <select class="form-select form-select-sm" name="familia" style="max-width: 280px; display: inline-block;">
+                                    <option value="">-- Sin asignar --</option>
+                                    @if (Model.Options.TryGetValue("familia", out var familias))
+                                    {
+                                        var currentFamiliaVal = Model.Record.Values.GetValueOrDefault("familia")?.ToString();
+                                        foreach (var f in familias)
+                                        {
+                                            var isSelected = string.Equals(f.Id.ToString(), currentFamiliaVal, StringComparison.OrdinalIgnoreCase)
+                                                || string.Equals(f.Label, Model.Record.DisplayValues.GetValueOrDefault("familia"), StringComparison.OrdinalIgnoreCase);
+                                            if (isSelected)
+                                            {
+                                                <option value="@f.Id" selected>@f.Label</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@f.Id">@f.Label</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </dd>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)">
+                            <dt>@column.Label</dt>
+                            <dd>@(Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—")</dd>
+                        </div>
+                    }
+                }
+            </dl>
+            <div class="mt-2 mb-3 text-end">
+                <button type="submit" class="md-button md-button-filled">Guardar cambios</button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <dl class="detail-grid">
+            @foreach (var column in Model.Definition.Columns)
+            {
+                var displayVal = Model.Record.DisplayValues.GetValueOrDefault(column.Code) ?? "—";
+                var rawVal = Model.Record.Values.GetValueOrDefault(column.Code);
+                <div class="detail-field @(column.IsMultiline ? "detail-field-wide" : null)">
+                    <dt>@column.Label</dt>
+                    <dd>
+                        @if (!string.IsNullOrWhiteSpace(column.ReferenceCatalogCode) && rawVal is int refId && displayVal != "—")
+                        {
+                            <a class="text-primary text-decoration-underline" asp-action="CatalogDetails" asp-route-catalogRoute="@column.ReferenceCatalogCode" asp-route-id="@refId">@displayVal</a>
+                        }
+                        else
+                        {
+                            @displayVal
+                        }
+                    </dd>
+                </div>
+            }
+        </dl>
+    }
+</section>
+@if (Model.Definition.Route == "tecnologia-tsi-implementada")
+{
+    <section class="report-card related-entities-card" aria-labelledby="impl-tech-children-title">
+        <p class="eyebrow">ENTIDADES HIJAS Y DETALLES ASOCIADOS</p>
+        <h2 id="impl-tech-children-title">Contratos, Modelo de Operación y Drivers</h2>
+
+        <div class="report-kpi-grid mb-4">
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ImplementedContracts?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Contratos y Adendas</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ImplementedOperationModels?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Modelos de Operación</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ImplementedDrivers?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Drivers Operativos</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ImplementedServices?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Servicios de TI Vinculados</span>
+            </div>
+        </div>
+
+        <!-- 1. Contratos y Adendas -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Contratos y Adendas de la Tecnología <span class="result-count">(@(Model.ImplementedContracts?.TotalCount ?? 0))</span></h3>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="contrato-tecnologia">Ver Catálogo Contratos</a>
+                }
+            </div>
+            @if (Model.ImplementedContracts is null || Model.ImplementedContracts.TotalCount == 0)
+            {
+                <p class="empty-state">No existen contratos ni adendas registrados para esta tecnología implementada.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Contratos y adendas relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° Contrato</th>
+                                <th>Tipo</th>
+                                <th>PAYG</th>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Monto</th>
+                                <th>Moneda</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ImplementedContracts.Items)
+                            {
+                                var esAdenda = string.Equals(row.DisplayValues.GetValueOrDefault("esAdenda"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(row.DisplayValues.GetValueOrDefault("esAdenda"), "1", StringComparison.OrdinalIgnoreCase);
+                                var esPayg = string.Equals(row.DisplayValues.GetValueOrDefault("esPayg"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(row.DisplayValues.GetValueOrDefault("esPayg"), "1", StringComparison.OrdinalIgnoreCase);
+                                <tr>
+                                    <td data-label="N° Contrato">
+                                        <strong>@row.DisplayValues.GetValueOrDefault("numeroContrato")</strong>
+                                    </td>
+                                    <td data-label="Tipo">
+                                        @if (esAdenda)
+                                        {
+                                            <span class="badge bg-secondary">Adenda</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-primary">Principal</span>
+                                        }
+                                    </td>
+                                    <td data-label="PAYG">
+                                        @if (esPayg)
+                                        {
+                                            <span class="badge bg-info text-dark">PAYG</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No</span>
+                                        }
+                                    </td>
+                                    <td data-label="Fecha Inicio">
+                                        @(esPayg ? "PAYG" : (row.DisplayValues.GetValueOrDefault("fechaInicio") ?? "—"))
+                                    </td>
+                                    <td data-label="Fecha Fin">
+                                        @(esPayg ? "PAYG" : (row.DisplayValues.GetValueOrDefault("fechaFin") ?? "—"))
+                                    </td>
+                                    <td data-label="Monto">
+                                        @(row.DisplayValues.GetValueOrDefault("montoContratado") ?? "—")
+                                    </td>
+                                    <td data-label="Moneda">
+                                        @(row.DisplayValues.GetValueOrDefault("moneda") ?? "—")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="contrato-tecnologia" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="contrato-tecnologia" asp-route-id="@row.Id">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 2. Modelo de Operación -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Modelo de Operación <span class="result-count">(@(Model.ImplementedOperationModels?.TotalCount ?? 0))</span></h3>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="modelo-operacion">Ver Catálogo Modelos</a>
+                }
+            </div>
+            @if (Model.ImplementedOperationModels is null || Model.ImplementedOperationModels.TotalCount == 0)
+            {
+                <p class="empty-state">No se ha configurado un modelo de operación para esta tecnología implementada.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Modelos de operación relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tipo de Operación</th>
+                                <th>Modalidad Laboral</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ImplementedOperationModels.Items)
+                            {
+                                <tr>
+                                    <td data-label="Tipo de Operación">
+                                        <strong>@(row.DisplayValues.GetValueOrDefault("tipoOperacion") ?? "No especificado")</strong>
+                                    </td>
+                                    <td data-label="Modalidad Laboral">
+                                        @(row.DisplayValues.GetValueOrDefault("modalidadLaboral") ?? "No especificada")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="modelo-operacion" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="modelo-operacion" asp-route-id="@row.Id">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 3. Drivers Operativos -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Drivers de Costo y Volumetría <span class="result-count">(@(Model.ImplementedDrivers?.TotalCount ?? 0))</span></h3>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="driver">Ver Catálogo Drivers</a>
+                }
+            </div>
+            @if (Model.ImplementedDrivers is null || Model.ImplementedDrivers.TotalCount == 0)
+            {
+                <p class="empty-state">No existen drivers operativos registrados para esta tecnología implementada.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Drivers relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Descripción del Driver</th>
+                                <th>Unidad de Medida</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unitario</th>
+                                <th>Moneda</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ImplementedDrivers.Items)
+                            {
+                                <tr>
+                                    <td data-label="Descripción">
+                                        <strong>@row.DisplayValues.GetValueOrDefault("descripcionDriver")</strong>
+                                    </td>
+                                    <td data-label="Unidad de Medida">
+                                        @(row.DisplayValues.GetValueOrDefault("unidadMedida") ?? "—")
+                                    </td>
+                                    <td data-label="Cantidad">
+                                        @(row.DisplayValues.GetValueOrDefault("cantidad") ?? "—")
+                                    </td>
+                                    <td data-label="Precio Unitario">
+                                        @(row.DisplayValues.GetValueOrDefault("precioUnitario") ?? "—")
+                                    </td>
+                                    <td data-label="Moneda">
+                                        @(row.DisplayValues.GetValueOrDefault("moneda") ?? "USD")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="driver" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="driver" asp-route-id="@row.Id">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 4. Servicios de TI Vinculados -->
+        <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Servicios de TI Vinculados <span class="result-count">(@(Model.ImplementedServices?.TotalCount ?? 0))</span></h3>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="servicio-tecnologia">Ver Catálogo Servicios</a>
+                }
+            </div>
+            @if (Model.ImplementedServices is null || Model.ImplementedServices.TotalCount == 0)
+            {
+                <p class="empty-state">No existen servicios de TI vinculados a esta tecnología implementada.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Servicios relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre del Servicio</th>
+                                <th>Tipo de Servicio</th>
+                                <th>Proveedor</th>
+                                <th>Estado</th>
+                                <th>Costo Estimado</th>
+                                <th>Moneda</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ImplementedServices.Items)
+                            {
+                                <tr>
+                                    <td data-label="Código">
+                                        <strong>@row.DisplayValues.GetValueOrDefault("codigoServicio")</strong>
+                                    </td>
+                                    <td data-label="Servicio">
+                                        @row.DisplayValues.GetValueOrDefault("nombreServicio")
+                                    </td>
+                                    <td data-label="Tipo">
+                                        @(row.DisplayValues.GetValueOrDefault("tipoServicio") ?? "—")
+                                    </td>
+                                    <td data-label="Proveedor">
+                                        @(row.DisplayValues.GetValueOrDefault("proveedor") ?? "—")
+                                    </td>
+                                    <td data-label="Estado">
+                                        <span class="badge bg-secondary">@(row.DisplayValues.GetValueOrDefault("estadoServicio") ?? "EVALUACION")</span>
+                                    </td>
+                                    <td data-label="Costo Estimado">
+                                        @(row.DisplayValues.GetValueOrDefault("costoTotalEstimado") ?? "—")
+                                    </td>
+                                    <td data-label="Moneda">
+                                        @(row.DisplayValues.GetValueOrDefault("moneda") ?? "USD")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+@if (Model.Definition.Route == "proceso-adopcion-tsi")
+{
+    <section class="report-card related-entities-card" aria-labelledby="adoption-process-children-title">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">ENTIDADES HIJAS Y GESTIÓN INTEGRAL</p>
+                <h2 id="adoption-process-children-title">Empresas Participantes, Estándares Designados y Servicios TSI</h2>
+            </div>
+            <div>
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@Model.Record.Id">
+                    Gestionar en Tablero de Adopción (#@Model.Record.DisplayValues.GetValueOrDefault("codigoProceso")) →
+                </a>
+            </div>
+        </div>
+
+        <div class="report-kpi-grid mb-4">
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessCompanies?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Empresas Convocadas</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessStandards?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Estándares Designados</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value">@(Model.ProcessServices?.TotalCount ?? 0)</span>
+                <span class="report-kpi-label">Servicios TSI Asociados</span>
+            </div>
+            <div class="report-kpi">
+                <span class="report-kpi-value" style="font-size: 1.15rem; line-height: 1.3;">@(Model.AdoptionDetail?.EstandarPrincipalVigente?.TecnologiaNombre ?? "Pendiente")</span>
+                <span class="report-kpi-label">Estándar Principal Vigente</span>
+            </div>
+        </div>
+
+        <!-- 1. Empresas Participantes en el Proceso de Adopción -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Empresas en Proceso de Adopción <span class="result-count">(@(Model.ProcessCompanies?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Convocar Empresa</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="proceso-adopcion-empresa">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessCompanies is null || Model.ProcessCompanies.TotalCount == 0)
+            {
+                <p class="empty-state">No existen empresas subsidiarias registradas para este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Empresas en proceso de adopción" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Empresa Subsidiaria</th>
+                                <th>Participación / Aplica</th>
+                                <th>Justificación por No Participar</th>
+                                <th>Fecha Incorporación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessCompanies.Items)
+                            {
+                                var aplicaRaw = row.DisplayValues.GetValueOrDefault("aplica");
+                                var aplica = string.Equals(aplicaRaw, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "Aplica", StringComparison.OrdinalIgnoreCase) || string.Equals(aplicaRaw, "Sí", StringComparison.OrdinalIgnoreCase);
+                                <tr>
+                                    <td data-label="Empresa">
+                                        <strong>@(row.DisplayValues.GetValueOrDefault("empresa") ?? "Empresa no especificada")</strong>
+                                    </td>
+                                    <td data-label="Aplica">
+                                        @if (aplica)
+                                        {
+                                            <span class="badge bg-success">Aplica</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">No participa</span>
+                                        }
+                                    </td>
+                                    <td data-label="Justificación">
+                                        @(row.DisplayValues.GetValueOrDefault("justificacionNoAplica") ?? "—")
+                                    </td>
+                                    <td data-label="Fecha Incorporación">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaIncorporacion") ?? "—")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="proceso-adopcion-empresa" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 2. Histórico y Designación de Estándares Tecnológicos -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Estándares y Tecnologías Asignadas <span class="result-count">(@(Model.ProcessStandards?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Asignar Estándar</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="estandar-tecnologia-historico">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessStandards is null || Model.ProcessStandards.TotalCount == 0)
+            {
+                <p class="empty-state">No se han registrado asignaciones históricas de estándar para este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Estándares asignados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tecnología TSI</th>
+                                <th>Rol de Estándar</th>
+                                <th>Estado de Vigencia</th>
+                                <th>Inicio Vigencia</th>
+                                <th>Fin Vigencia</th>
+                                <th>Sustento / Motivo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessStandards.Items)
+                            {
+                                var rol = row.DisplayValues.GetValueOrDefault("rolEstandar") ?? "—";
+                                var estado = row.DisplayValues.GetValueOrDefault("estadoVigencia") ?? "—";
+                                var isPrincipal = rol.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+                                var isVigente = estado.Contains("VIGENTE", StringComparison.OrdinalIgnoreCase);
+                                <tr>
+                                    <td data-label="Tecnología">
+                                        <strong>@(row.DisplayValues.GetValueOrDefault("tecnologia") ?? "Tecnología no especificada")</strong>
+                                    </td>
+                                    <td data-label="Rol">
+                                        @if (isPrincipal)
+                                        {
+                                            <span class="badge bg-primary">@rol</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@rol</span>
+                                        }
+                                    </td>
+                                    <td data-label="Estado Vigencia">
+                                        @if (isVigente)
+                                        {
+                                            <span class="badge bg-success">@estado</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">@estado</span>
+                                        }
+                                    </td>
+                                    <td data-label="Inicio Vigencia">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaInicioVigencia") ?? "—")
+                                    </td>
+                                    <td data-label="Fin Vigencia">
+                                        @(row.DisplayValues.GetValueOrDefault("fechaFinVigencia") ?? "—")
+                                    </td>
+                                    <td data-label="Sustento">
+                                        @(row.DisplayValues.GetValueOrDefault("sustentoArquitectura") ?? row.DisplayValues.GetValueOrDefault("motivoCambio") ?? "—")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="estandar-tecnologia-historico" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <!-- 3. Servicios Técnicos TSI Asociados -->
+        <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h3 class="h5 mb-0">Servicios de Tecnología Asociados <span class="result-count">(@(Model.ProcessServices?.TotalCount ?? 0))</span></h3>
+                <div class="d-flex gap-2">
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                    {
+                        <a class="md-button md-button-tonal" asp-action="CatalogCreateForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-returnUrl="@Context.Request.Path" asp-route-initialKey="proceso" asp-route-initialValue="@Model.Record.Id.ToString()">+ Nuevo Servicio</a>
+                    }
+                    <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="servicio-tecnologia">Ver Catálogo</a>
+                </div>
+            </div>
+            @if (Model.ProcessServices is null || Model.ProcessServices.TotalCount == 0)
+            {
+                <p class="empty-state">No existen servicios de TI vinculados directamente a este proceso de adopción.</p>
+            }
+            else
+            {
+                <div class="responsive-table" role="region" aria-label="Servicios relacionados" tabindex="0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre del Servicio</th>
+                                <th>Tipo de Servicio</th>
+                                <th>Tecnología</th>
+                                <th>Empresa</th>
+                                <th>Proveedor</th>
+                                <th>Estado</th>
+                                <th>Costo Estimado</th>
+                                <th>Moneda</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.ProcessServices.Items)
+                            {
+                                <tr>
+                                    <td data-label="Código">
+                                        <strong>@row.DisplayValues.GetValueOrDefault("codigoServicio")</strong>
+                                    </td>
+                                    <td data-label="Servicio">
+                                        @row.DisplayValues.GetValueOrDefault("nombreServicio")
+                                    </td>
+                                    <td data-label="Tipo">
+                                        @(row.DisplayValues.GetValueOrDefault("tipoServicio") ?? "—")
+                                    </td>
+                                    <td data-label="Tecnología">
+                                        @(row.DisplayValues.GetValueOrDefault("tecnologia") ?? "—")
+                                    </td>
+                                    <td data-label="Empresa">
+                                        @(row.DisplayValues.GetValueOrDefault("empresa") ?? "—")
+                                    </td>
+                                    <td data-label="Proveedor">
+                                        @(row.DisplayValues.GetValueOrDefault("proveedor") ?? "—")
+                                    </td>
+                                    <td data-label="Estado">
+                                        <span class="badge bg-secondary">@(row.DisplayValues.GetValueOrDefault("estadoServicio") ?? "EVALUACION")</span>
+                                    </td>
+                                    <td data-label="Costo Estimado">
+                                        @(row.DisplayValues.GetValueOrDefault("costoTotalEstimado") ?? "—")
+                                    </td>
+                                    <td data-label="Moneda">
+                                        @(row.DisplayValues.GetValueOrDefault("moneda") ?? "USD")
+                                    </td>
+                                    <td class="table-actions">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id">Ver</a>
+                                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                        {
+                                            <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="servicio-tecnologia" asp-route-id="@row.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+@if (Model.Related is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="building-related-title">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow mb-1">ENTIDADES RELACIONADAS</p>
+                <h2 id="building-related-title" class="mb-0">Building Block @Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</h2>
+            </div>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+            {
+                <a class="md-button md-button-tonal"
+                   asp-action="ExportBuildingBlockGrid"
+                   asp-route-id="@Model.Record.Id"
+                   asp-route-grid="all"
+                   title="Exportar todas las grillas relacionadas a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Descargar Ficha Completa en Excel</span>
+                </a>
+            }
+        </div>
+        <div class="report-kpi-grid">
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Capabilities.TotalCount</span><span class="report-kpi-label">Capacidades de Seguridad</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Functionalities.TotalCount</span><span class="report-kpi-label">Funcionalidades</span></div>
+            <div class="report-kpi"><span class="report-kpi-value">@Model.Related.Technologies.TotalCount</span><span class="report-kpi-label">Tecnologías TSI relacionadas</span></div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+            <h3 class="mb-0">Capacidades de Seguridad <span class="result-count">(@Model.Related.Capabilities.TotalCount)</span></h3>
+            <div class="d-flex gap-2 align-items-center">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" id="btn-save-cap-order" class="md-button" style="background-color: #008080; color: #ffffff; border: none; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500;" disabled title="Guarda el orden visual establecido arrastrando las capacidades">
+                        <span>💾 Guardar cambios</span>
+                    </button>
+                    <span id="cap-order-status" class="small text-success d-none">¡Orden guardado!</span>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="capacidades"
+                       title="Descargar Capacidades de Seguridad en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <button type="button" class="md-button md-button-filled" data-bs-toggle="modal" data-bs-target="#create-capability-modal">+ Nueva Capacidad</button>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" class="md-button md-button-tonal" data-bs-toggle="modal" data-bs-target="#associate-capability-modal">Asociar existente</button>
+                }
+            </div>
+        </div>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <input type="hidden" name="functionalitySearch" value="@Model.FunctionalitySearch" />
+            <input type="hidden" name="technologySearch" value="@Model.TechnologySearch" />
+            <input type="hidden" name="functionalitySortBy" value="@Model.FunctionalitySortBy" />
+            <input type="hidden" name="functionalitySortDirection" value="@Model.FunctionalitySortDirection" />
+            <input type="hidden" name="capabilitySortBy" value="@Model.CapabilitySortBy" />
+            <input type="hidden" name="capabilitySortDirection" value="@Model.CapabilitySortDirection" />
+            <input type="hidden" name="functionalityPageSize" value="@Model.FunctionalityPageSize" />
+            <label for="capability-search">Buscar capacidades</label>
+            <input id="capability-search" name="capabilitySearch" value="@Model.CapabilitySearch" class="form-control" type="search" placeholder="Buscar por nombre o estado…" />
+            <div class="md-field page-size-field d-inline-flex align-items-center gap-1 ms-2">
+                <label for="capability-page-size" class="me-1 small text-muted">Filas:</label>
+                <select id="capability-page-size" name="capabilityPageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                    @foreach (var size in new[] { 10, 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.CapabilityPageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.CapabilitySearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize">Limpiar</a>
+            }
+        </form>
+
+        @{
+            var capGridCapSortAria = string.Equals(Model.CapabilitySortBy, "capacity", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridCapDir = string.Equals(Model.CapabilitySortBy, "capacity", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var capGridStatusSortAria = string.Equals(Model.CapabilitySortBy, "status", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridStatusDir = string.Equals(Model.CapabilitySortBy, "status", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var capGridDescSortAria = string.Equals(Model.CapabilitySortBy, "description", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.CapabilitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapGridDescDir = string.Equals(Model.CapabilitySortBy, "description", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.CapabilitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+        }
+
+        @if (Model.Related.Capabilities.TotalCount == 0) { <p class="empty-state">No existen Capacidades de Seguridad asociadas a este Building Block.</p> }
+        else {
+            <div class="responsive-table" role="region" aria-label="Capacidades de Seguridad relacionadas" tabindex="0">
+                <table id="capabilities-sortable-table" class="align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 44px;" aria-label="Reordenar"></th>
+                            <th scope="col" aria-sort="@capGridCapSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="capacity" asp-route-capabilitySortDirection="@nextCapGridCapDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Capacidad @(capGridCapSortAria == "ascending" ? "▲" : capGridCapSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@capGridStatusSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="status" asp-route-capabilitySortDirection="@nextCapGridStatusDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Estado de Capacidad @(capGridStatusSortAria == "ascending" ? "▲" : capGridStatusSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@capGridDescSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-capabilitySortBy="description" asp-route-capabilitySortDirection="@nextCapGridDescDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                                   asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection">
+                                    Descripción @(capGridDescSortAria == "ascending" ? "▲" : capGridDescSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="capabilities-sortable-tbody">
+                        @foreach (var row in Model.Related.Capabilities.Items)
+                        {
+                            <tr class="capability-draggable-row" data-cap-id="@row.Id">
+                                <td style="width: 44px; text-align: center; cursor: grab;" class="capability-drag-handle text-muted" title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">
+                                    <span style="font-size: 1.25rem; user-select: none; line-height: 1;">&#x22EE;&#x22EE;</span>
+                                </td>
+                                <td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td>
+                                <td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                                <td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td>
+                                <td class="table-actions">
+                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Ver</a>
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                    {
+                                        <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id">Editar</a>
+                                        <button type="button" class="md-button md-button-text btn-reassign-cap" data-cap-id="@row.Id" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-capability-modal">Reasignar</button>
+                                    }
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                    {
+                                        <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="capacidad-seguridad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.Related.Capabilities.Page de @Model.Related.Capabilities.TotalPages · @Model.Related.Capabilities.TotalCount registros</p>
+            <div class="pagination-shell">
+                @if (Model.Related.Capabilities.Page > 1)
+                {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-capabilityPage="@(Model.Related.Capabilities.Page - 1)"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-functionalityPage="@Model.Related.Functionalities.Page">Anterior</a>
+                }
+                @if (Model.Related.Capabilities.Page < Model.Related.Capabilities.TotalPages)
+                {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-capabilityPage="@(Model.Related.Capabilities.Page + 1)"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-functionalityPage="@Model.Related.Functionalities.Page">Siguiente</a>
+                }
+            </div>
+        }
+
+        @{
+            var capSortAria = string.Equals(Model.FunctionalitySortBy, "capacity", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextCapDir = string.Equals(Model.FunctionalitySortBy, "capacity", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var funcSortAria = string.Equals(Model.FunctionalitySortBy, "functionality", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextFuncDir = string.Equals(Model.FunctionalitySortBy, "functionality", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+
+            var statusSortAria = string.Equals(Model.FunctionalitySortBy, "status", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(Model.FunctionalitySortDirection, "desc", StringComparison.OrdinalIgnoreCase) ? "descending" : "ascending")
+                : "none";
+            var nextStatusDir = string.Equals(Model.FunctionalitySortBy, "status", StringComparison.OrdinalIgnoreCase) && string.Equals(Model.FunctionalitySortDirection, "asc", StringComparison.OrdinalIgnoreCase)
+                ? "desc" : "asc";
+        }
+
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+            <h3 class="mb-0">Funcionalidades <span class="result-count">(@Model.Related.Functionalities.TotalCount)</span></h3>
+            <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="funcionalidades"
+                       title="Descargar Funcionalidades en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <button type="button" class="md-button md-button-filled" data-bs-toggle="modal" data-bs-target="#create-functionality-modal">+ Nueva Funcionalidad</button>
+                }
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <button type="button" class="md-button md-button-tonal" data-bs-toggle="modal" data-bs-target="#associate-functionality-modal">Asociar existente</button>
+                }
+            </div>
+        </div>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <input type="hidden" name="capabilitySearch" value="@Model.CapabilitySearch" />
+            <input type="hidden" name="technologySearch" value="@Model.TechnologySearch" />
+            <input type="hidden" name="functionalitySortBy" value="@Model.FunctionalitySortBy" />
+            <input type="hidden" name="functionalitySortDirection" value="@Model.FunctionalitySortDirection" />
+            <input type="hidden" name="capabilitySortBy" value="@Model.CapabilitySortBy" />
+            <input type="hidden" name="capabilitySortDirection" value="@Model.CapabilitySortDirection" />
+            <input type="hidden" name="capabilityPageSize" value="@Model.CapabilityPageSize" />
+            <label for="functionality-search">Buscar funcionalidades</label>
+            <input id="functionality-search" name="functionalitySearch" value="@Model.FunctionalitySearch" class="form-control" type="search" placeholder="Buscar por funcionalidad, capacidad o estado…" />
+            <div class="md-field page-size-field d-inline-flex align-items-center gap-1 ms-2">
+                <label for="functionality-page-size" class="me-1 small text-muted">Filas:</label>
+                <select id="functionality-page-size" name="functionalityPageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                    @foreach (var size in new[] { 10, 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.FunctionalityPageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.FunctionalitySearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-technologySearch="@Model.TechnologySearch" asp-route-capabilityPageSize="@Model.CapabilityPageSize" asp-route-functionalityPageSize="@Model.FunctionalityPageSize">Limpiar</a>
+            }
+        </form>
+        @if (Model.Related.Functionalities.TotalCount == 0) { <p class="empty-state">No existen Funcionalidades asociadas a las capacidades de este Building Block.</p> }
+        else {
+            <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col" aria-sort="@capSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="capacity" asp-route-functionalitySortDirection="@nextCapDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
+                                    Capacidad @(capSortAria == "ascending" ? "▲" : capSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@funcSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="functionality" asp-route-functionalitySortDirection="@nextFuncDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
+                                    Funcionalidad @(funcSortAria == "ascending" ? "▲" : funcSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col" aria-sort="@statusSortAria">
+                                <a asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                                   asp-route-functionalitySortBy="status" asp-route-functionalitySortDirection="@nextStatusDir"
+                                   asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                                   asp-route-capabilityPage="@Model.Related.Capabilities.Page" asp-route-functionalityPage="@Model.Related.Functionalities.Page" asp-route-technologyPage="@Model.Related.Technologies.Page"
+                                   asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                                   asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection">
+                                    Estado de funcionalidad @(statusSortAria == "ascending" ? "▲" : statusSortAria == "descending" ? "▼" : "")
+                                </a>
+                            </th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Related.Functionalities.Items) {
+                        <tr>
+                            <td data-label="Capacidad">@row.DisplayValues.GetValueOrDefault("capacidad")</td>
+                            <td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("funcionalidad")</td>
+                            <td data-label="Estado de funcionalidad">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                            <td class="table-actions">
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) {
+                                    <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a>
+                                    <button type="button" class="md-button md-button-text btn-reassign-func" data-func-id="@row.Id" data-func-name="@row.DisplayValues.GetValueOrDefault("funcionalidad")" data-cap-id="@row.DisplayValues.GetValueOrDefault("idCapacidad")" data-cap-name="@row.DisplayValues.GetValueOrDefault("capacidad")" data-bs-toggle="modal" data-bs-target="#reassign-functionality-modal">Reasignar</button>
+                                }
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete)) {
+                                    <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.Related.Functionalities.Page de @Model.Related.Functionalities.TotalPages · @Model.Related.Functionalities.TotalCount registros</p>
+            <div class="pagination-shell">
+                @if (Model.Related.Functionalities.Page > 1) {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-functionalityPage="@(Model.Related.Functionalities.Page - 1)"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-capabilityPage="@Model.Related.Capabilities.Page">Anterior</a>
+                }
+                @if (Model.Related.Functionalities.Page < Model.Related.Functionalities.TotalPages) {
+                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id"
+                       asp-route-functionalityPage="@(Model.Related.Functionalities.Page + 1)"
+                       asp-route-functionalitySortBy="@Model.FunctionalitySortBy" asp-route-functionalitySortDirection="@Model.FunctionalitySortDirection"
+                       asp-route-capabilitySortBy="@Model.CapabilitySortBy" asp-route-capabilitySortDirection="@Model.CapabilitySortDirection"
+                       asp-route-functionalityPageSize="@Model.FunctionalityPageSize" asp-route-capabilityPageSize="@Model.CapabilityPageSize"
+                       asp-route-capabilitySearch="@Model.CapabilitySearch" asp-route-functionalitySearch="@Model.FunctionalitySearch" asp-route-technologySearch="@Model.TechnologySearch"
+                       asp-route-capabilityPage="@Model.Related.Capabilities.Page">Siguiente</a>
+                }
+            </div>
+        }
+
+        <h3>Tecnologías TSI <span class="result-count">(@Model.Related.Technologies.TotalCount en evaluación)</span></h3>
+        @if (Model.AdoptionDetail?.EstandarPrincipalVigente is not null)
+        {
+            var estandar = Model.AdoptionDetail.EstandarPrincipalVigente;
+            <div class="border rounded p-3 mb-3" style="background: var(--bg-surface-elevated, #f8fafc); border-left: 4px solid #16a34a !important;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="badge bg-success mb-1">TECNOLOGÍA CORPORATIVA ADJUDICADA</span>
+                        <h4 class="h5 mb-1 text-primary">@estandar.TecnologiaNombre</h4>
+                        <p class="text-muted small mb-0">
+                            Vendor: <strong>@(estandar.VendorNombre ?? "Sin vendor")</strong> · 
+                            Vigente desde: <strong>@estandar.FechaInicioVigencia.ToString("dd/MM/yyyy")</strong>
+                            @if (!string.IsNullOrWhiteSpace(estandar.SustentoArquitectura))
+                            {
+                                <span> · Sustento: @estandar.SustentoArquitectura</span>
+                            }
+                        </p>
+                    </div>
+                    <div>
+                        <a class="md-button md-button-tonal" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@estandar.TecnologiaId">Ver Ficha Tecnológica</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+            <h4 class="h6 mb-0 text-muted">Catálogo de Tecnologías Candidatas / Relacionadas</h4>
+            <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="ExportBuildingBlockGrid"
+                       asp-route-id="@Model.Record.Id"
+                       asp-route-grid="tecnologias"
+                       title="Descargar Tecnologías TSI relacionadas en formato Excel (.xlsx)">
+                        <span>📥 Descargar Excel</span>
+                    </a>
+                }
+                @if (Model.TechnologyMapping is not null) { <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="BuildingBlockRelations" asp-route-buildingBlockId="@Model.TechnologyMapping.BuildingBlockId" asp-route-returnUrl="@Context.Request.Path">+ Asociar Tecnología</a> }
+            </div>
+        </div>
+        @if (Model.Related.Technologies.TotalCount == 0) { <p class="empty-state">No existen Tecnologías TSI candidatas relacionadas con este Building Block.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Tecnologías TSI relacionadas" tabindex="0"><table><thead><tr><th>Tecnología TSI</th><th>Familia</th><th>Estado de Adopción</th><th>Acciones</th></tr></thead><tbody>@foreach (var row in Model.Related.Technologies.Items) { <tr><td data-label="Tecnología">@row.DisplayValues.GetValueOrDefault("tecnologia")</td><td data-label="Familia">@row.DisplayValues.GetValueOrDefault("familia")</td><td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estadoAdopcion")</td><td class="table-actions"><a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@row.Id">Ver</a></td></tr> }</tbody></table></div> <p class="result-count">Página @Model.Related.Technologies.Page de @Model.Related.Technologies.TotalPages</p> }
+    </section>
+}
+@if (Model.Definition.Route == "building-block")
+{
+    <section class="report-card related-entities-card" aria-labelledby="adoption-process-title">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">GOBIERNO Y ADOPCIÓN TSI</p>
+                <h2 id="adoption-process-title">Proceso de Adopción y Estándar Corporativo</h2>
+            </div>
+            @if (Model.AdoptionDetail is not null)
+            {
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@Model.AdoptionDetail.Id">Ver Proceso Completo en Detalle →</a>
+            }
+            else if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <a class="md-button md-button-filled" asp-controller="AdoptionProcess" asp-action="Create" asp-route-buildingBlockId="@Model.Record.Id">+ Iniciar Proceso de Adopción</a>
+            }
+        </div>
+
+        @if (Model.AdoptionDetail is null)
+        {
+            <div class="empty-state">
+                <p>Este Building Block aún no tiene un proceso de adopción formal registrado para la definición de su estándar tecnológico corporativo.</p>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                {
+                    <a class="md-button md-button-tonal" asp-controller="AdoptionProcess" asp-action="Create" asp-route-buildingBlockId="@Model.Record.Id">Iniciar Proceso de Adopción TSI</a>
+                }
+            </div>
+        }
+        else
+        {
+            var adop = Model.AdoptionDetail;
+            <div class="kpi-grid mb-3">
+                <div class="kpi-card"><span>Proceso</span><strong>@adop.Codigo</strong></div>
+                <div class="kpi-card"><span>Estado de Adopción</span><strong>@adop.EstadoAdopcionNombre</strong></div>
+                <div class="kpi-card"><span>Estándar Principal</span><strong>@(adop.EstandarPrincipalVigente?.TecnologiaNombre ?? "Sin definir")</strong></div>
+                <div class="kpi-card"><span>Empresas Convocadas</span><strong>@adop.EmpresasParticipantes.Count</strong></div>
+            </div>
+
+            <p class="text-muted small">Para gestionar las empresas participantes convocadas, contratos, adendas, modelos de operación y drivers de subsidiarias, acceda al módulo de gobierno de adopción.</p>
+            <div class="mt-2">
+                <a class="md-button md-button-tonal" asp-controller="AdoptionProcess" asp-action="Details" asp-route-id="@adop.Id">Administrar Proceso de Adopción (#@adop.Codigo) →</a>
+            </div>
+        }
+    </section>
+}
+@if (Model.TechnologyRelations is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="technology-related-title">
+        <p class="eyebrow">ENTIDADES RELACIONADAS</p><h2 id="technology-related-title">Building Blocks relacionados <span class="result-count">(@Model.TechnologyRelations.BuildingBlocks.Count)</span></h2>
+        @if (Model.TechnologyRelations.BuildingBlocks.Count == 0) { <p class="empty-state">Esta Tecnología TSI todavía no tiene Building Blocks relacionados.</p> }
+        else { <div class="responsive-table" role="region" aria-label="Building Blocks relacionados" tabindex="0"><table><thead><tr><th>Building Block</th><th>Acciones</th></tr></thead><tbody>@foreach (var block in Model.TechnologyRelations.BuildingBlocks) { <tr><td>@block.Name</td><td><a class="md-button md-button-text" href="@Url.Action("CatalogDetails", "MasterTables", new { catalogRoute = "building-block", id = block.Id })">Ver</a>@if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit)) { <a class="md-button md-button-text" href="@Url.Action("TechnologyRelations", "TechnologyMapping", new { technologyId = Model.TechnologyRelations.TechnologyId })">Administrar relaciones</a> }</td></tr> }</tbody></table></div> }
+        <a class="md-button md-button-tonal" asp-controller="TechnologyMapping" asp-action="TechnologyRelations" asp-route-technologyId="@Model.TechnologyRelations.TechnologyId" asp-route-returnUrl="@Context.Request.Path">Administrar relaciones</a>
+    </section>
+}
+@if (Model.RelatedRecords is not null)
+{
+    <section class="report-card related-entities-card" aria-labelledby="capacity-related-title">
+        <p class="eyebrow">ENTIDADES RELACIONADAS</p>
+        <h2 id="capacity-related-title">Funcionalidades <span class="result-count">(@Model.RelatedRecords.TotalCount)</span></h2>
+        <form class="filter-bar" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <label for="capacity-functionality-search">Buscar funcionalidades</label>
+            <input id="capacity-functionality-search" name="functionalitySearch" class="form-control" type="search" />
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+        </form>
+        @if (Model.RelatedRecords.TotalCount == 0)
+        {
+            <p class="empty-state">Esta Capacidad de Seguridad no tiene Funcionalidades asociadas.</p>
+        }
+        else
+        {
+            <div class="responsive-table" role="region" aria-label="Funcionalidades relacionadas" tabindex="0">
+                <table>
+                    <thead><tr><th>Funcionalidad</th><th>Estado de Funcionalidad</th><th>Descripción</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in Model.RelatedRecords.Items)
+                    {
+                        <tr>
+                            <td data-label="Funcionalidad">@row.DisplayValues.GetValueOrDefault("nombre")</td>
+                            <td data-label="Estado">@row.DisplayValues.GetValueOrDefault("estado")</td>
+                            <td data-label="Descripción">@row.DisplayValues.GetValueOrDefault("descripcion")</td>
+                            <td class="table-actions">
+                                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Ver</a>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                { <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id">Editar</a> }
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                { <a class="md-button md-button-danger" asp-action="CatalogDetails" asp-route-catalogRoute="funcionalidad" asp-route-id="@row.Id" asp-fragment="delete">Eliminar</a> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="result-count">Página @Model.RelatedRecords.Page de @Model.RelatedRecords.TotalPages</p>
+            <div class="pagination-shell">
+                @if (Model.RelatedRecords.Page > 1) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.RelatedRecords.Page - 1)">Anterior</a> }
+                @if (Model.RelatedRecords.Page < Model.RelatedRecords.TotalPages) { <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-functionalityPage="@(Model.RelatedRecords.Page + 1)">Siguiente</a> }
+            </div>
+        }
+        <h3>Resumen de dependencias</h3>
+        <div class="report-kpi-grid"><div class="report-kpi"><span class="report-kpi-value">@Model.RelatedRecords.TotalCount</span><span class="report-kpi-label">Funcionalidades</span></div></div>
+    </section>
+}
+@if (Model.Definition.Route == "vendor")
+{
+    var vendorTechs = Model.VendorTechnologies ?? [];
+    <section class="report-card related-entities-card mt-4" aria-labelledby="vendor-technologies-card-title">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">TECNOLOGÍAS DEL FABRICANTE</p>
+                <h2 id="vendor-technologies-card-title" class="h4 mb-0">Tecnologías TSI Asociadas <span class="result-count">(@vendorTechs.Count)</span></h2>
+            </div>
+            <div>
+                <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="tecnologia-tsi">Ir al Catálogo de Tecnologías</a>
+            </div>
+        </div>
+
+        @if (vendorTechs.Count == 0)
+        {
+            <p class="empty-state">No existen tecnologías TSI asociadas a este fabricante.</p>
+        }
+        else
+        {
+            <div class="responsive-table" role="region" aria-label="Tecnologías TSI asociadas al fabricante" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Tecnología TSI (Corporativo)</th>
+                            <th scope="col">Nombre alternativo / Local</th>
+                            <th scope="col">Familia</th>
+                            <th scope="col">Estado de Adopción</th>
+                            <th scope="col">Licenciamiento</th>
+                            <th scope="col">Entorno</th>
+                            <th scope="col" style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tech in vendorTechs)
+                        {
+                            <tr>
+                                <td data-label="ID" class="text-muted">@tech.Id</td>
+                                <td data-label="Tecnología TSI">
+                                    <strong>@tech.NombreCorporativo</strong>
+                                </td>
+                                <td data-label="Nombre alternativo">@(tech.NombreLocal ?? "—")</td>
+                                <td data-label="Familia">@(tech.Familia ?? "—")</td>
+                                <td data-label="Estado de Adopción">
+                                    @if (!string.IsNullOrEmpty(tech.EstadoAdopcion) && tech.EstadoAdopcion != "—")
+                                    {
+                                        <span class="badge bg-light text-dark border">@tech.EstadoAdopcion</span>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td data-label="Licenciamiento">@(tech.Licenciamiento ?? "—")</td>
+                                <td data-label="Entorno">@(tech.Entorno ?? "—")</td>
+                                <td data-label="Acciones" class="table-actions">
+                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@tech.Id">Ver detalle</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@if (Model.Definition.Route is "vendor" or "partner")
+{
+    var isVendorRoute = Model.Definition.Route == "vendor";
+    var contactCatalogRoute = isVendorRoute ? "contacto-vendor" : "contacto-partner";
+    var contactEntityName = isVendorRoute ? "Contacto de Vendor" : "Contacto de Partner";
+    var contacts = Model.RelatedContacts;
+    var totalContacts = contacts?.TotalCount ?? 0;
+    var contactItems = contacts?.Items ?? [];
+
+    <section class="report-card related-entities-card mt-4" aria-labelledby="related-contacts-card-title">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <p class="eyebrow">DIRECTORIO DE CONTACTOS</p>
+                <h2 id="related-contacts-card-title" class="h4 mb-0">Contactos Registrados <span class="result-count">(@totalContacts)</span></h2>
+                <p class="supporting-text small mb-0">Personas de contacto técnico, comercial y operativo asociadas a este @(isVendorRoute ? "vendor" : "partner").</p>
+            </div>
+            <div class="d-flex gap-2">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-filled"
+                       asp-action="CatalogCreateForm"
+                       asp-route-catalogRoute="@contactCatalogRoute"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       asp-route-initialKey="@(isVendorRoute ? "vendor" : "partner")"
+                       asp-route-initialValue="@Model.Record.Id.ToString()">
+                        + Agregar contacto
+                    </a>
+                }
+                <a class="md-button md-button-text" asp-action="Catalog" asp-route-catalogRoute="@contactCatalogRoute">
+                    Ver todos los contactos
+                </a>
+            </div>
+        </div>
+
+        <form class="filter-bar mb-3" method="get" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">
+            <div class="md-field" style="flex: 1; min-width: 240px;">
+                <label for="contact-search-input">Buscar por contacto o cargo</label>
+                <input id="contact-search-input" name="contactSearch" value="@Model.ContactSearch" type="search" class="form-control" placeholder="Buscar por nombre, cargo, email…" />
+            </div>
+            <button class="md-button md-button-tonal" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.ContactSearch))
+            {
+                <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id">Limpiar</a>
+            }
+        </form>
+
+        @if (totalContacts == 0)
+        {
+            <div class="empty-state p-4 text-center">
+                <div class="empty-state-icon" aria-hidden="true">👤</div>
+                <h3 class="h5 mt-2">Sin contactos registrados</h3>
+                <p class="supporting-text mb-3">No se han registrado contactos comerciales o técnicos asociados a este @(isVendorRoute ? "vendor" : "partner").</p>
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+                {
+                    <a class="md-button md-button-tonal"
+                       asp-action="CatalogCreateForm"
+                       asp-route-catalogRoute="@contactCatalogRoute"
+                       asp-route-returnUrl="@Context.Request.Path"
+                       asp-route-initialKey="@(isVendorRoute ? "vendor" : "partner")"
+                       asp-route-initialValue="@Model.Record.Id.ToString()">
+                        + Agregar el primer contacto
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="responsive-table" role="region" aria-label="Contactos asociados" tabindex="0">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Nombre del Contacto</th>
+                            <th scope="col">Rol / Cargo</th>
+                            <th scope="col">Correo Electrónico</th>
+                            <th scope="col">Teléfono</th>
+                            <th scope="col">Notas</th>
+                            <th scope="col" style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in contactItems)
+                        {
+                            var contactName = isVendorRoute
+                                ? (c.DisplayValues.GetValueOrDefault("nombreContactoVendor") ?? $"Contacto #{c.Id}")
+                                : (c.DisplayValues.GetValueOrDefault("nombreContactoPartner") ?? $"Contacto #{c.Id}");
+                            var rol = c.DisplayValues.GetValueOrDefault("rol") ?? "—";
+                            var email = c.DisplayValues.GetValueOrDefault("email");
+                            var telefono = c.DisplayValues.GetValueOrDefault("telefono");
+                            var notas = c.DisplayValues.GetValueOrDefault("notas") ?? "—";
+
+                            <tr>
+                                <td data-label="Nombre">
+                                    <strong>@contactName</strong>
+                                </td>
+                                <td data-label="Rol / Cargo">@rol</td>
+                                <td data-label="Correo">
+                                    @if (!string.IsNullOrWhiteSpace(email) && email != "—")
+                                    {
+                                        <a href="mailto:@email" class="text-primary text-decoration-underline">@email</a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td data-label="Teléfono">
+                                    @if (!string.IsNullOrWhiteSpace(telefono) && telefono != "—")
+                                    {
+                                        <a href="tel:@telefono" class="text-body text-decoration-none">@telefono</a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td data-label="Notas" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@notas">
+                                    @notas
+                                </td>
+                                <td data-label="Acciones" class="table-actions">
+                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@contactCatalogRoute" asp-route-id="@c.Id">Ver</a>
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                    {
+                                        <a class="md-button md-button-text" asp-action="CatalogEditForm" asp-route-catalogRoute="@contactCatalogRoute" asp-route-id="@c.Id" asp-route-returnUrl="@Context.Request.Path">Editar</a>
+                                    }
+                                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+                                    {
+                                        <button class="md-button md-button-danger" type="button"
+                                                data-bs-toggle="modal" data-bs-target="#delete-catalog-modal"
+                                                data-delete-impact-url="@Url.Action("CatalogDeleteImpact", new { catalogRoute = contactCatalogRoute, id = c.Id })"
+                                                data-delete-action-url="@Url.Action("DeleteCatalog", new { catalogRoute = contactCatalogRoute, id = c.Id })"
+                                                data-delete-row-name="@contactName">
+                                            Eliminar
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (contacts != null && contacts.TotalPages > 1)
+            {
+                <nav class="pagination-shell mt-3" aria-label="Paginación de contactos">
+                    <span>Página @contacts.Page de @contacts.TotalPages</span>
+                    <div>
+                        @if (contacts.Page > 1)
+                        {
+                            <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-contactSearch="@Model.ContactSearch" asp-route-contactPage="@(contacts.Page - 1)">Anterior</a>
+                        }
+                        @if (contacts.Page < contacts.TotalPages)
+                        {
+                            <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" asp-route-contactSearch="@Model.ContactSearch" asp-route-contactPage="@(contacts.Page + 1)">Siguiente</a>
+                        }
+                    </div>
+                </nav>
+            }
+        }
+    </section>
+}
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <div class="modal fade" id="delete-catalog-modal" tabindex="-1" aria-labelledby="delete-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <div class="modal-header"><div><p class="eyebrow">ACCIÓN DESTRUCTIVA</p><h2 class="modal-title" id="delete-catalog-title">Eliminar registro</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body" data-delete-impact-panel><p data-delete-impact-status role="status">Analizando dependencias…</p><div data-delete-impact-content hidden><p>Está a punto de eliminar:</p><p class="impact-root"><strong>@Model.Definition.Name:</strong> <span data-delete-root-name>@Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</span></p><h3>Dependencias afectadas</h3><p class="empty-state" data-delete-empty-dependents hidden>No existen registros dependientes en otras tablas.</p><ul class="deletion-impact-tree" data-delete-impact-tree></ul><p><strong>Total de registros dependientes:</strong> <span data-delete-dependent-total>0</span></p><p><strong>Total de registros que serán eliminados:</strong> <span data-delete-total>0</span></p><p class="app-alert app-alert-warning" data-delete-blocking hidden></p><label class="md-field" data-delete-confirmation-field hidden><span>Escriba <strong>ELIMINAR</strong> para confirmar</span><input class="form-control" name="confirmation" form="delete-catalog-form" autocomplete="off" data-delete-confirmation /></label></div></div>
+        <div class="modal-footer">
+            <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+            <form id="delete-catalog-form" method="post" action="@Url.Action("DeleteCatalog", new { catalogRoute = Model.Definition.Route, id = Model.Record.Id })">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <button type="submit" class="md-button md-button-danger" data-delete-submit disabled>Eliminar</button>
+            </form>
+        </div>
+    </div></div></div>
+}
+@if (Model.Definition.EditorMode == CatalogEditorMode.Modal && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+{
+    <div class="modal fade @(Model.Definition.UsesResponsiveDrawer ? "catalog-editor-drawer" : null)" id="edit-catalog-modal" tabindex="-1" aria-labelledby="edit-catalog-title" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content md-modal">
+        <form method="post" asp-action="EditCatalog" asp-route-catalogRoute="@Model.Definition.Route" asp-route-id="@Model.Record.Id" data-confirm-message="¿Desea guardar los cambios?" data-loading-form data-protect-unsaved="@(Model.Definition.UsesResponsiveDrawer ? "true" : null)">
+            <div class="modal-header"><div><p class="eyebrow">MANTENIMIENTO</p><h2 class="modal-title" id="edit-catalog-title">Editar @Model.Definition.Name</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body"><partial name="_CatalogFields" model="editorModel" /></div><div class="modal-footer"><button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Guardar cambios</button></div>
+        </form>
+    </div></div></div>
+}
+
+@if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
+{
+    <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+}
+
+@if (Model.Definition.Route == "building-block")
+{
+    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+    {
+        <partial name="_CreateCapabilityModal" model="Model" />
+        <partial name="_CreateFunctionalityModal" model="Model" />
+    }
+    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+    {
+        <partial name="_AssociateCapabilityModal" model="Model" />
+        <partial name="_ReassignCapabilityModal" model="Model" />
+        <partial name="_AssociateFunctionalityModal" model="Model" />
+        <partial name="_ReassignFunctionalityModal" model="Model" />
+        <script src="~/js/assignment-modals.js" asp-append-version="true"></script>
+
+        <script>
+            (function () {
+                const tbody = document.getElementById('capabilities-sortable-tbody');
+                const btnSave = document.getElementById('btn-save-cap-order');
+                const statusSpan = document.getElementById('cap-order-status');
+                if (!tbody || !btnSave) return;
+
+                let draggedRow = null;
+                let hasChanges = false;
+
+                function initCapDragAndDrop() {
+                    const rows = tbody.querySelectorAll('.capability-draggable-row');
+
+                    rows.forEach(row => {
+                        const handle = row.querySelector('.capability-drag-handle');
+                        if (handle) {
+                            handle.addEventListener('mouseenter', () => row.setAttribute('draggable', 'true'));
+                            handle.addEventListener('mouseleave', () => {
+                                if (!row.classList.contains('dragging')) {
+                                    row.setAttribute('draggable', 'false');
+                                }
+                            });
+                        }
+
+                        row.addEventListener('dragstart', (e) => {
+                            draggedRow = row;
+                            row.classList.add('dragging');
+                            row.style.opacity = '0.5';
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', row.dataset.capId || '');
+                        });
+
+                        row.addEventListener('dragend', () => {
+                            row.classList.remove('dragging');
+                            row.style.opacity = '1';
+                            row.setAttribute('draggable', 'false');
+                            draggedRow = null;
+                            rows.forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+                        });
+
+                        row.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (!draggedRow || draggedRow === row) return;
+
+                            const bounding = row.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            if (e.clientY - offset > 0) {
+                                row.classList.remove('drag-over-top');
+                                row.classList.add('drag-over-bottom');
+                            } else {
+                                row.classList.remove('drag-over-bottom');
+                                row.classList.add('drag-over-top');
+                            }
+                        });
+
+                        row.addEventListener('dragleave', () => {
+                            row.classList.remove('drag-over-top', 'drag-over-bottom');
+                        });
+
+                        row.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            row.classList.remove('drag-over-top', 'drag-over-bottom');
+                            if (!draggedRow || draggedRow === row) return;
+
+                            const bounding = row.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            if (e.clientY - offset > 0) {
+                                row.after(draggedRow);
+                            } else {
+                                row.before(draggedRow);
+                            }
+
+                            hasChanges = true;
+                            btnSave.removeAttribute('disabled');
+                            btnSave.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.4)';
+                            if (statusSpan) {
+                                statusSpan.textContent = 'Hay cambios de orden sin guardar';
+                                statusSpan.className = 'small text-warning';
+                                statusSpan.classList.remove('d-none');
+                            }
+                        });
+                    });
+                }
+
+                initCapDragAndDrop();
+
+                btnSave.addEventListener('click', async function () {
+                    const currentRows = Array.from(tbody.querySelectorAll('.capability-draggable-row'));
+                    const capabilityIds = currentRows.map(r => parseInt(r.dataset.capId, 10)).filter(id => !isNaN(id) && id > 0);
+
+                    if (capabilityIds.length === 0) return;
+
+                    btnSave.setAttribute('disabled', 'true');
+                    const originalText = btnSave.innerHTML;
+                    btnSave.innerHTML = '<span>⏳ Guardando…</span>';
+
+                    try {
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        const response = await fetch('@Url.Action("ReorderCapabilities", "MasterTables", new { id = Model.Record.Id })', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': tokenEl ? tokenEl.value : ''
+                            },
+                            body: JSON.stringify({ capabilityIds })
+                        });
+
+                        const data = await response.json();
+                        if (response.ok && data.success) {
+                            hasChanges = false;
+                            btnSave.style.boxShadow = '';
+                            if (statusSpan) {
+                                statusSpan.textContent = '¡Orden guardado exitosamente!';
+                                statusSpan.className = 'small text-success';
+                                statusSpan.classList.remove('d-none');
+                                setTimeout(() => statusSpan.classList.add('d-none'), 3500);
+                            }
+                        } else {
+                            alert(data.message || 'Error al guardar el orden.');
+                            btnSave.removeAttribute('disabled');
+                        }
+                    } catch (err) {
+                        console.error('Error guardando orden de capacidades:', err);
+                        alert('Ocurrió un error al guardar el orden de capacidades.');
+                        btnSave.removeAttribute('disabled');
+                    } finally {
+                        btnSave.innerHTML = originalText;
+                        if (!hasChanges) {
+                            btnSave.setAttribute('disabled', 'true');
+                        }
+                    }
+                });
+            })();
+        </script>
+    }
+}
+

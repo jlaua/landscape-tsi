@@ -1,0 +1,40 @@
+@model Landscape.Tsi.Web.Models.CompanyCisoReportViewModel
+@{
+    ViewData["Title"] = "Empresas y CISO";
+    var report = Model.Report;
+}
+<nav class="breadcrumbs" aria-label="Migas de pan"><a asp-controller="Home" asp-action="Index">Inicio</a><span aria-hidden="true">›</span><a asp-controller="Reporting" asp-action="Index">Reportería</a><span aria-hidden="true">›</span><span>Empresas y CISO</span></nav>
+<section class="page-heading"><div><p class="eyebrow">GOBIERNO ORGANIZACIONAL</p><h1>Empresas y CISO</h1><p class="supporting-text">La relación se deriva de TCISO y conserva empresas sin CISO.</p></div></section>
+<section class="report-kpi-grid" aria-label="Indicadores de empresas y CISO">
+    <div class="report-kpi"><span class="report-kpi-value">@report.Kpis.TotalCompanies</span><span class="report-kpi-label">Total empresas</span></div>
+    <div class="report-kpi"><span class="report-kpi-value">@report.Kpis.CompaniesWithCiso</span><span class="report-kpi-label">Empresas con CISO</span></div>
+    <div class="report-kpi"><span class="report-kpi-value">@report.Kpis.CompaniesWithoutCiso</span><span class="report-kpi-label">Sin CISO</span></div>
+    <div class="report-kpi"><span class="report-kpi-value">@report.Kpis.CompaniesWithRepresentative</span><span class="report-kpi-label">Con representante</span></div>
+    <div class="report-kpi"><span class="report-kpi-value">@report.Kpis.CompaniesWithoutRepresentative</span><span class="report-kpi-label">Sin representante</span></div>
+</section>
+<section class="report-card" aria-labelledby="company-ciso-filters">
+    <h2 id="company-ciso-filters">Filtros</h2>
+    <form method="get" asp-action="CompaniesAndCiso" class="report-toolbar">
+        <div class="report-filter-field"><label for="search">Buscar</label><input id="search" name="search" value="@report.Query.Search" class="form-control" /></div>
+        <div class="report-filter-field"><label for="companyId">Empresa/Subsidiaria</label><select id="companyId" name="companyId" class="form-select"><option value="">Todas</option>@foreach (var company in report.Companies) { <option value="@company.Id" selected="@(report.Query.CompanyId == company.Id)">@company.Name</option> }</select></div>
+        <div class="report-filter-field"><label for="country">País</label><select id="country" name="country" class="form-select"><option value="">Todos</option>@foreach (var value in report.Countries) { <option selected="@(report.Query.Country == value)">@value</option> }</select></div>
+        <div class="report-filter-field"><label for="grouping">Agrupador</label><select id="grouping" name="grouping" class="form-select"><option value="">Todos</option>@foreach (var value in report.Groupings) { <option selected="@(report.Query.Grouping == value)">@value</option> }</select></div>
+        <div class="report-filter-field"><label for="industry">Rubro</label><select id="industry" name="industry" class="form-select"><option value="">Todos</option>@foreach (var value in report.Industries) { <option selected="@(report.Query.Industry == value)">@value</option> }</select></div>
+        <div class="report-filter-field"><label for="ciso">CISO</label><select id="ciso" name="ciso" class="form-select"><option value="">Todos</option>@foreach (var value in report.CisoNames) { <option selected="@(report.Query.Ciso == value)">@value</option> }</select></div>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="allCiso" value="true" checked="@report.Query.AllCiso" /> Todos los CISO</label>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="onlyWithoutCiso" value="true" checked="@report.Query.OnlyWithoutCiso" /> Solo empresas sin CISO</label>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="onlyWithoutRepresentative" value="true" checked="@report.Query.OnlyWithoutRepresentative" /> Solo sin representante</label>
+        <button class="md-button md-button-filled" type="submit">Consultar</button>
+        <a class="md-button md-button-text" asp-action="CompaniesAndCiso">Limpiar filtros</a>
+    </form>
+</section>
+<section class="report-card" aria-labelledby="company-ciso-results">
+    <div class="report-detail-heading"><h2 id="company-ciso-results">@(report.Query.AllCiso ? "Todos los CISO" : "Por empresa")</h2><span class="result-count">@report.TotalRows registros</span></div>
+    @if (report.Rows.Count == 0) { <p class="empty-state" role="status">No se encontraron empresas para los filtros seleccionados.</p> }
+    else {
+        <div class="report-table-wrap"><table class="data-grid data-table"><caption class="visually-hidden">Empresas y CISO</caption><thead><tr><th scope="col">Empresa / Subsidiaria</th><th scope="col">Alias</th><th scope="col">Agrupador</th><th scope="col">País</th><th scope="col">Rubro</th><th scope="col">CISO</th><th scope="col">Representante</th><th scope="col">Acciones</th></tr></thead><tbody>
+        @foreach (var row in report.Rows) { <tr><td>@row.CompanyName</td><td>@row.Alias</td><td>@row.Grouping</td><td>@row.Country</td><td>@row.Industry</td><td>@(row.CisoName ?? "Sin CISO representante")</td><td>@(row.HasMultipleRepresentatives ? "Datos inconsistentes" : row.IsRepresentative == true ? "Sí" : row.HasCiso ? "Sin representante" : "—") @if (row.LegacyComparison == "DIFIERE_O_FALTA") { <span class="mapping-badge mapping-badge--unmapped">Difiere de legado</span> }</td><td><a class="md-button md-button-text" href="@row.CompanyRoute">Ver empresa</a>@if (row.CisoRoute is not null) { <a class="md-button md-button-text" href="@row.CisoRoute">Ver CISO</a> }</td></tr> }
+        </tbody></table></div>
+        <nav class="report-pagination" aria-label="Paginación"><a class="md-button md-button-outlined @(report.Query.Page <= 1 ? "disabled" : "")" asp-action="CompaniesAndCiso" asp-route-page="@(report.Query.Page - 1)" asp-route-search="@report.Query.Search" asp-route-companyId="@report.Query.CompanyId" asp-route-country="@report.Query.Country" asp-route-grouping="@report.Query.Grouping" asp-route-industry="@report.Query.Industry" asp-route-ciso="@report.Query.Ciso" asp-route-representativeOnly="@report.Query.RepresentativeOnly" asp-route-onlyWithoutCiso="@report.Query.OnlyWithoutCiso" asp-route-onlyWithoutRepresentative="@report.Query.OnlyWithoutRepresentative" asp-route-allCiso="@report.Query.AllCiso">Anterior</a><span>Página @report.Query.Page de @Model.TotalPages · @report.TotalRows registros</span><a class="md-button md-button-outlined @(report.Query.Page >= Model.TotalPages ? "disabled" : "")" asp-action="CompaniesAndCiso" asp-route-page="@(report.Query.Page + 1)" asp-route-search="@report.Query.Search" asp-route-companyId="@report.Query.CompanyId" asp-route-country="@report.Query.Country" asp-route-grouping="@report.Query.Grouping" asp-route-industry="@report.Query.Industry" asp-route-ciso="@report.Query.Ciso" asp-route-representativeOnly="@report.Query.RepresentativeOnly" asp-route-onlyWithoutCiso="@report.Query.OnlyWithoutCiso" asp-route-onlyWithoutRepresentative="@report.Query.OnlyWithoutRepresentative" asp-route-allCiso="@report.Query.AllCiso">Siguiente</a></nav>
+    }
+</section>

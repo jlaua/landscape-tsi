@@ -1,0 +1,72 @@
+@model Landscape.Tsi.Web.Models.LocalUserEditViewModel
+@{
+    ViewData["Title"] = "Editar usuario local";
+}
+<nav class="breadcrumbs" aria-label="Migas de pan">
+    <a asp-controller="Home" asp-action="Index">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <a asp-action="Index">Administración</a>
+    <span aria-hidden="true">›</span>
+    <a asp-action="Users">Usuarios locales</a>
+    <span aria-hidden="true">›</span>
+    <span>Editar</span>
+</nav>
+
+<section class="admin-shell" aria-labelledby="edit-user-title">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">IDENTIDAD LOCAL</p>
+            <h1 id="edit-user-title">Editar usuario local</h1>
+            <p class="supporting-text">Actualice la información de vigencia y parámetros de la cuenta local.</p>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="app-alert app-alert-error mb-4" role="alert">
+            <div asp-validation-summary="All"></div>
+        </div>
+    }
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card p-4 shadow-sm border-0">
+                <form asp-action="EditUser" asp-route-userId="@Model.UserId" method="post" novalidate>
+                    @Html.AntiForgeryToken()
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="UserName" class="form-label fw-bold">Nombre de usuario <span class="text-danger">*</span></label>
+                            <input asp-for="UserName" class="form-control" autocomplete="username" required />
+                            <span asp-validation-for="UserName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ValidFromUtc" class="form-label fw-bold">Vigencia desde (UTC)</label>
+                            <input asp-for="ValidFromUtc" type="datetime-local" class="form-control" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ValidUntilUtc" class="form-label fw-bold">Vigencia hasta (UTC - opcional)</label>
+                            <input asp-for="ValidUntilUtc" type="datetime-local" class="form-control" />
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Justification" class="form-label fw-bold">Justificación de modificación <span class="text-danger">*</span></label>
+                            <textarea asp-for="Justification" class="form-control" rows="3" placeholder="Indique el motivo técnico o administrativo del cambio" required></textarea>
+                            <span asp-validation-for="Justification" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 d-flex gap-2 justify-content-end mt-4 pt-3 border-top">
+                            <a class="md-button md-button-text" asp-action="UserDetails" asp-route-userId="@Model.UserId">Cancelar</a>
+                            <button class="md-button md-button-filled" type="submit">Guardar cambios</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,64 @@
+@model Landscape.Tsi.Web.Models.CatalogDetailViewModel
+
+<div class="modal fade" id="create-functionality-modal" tabindex="-1" aria-labelledby="create-functionality-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content md-modal">
+            <form method="post" asp-action="CreateFunctionalityForBuildingBlock" asp-route-buildingBlockId="@Model.Record.Id" data-loading-form>
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow">NUEVA FUNCIONALIDAD</p>
+                        <h2 class="modal-title" id="create-functionality-title">Crear Funcionalidad</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">La nueva Funcionalidad se registrará vinculada al Building Block <strong>@Model.Record.DisplayValues.GetValueOrDefault(Model.Definition.DisplayColumnCode)</strong> bajo la Capacidad seleccionada.</p>
+                    
+                    <div class="mb-3">
+                        <label for="create-func-capacidad" class="form-label">Capacidad de Seguridad <span class="text-danger">*</span></label>
+                        <select class="form-select" id="create-func-capacidad" name="capacidadId" required>
+                            <option value="">-- Seleccione una capacidad de este Building Block --</option>
+                            @if (Model.Related?.Capabilities?.Items is not null)
+                            {
+                                foreach (var cap in Model.Related.Capabilities.Items)
+                                {
+                                    <option value="@cap.Id">@(cap.DisplayValues.GetValueOrDefault("capacidad") ?? $"Capacidad #{cap.Id}")</option>
+                                }
+                            }
+                        </select>
+                        <div class="form-text">Solo se muestran las capacidades asociadas a este Building Block.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="create-func-nombre" class="form-label">Nombre de la Funcionalidad <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="create-func-nombre" name="nombre" required maxlength="200" placeholder="Ej. Mitigación automatizada de inyección SQL" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="create-func-estado" class="form-label">Estado de Funcionalidad</label>
+                        <select class="form-select" id="create-func-estado" name="estado">
+                            <option value="">-- Seleccione estado de cobertura (opcional) --</option>
+                            @if (Model.Options.TryGetValue("estado", out var estadosFunc))
+                            {
+                                foreach (var opt in estadosFunc)
+                                {
+                                    <option value="@opt.Id">@opt.Label</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="create-func-descripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="create-func-descripcion" name="descripcion" rows="3" placeholder="Detalle funcional o de implementación"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="md-button md-button-filled" data-loading-text="Guardando…">Crear Funcionalidad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,315 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogTreemapHomeViewModel
+@{
+    ViewData["Title"] = "Distribución de Dominios TSI";
+    var maxDomain = Model.Dominios.OrderByDescending(d => d.BuildingBlocks.Count).FirstOrDefault();
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-controller="MasterTables" asp-action="Index">Administración</a></li>
+        <li aria-current="page">Distribución de Dominios</li>
+    </ol>
+</nav>
+
+<div class="container-fluid px-3 px-md-4 py-2">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary px-2 py-1 fw-semibold">ARQUITECTURA DE SEGURIDAD</span>
+                <span class="badge bg-secondary-subtle text-secondary border">Treemap Proporcional por Área</span>
+            </div>
+            <h1 class="h2 mb-1 fw-bold text-dark">📊 Distribución de Dominios TSI</h1>
+            <p class="text-muted mb-0" style="font-size:0.95rem;">
+                Superficie proporcional calculada sobre el total de <strong>@Model.TotalBuildingBlocks Building Blocks</strong> registrados. El área de cada rectángulo refleja su peso relativo en el Catálogo TSI.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="MasterTables" asp-action="Map" class="btn btn-outline-secondary btn-sm fw-semibold d-inline-flex align-items-center gap-1">
+                <span>🗂️ Ver Mapa de Tablas</span>
+            </a>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm fw-semibold d-inline-flex align-items-center gap-1">
+                <span>← Volver al Inicio</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-primary p-3 bg-white">
+                <span class="text-muted small text-uppercase fw-semibold">Dominios Activos</span>
+                <div class="h3 mb-0 fw-bold text-dark">@Model.TotalDominios</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-success p-3 bg-white">
+                <span class="text-muted small text-uppercase fw-semibold">Total Building Blocks</span>
+                <div class="h3 mb-0 fw-bold text-dark">@Model.TotalBuildingBlocks</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-warning p-3 bg-white">
+                <span class="text-muted small text-uppercase fw-semibold">Dominio Dominante</span>
+                <div class="h4 mb-0 fw-bold text-dark text-truncate" title="@(maxDomain?.Nombre)">
+                    @(maxDomain?.Nombre ?? "—") (@(maxDomain?.PorcentajeBb ?? 0)%)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Treemap Container con Área Proporcional (flex-grow y flex-basis proporcional al % de BBs) -->
+    <div class="card shadow-sm border-0 mb-4" style="border-radius:12px; overflow:hidden;">
+        <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-dark">📐 Mosaico Treemap Proporcional</span>
+            <small class="text-muted">Haga clic en cualquier Dominio para ver su desglose detallado</small>
+        </div>
+        <div class="card-body p-3 p-md-4 bg-light">
+            <div class="d-flex flex-wrap gap-3 align-items-stretch" style="min-height: 480px;" id="treemap-layout-container">
+                @foreach (var dom in Model.Dominios)
+                {
+                    // Cálculo de peso visual proporcional: flex-grow proporcional al conteo de BBs
+                    var weight = Math.Max(1, dom.BuildingBlocks.Count);
+                    var minWidthPx = Math.Max(180, (int)(dom.PorcentajeBb * 8.5));
+
+                    <div class="treemap-block p-3 d-flex flex-column justify-content-between rounded shadow-sm border"
+                         style="flex-grow: @weight; flex-basis: @(minWidthPx)px; min-height: 160px; background-color: @dom.PastelHex; border-color: @dom.BorderHex !important; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;"
+                         onclick="showDomainBreakdown(@dom.Id, '@Html.Raw(Html.Encode(dom.Nombre))', @dom.BuildingBlocks.Count, @dom.PorcentajeBb)"
+                         onmouseover="this.style.transform='scale(1.01)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.15)';"
+                         onmouseout="this.style.transform='none'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)';">
+                        
+                        <div>
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-2">
+                                <h2 class="h6 fw-bold mb-0" style="color: @dom.TextHex;">
+                                    @dom.Nombre
+                                </h2>
+                                <span class="badge bg-white text-dark border fw-bold px-2 py-1" style="font-size: 0.75rem;">
+                                    @dom.PorcentajeBb%
+                                </span>
+                            </div>
+                            <div class="small fw-semibold mb-2" style="color: @dom.TextHex; opacity: 0.9;">
+                                @dom.BuildingBlocks.Count Building Blocks
+                            </div>
+
+                            <!-- Muestra representativa de BBs en el Treemap -->
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                @foreach (var bb in dom.BuildingBlocks.Take(5))
+                                {
+                                    <span class="badge bg-white text-dark border-0 shadow-sm small py-1 px-2 text-truncate" style="max-width: 140px; font-size: 0.7rem;" title="@bb.Nombre">
+                                        @bb.Nombre
+                                    </span>
+                                }
+                                @if (dom.BuildingBlocks.Count > 5)
+                                {
+                                    <span class="badge bg-light text-muted border small py-1 px-2" style="font-size: 0.65rem;">
+                                        +@(dom.BuildingBlocks.Count - 5) más
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center" style="border-color: @dom.BorderHex !important; font-size: 0.75rem;">
+                            <span class="text-muted" style="color: @dom.TextHex !important;">Color: <code>@dom.PastelHex</code></span>
+                            <span class="fw-bold" style="color: @dom.TextHex;">Ver desglose →</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Desglose del Dominio Seleccionado -->
+    <div class="card shadow-sm border-0 mb-5" id="domain-breakdown-panel" style="border-radius:12px; display:none;">
+        <div class="card-header bg-dark text-white p-3 px-md-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="border-radius:12px 12px 0 0;">
+            <div>
+                <h3 class="h5 mb-0 fw-bold text-white" id="breakdown-title">Desglose del Dominio</h3>
+                <span class="small text-white-50" id="breakdown-subtitle">0 Building Blocks (0% del catálogo)</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                {
+                    <button type="button" class="btn btn-success btn-sm fw-semibold d-inline-flex align-items-center gap-1" onclick="downloadDomainBreakdownCsv()">
+                        <span>📥 Descargar (.csv)</span>
+                    </button>
+                }
+                <button type="button" class="btn btn-outline-light btn-sm" onclick="closeBreakdown()">✕ Cerrar</button>
+            </div>
+        </div>
+        <div class="card-body p-3 p-md-4 bg-white">
+            <div class="table-responsive border rounded">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                    <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; user-select:none;">
+                        <tr>
+                            <th scope="col" style="width:45px; cursor:pointer;" onclick="sortDomainBreakdown('idx')" title="Ordenar por número"># <span id="sort-dom-idx">↕</span></th>
+                            <th scope="col" style="min-width:180px; cursor:pointer;" onclick="sortDomainBreakdown('nombre')" title="Ordenar por Building Block">Building Block <span id="sort-dom-nombre">↕</span></th>
+                            <th scope="col" style="cursor:pointer;" onclick="sortDomainBreakdown('pilar')" title="Ordenar por Pilar">Pilar Zero Trust <span id="sort-dom-pilar">↕</span></th>
+                            <th scope="col" style="cursor:pointer;" onclick="sortDomainBreakdown('fase')" title="Ordenar por Fase">Fase de Adopción <span id="sort-dom-fase">↕</span></th>
+                            <th scope="col" class="text-end" style="cursor:pointer;" onclick="sortDomainBreakdown('func')" title="Ordenar por Funcionalidades">Funcionalidades <span id="sort-dom-func">↕</span></th>
+                            <th scope="col" class="text-end" style="cursor:pointer;" onclick="sortDomainBreakdown('emp')" title="Ordenar por Subsidiarias">Subsidiarias Activas <span id="sort-dom-emp">↕</span></th>
+                            <th scope="col" class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakdown-table-body">
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Seleccione un dominio en el treemap.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const domainsData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Dominios));
+    let currentDomain = null;
+    let currentBreakdownBbs = [];
+    let sortDomCol = 'idx';
+    let sortDomAsc = true;
+
+    function showDomainBreakdown(domainId, domainName, count, pct) {
+        currentDomain = domainsData.find(d => d.Id === domainId);
+        if (!currentDomain) return;
+
+        const panel = document.getElementById('domain-breakdown-panel');
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        document.getElementById('breakdown-title').textContent = `Dominio: ${domainName}`;
+        document.getElementById('breakdown-subtitle').textContent = `${count} Building Blocks registrados (${pct}% de la arquitectura TSI)`;
+
+        currentBreakdownBbs = (currentDomain.BuildingBlocks || []).map((b, i) => ({
+            ...b,
+            originalIndex: i + 1,
+            nombre: b.Nombre || '',
+            pilar: b.PilarZt || 'General',
+            fase: b.FaseAdopcionNombre || 'En Evaluación',
+            funcCount: b.FuncionalidadesCount || 0,
+            empCount: b.EmpresasCount || 0
+        }));
+
+        sortDomCol = 'idx';
+        sortDomAsc = true;
+        renderDomainBreakdownTable();
+    }
+
+    function sortDomainBreakdown(col) {
+        if (sortDomCol === col) {
+            sortDomAsc = !sortDomAsc;
+        } else {
+            sortDomCol = col;
+            sortDomAsc = true;
+        }
+        renderDomainBreakdownTable();
+    }
+
+    function renderDomainBreakdownTable() {
+        const tbody = document.getElementById('breakdown-table-body');
+        const sorted = [...currentBreakdownBbs].sort((a, b) => {
+            let valA, valB;
+            switch (sortDomCol) {
+                case 'idx':
+                    valA = a.originalIndex;
+                    valB = b.originalIndex;
+                    return sortDomAsc ? valA - valB : valB - valA;
+                case 'nombre':
+                    valA = (a.nombre || '').toLowerCase();
+                    valB = (b.nombre || '').toLowerCase();
+                    break;
+                case 'pilar':
+                    valA = (a.pilar || '').toLowerCase();
+                    valB = (b.pilar || '').toLowerCase();
+                    break;
+                case 'fase':
+                    valA = (a.fase || '').toLowerCase();
+                    valB = (b.fase || '').toLowerCase();
+                    break;
+                case 'func':
+                    valA = a.funcCount;
+                    valB = b.funcCount;
+                    return sortDomAsc ? valA - valB : valB - valA;
+                case 'emp':
+                    valA = a.empCount;
+                    valB = b.empCount;
+                    return sortDomAsc ? valA - valB : valB - valA;
+                default:
+                    valA = a.originalIndex;
+                    valB = b.originalIndex;
+                    return sortDomAsc ? valA - valB : valB - valA;
+            }
+            if (valA < valB) return sortDomAsc ? -1 : 1;
+            if (valA > valB) return sortDomAsc ? 1 : -1;
+            return a.originalIndex - b.originalIndex;
+        });
+
+        ['idx', 'nombre', 'pilar', 'fase', 'func', 'emp'].forEach(c => {
+            const el = document.getElementById(`sort-dom-${c}`);
+            if (el) {
+                if (sortDomCol === c) {
+                    el.textContent = sortDomAsc ? '▲' : '▼';
+                    el.style.color = '#0d6efd';
+                } else {
+                    el.textContent = '↕';
+                    el.style.color = '#adb5bd';
+                }
+            }
+        });
+
+        if (sorted.length > 0) {
+            tbody.innerHTML = sorted.map((b, idx) => `
+                <tr>
+                    <td class="text-muted small">${idx + 1}</td>
+                    <td class="fw-bold text-dark">${escapeHtml(b.nombre)}</td>
+                    <td><span class="badge bg-secondary-subtle text-secondary border">${escapeHtml(b.pilar)}</span></td>
+                    <td><span class="badge bg-info-subtle text-dark border">${escapeHtml(b.fase)}</span></td>
+                    <td class="text-end fw-semibold text-primary">⚙️ ${b.funcCount} func.</td>
+                    <td class="text-end fw-semibold text-success">🏢 ${b.empCount} emp.</td>
+                    <td class="text-center">
+                        <a href="/Administration/MasterTables/building-block/${b.Id}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.75rem;">
+                            Ficha BB →
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se registran Building Blocks en este dominio.</td></tr>';
+        }
+    }
+
+    function downloadDomainBreakdownCsv() {
+        if (!currentBreakdownBbs || currentBreakdownBbs.length === 0) return;
+        const domName = currentDomain?.Nombre || 'Dominio';
+        const safeName = domName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        const headers = ['#', 'Building Block', 'Pilar Zero Trust', 'Fase de Adopción', 'Funcionalidades', 'Subsidiarias Activas'];
+        const rows = currentBreakdownBbs.map((b, idx) => [
+            idx + 1,
+            `"${(b.nombre || '').replace(/"/g, '""')}"`,
+            `"${(b.pilar || '').replace(/"/g, '""')}"`,
+            `"${(b.fase || '').replace(/"/g, '""')}"`,
+            b.funcCount,
+            b.empCount
+        ]);
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `BuildingBlocks_${safeName}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function closeBreakdown() {
+        document.getElementById('domain-breakdown-panel').style.display = 'none';
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+</script>

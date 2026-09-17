@@ -1,0 +1,12 @@
+/* NO EJECUTAR SIN APROBACIÓN FINAL. No contiene DDL manual. */
+-- Preflight obligatorio: backup restaurable y destino confirmado.
+-- El esquema IAM debe originarse en las migraciones EF existentes; no se
+-- incluye DDL manual. Ejecutar desde la raíz del repositorio, con una cadena
+-- suministrada por el entorno seguro (sin escribirla aquí):
+--
+--   dotnet ef database update --context Landscape.Tsi.Infrastructure.Identity.IdentityDbContext
+--     --project src/Landscape.Tsi.Infrastructure/Landscape.Tsi.Infrastructure.csproj
+--     --startup-project src/Landscape.Tsi.Web/Landscape.Tsi.Web.csproj
+--     --connection <CONNECTION_INJECTED_BY_SECRET_STORE>
+--
+-- Verificar antes que el destino sea exclusivamente db-landscape-tsi-reconcile.

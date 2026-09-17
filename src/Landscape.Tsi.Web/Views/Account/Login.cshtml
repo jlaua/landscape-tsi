@@ -1,0 +1,98 @@
+@model Landscape.Tsi.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Acceso";
+}
+
+<div class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+        <div class="theme-selector-group" role="radiogroup" aria-label="Seleccionar estilo visual">
+            <button type="button"
+                    class="theme-selector-btn @(Model.SelectedTheme == "light" ? "active" : "")"
+                    data-theme-choice="light"
+                    role="radio"
+                    aria-checked="@(Model.SelectedTheme == "light" ? "true" : "false")"
+                    onclick="switchLoginTheme('light')">
+                <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                Ligero
+            </button>
+            <button type="button"
+                    class="theme-selector-btn @(Model.SelectedTheme == "corporate" ? "active" : "")"
+                    data-theme-choice="corporate"
+                    role="radio"
+                    aria-checked="@(Model.SelectedTheme == "corporate" ? "true" : "false")"
+                    onclick="switchLoginTheme('corporate')">
+                <svg style="width:16px;height:16px;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                Corporativo
+            </button>
+        </div>
+
+        <div class="d-flex justify-content-center">
+            <partial name="_BrandLogo" view-data='@new ViewDataDictionary(ViewData) { { "ShowText", false } }' />
+        </div>
+
+        <p class="eyebrow text-center">LANDSCAPE TSI</p>
+        <h1 id="login-title" class="text-center">Bienvenido</h1>
+        <p class="supporting-text text-center">Ingrese con su cuenta corporativa o utilice el acceso local autorizado.</p>
+
+        @if (Model.OAuthEnabled)
+        {
+            <form asp-action="CorporateLogin" method="post">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button class="md-button md-button-tonal full-width" type="submit">Continuar con cuenta corporativa</button>
+            </form>
+            <div class="login-divider"><span>o</span></div>
+        }
+
+        <form asp-action="Login" method="post" novalidate>
+            <input asp-for="ReturnUrl" type="hidden" />
+            <input asp-for="SelectedTheme" id="selectedThemeInput" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert" aria-live="assertive" tabindex="-1"></div>
+            <div class="md-field">
+                <label asp-for="UserName"></label>
+                <input asp-for="UserName" autocomplete="username" autofocus />
+                <span asp-validation-for="UserName" class="field-error"></span>
+            </div>
+            <div class="md-field">
+                <label asp-for="Password"></label>
+                <input asp-for="Password" autocomplete="current-password" />
+                <span asp-validation-for="Password" class="field-error"></span>
+            </div>
+            <button class="md-button md-button-filled full-width" type="submit">Ingresar</button>
+        </form>
+        <p class="security-note text-center">El acceso está protegido y las acciones administrativas quedan auditadas.</p>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function switchLoginTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            var input = document.getElementById('selectedThemeInput');
+            if (input) input.value = theme;
+
+            document.querySelectorAll('.theme-selector-btn').forEach(function(btn) {
+                var choice = btn.getAttribute('data-theme-choice');
+                if (choice === theme) {
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-checked', 'true');
+                } else {
+                    btn.classList.remove('active');
+                    btn.setAttribute('aria-checked', 'false');
+                }
+            });
+
+            // Guardar en cookie para sincronización inmediata
+            document.cookie = 'landscape_theme=' + encodeURIComponent(theme) + '; path=/; max-age=31536000; SameSite=Lax';
+
+            // Notificar al servidor en segundo plano
+            try {
+                fetch('/SetTheme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ theme: theme })
+                }).catch(function() {});
+            } catch(e) {}
+        }
+    </script>
+}

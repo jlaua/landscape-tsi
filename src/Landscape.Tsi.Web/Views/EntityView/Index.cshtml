@@ -1,0 +1,14 @@
+@model Landscape.Tsi.Web.Models.CatalogMapViewModel
+@{
+    ViewData["Title"] = "Vista de entidades";
+}
+
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Home" asp-action="Index">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <a asp-controller="Documentation" asp-action="Index">Documentación</a>
+    <span aria-hidden="true">›</span>
+    <span aria-current="page">Vista de entidades</span>
+</nav>
+
+@await Html.PartialAsync("_EntityGraph", Model)

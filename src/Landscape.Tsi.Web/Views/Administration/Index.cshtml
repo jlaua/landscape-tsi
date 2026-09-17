@@ -1,0 +1,72 @@
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Application.Identity.IdentityAdministrationOverview
+@{
+    ViewData["Title"] = "Administración";
+}
+<section class="admin-shell" aria-labelledby="admin-title">
+    <p class="eyebrow">ÁREA PROTEGIDA</p>
+    <h1 id="admin-title">Identidad y acceso</h1>
+    <p class="supporting-text">Revise usuarios, roles, permisos, alcance y vigencia. Las acciones se validan nuevamente en el servidor.</p>
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <p class="success-message" role="status">@statusMessage</p>
+    }
+
+    <section aria-labelledby="users-title">
+        <h2 id="users-title">Usuarios</h2>
+        <div class="responsive-table" role="region" aria-label="Usuarios y acceso" tabindex="0">
+            <table>
+                <thead><tr><th>Usuario</th><th>Estado</th><th>Roles</th><th>Alcance</th><th>Vigencia</th><th>Acciones</th></tr></thead>
+                <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    <tr>
+                        <td data-label="Usuario">@user.UserName</td>
+                        <td data-label="Estado"><span class="status-text">@(user.IsActive ? "Activo" : "Suspendido")</span></td>
+                        <td data-label="Roles">@(user.Roles.Count == 0 ? "Sin roles" : string.Join(", ", user.Roles))</td>
+                        <td data-label="Alcance">@(user.Scopes.Count == 0 ? "Sin alcance asignado" : string.Join(", ", user.Scopes))</td>
+                        <td data-label="Vigencia">@FormatValidity(user.ValidFromUtc, user.ValidUntilUtc)</td>
+                        <td data-label="Acciones">
+                            @if (User.IsInRole(SystemRoles.AdministratorName))
+                            {
+                                <a class="md-button md-button-text" asp-action="ResetPassword" asp-route-userId="@user.Id">Restablecer contraseña</a>
+                            }
+                            else
+                            {
+                                <span>No disponible</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section aria-labelledby="roles-title">
+        <h2 id="roles-title">Roles y permisos</h2>
+        <div class="role-grid">
+        @foreach (var role in Model.Roles)
+        {
+            <article class="role-card">
+                <h3>@role.Name</h3>
+                @if (role.Permissions.Count == 0)
+                {
+                    <p>Sin permisos configurados.</p>
+                }
+                else
+                {
+                    <ul>@foreach (var permission in role.Permissions) { <li><code>@permission</code></li> }</ul>
+                }
+            </article>
+        }
+        </div>
+    </section>
+</section>
+
+@functions {
+    private static string FormatValidity(DateTime? from, DateTime? until) =>
+        from is null && until is null
+            ? "Sin vencimiento configurado"
+            : $"{(from?.ToString("yyyy-MM-dd") ?? "Inicio inmediato")} – {(until?.ToString("yyyy-MM-dd") ?? "Sin vencimiento")}";
+}

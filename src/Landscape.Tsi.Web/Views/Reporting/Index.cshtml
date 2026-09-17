@@ -1,0 +1,646 @@
+@using Landscape.Tsi.Application.Catalogs
+@using Landscape.Tsi.Application.Identity
+@model Landscape.Tsi.Web.Models.CatalogTreemapHomeViewModel
+@{
+    ViewData["Title"] = "Reportería TSI - Distribución de Dominios";
+    var groups = MasterCatalogRegistry.ReportingCatalogs.Select(catalog => catalog.Group).Distinct().OrderBy(group => group).ToArray();
+    var isCatalogosTab = string.Equals(Model.ActiveTab, "catalogos", StringComparison.OrdinalIgnoreCase);
+}
+
+<nav class="breadcrumbs" aria-label="Migas de pan">
+    <a asp-controller="Home" asp-action="Index">Inicio</a>
+    <span aria-hidden="true">›</span>
+    <a asp-controller="Reporting" asp-action="Index">Reportería</a>
+    <span aria-hidden="true">›</span>
+    <span>@(isCatalogosTab ? "Reportería de catálogos" : "Distribución de Dominios")</span>
+</nav>
+
+<div class="container-fluid px-0 py-2">
+    <!-- Pestañas de Reportería -->
+    <ul class="nav nav-pills mb-4 gap-2 border-bottom pb-3 align-items-center" id="reportingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(!isCatalogosTab ? "active" : "") fw-bold px-3 py-2" id="tab-dominios-btn" data-bs-toggle="pill" data-bs-target="#pane-dominios" type="button" role="tab" aria-controls="pane-dominios" aria-selected="@(!isCatalogosTab ? "true" : "false")">
+                📊 1) Distribución de Dominios
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(isCatalogosTab ? "active" : "") fw-bold px-3 py-2" id="tab-catalogos-btn" data-bs-toggle="pill" data-bs-target="#pane-catalogos" type="button" role="tab" aria-controls="pane-catalogos" aria-selected="@(isCatalogosTab ? "true" : "false")">
+                🗂️ 2) Reportería de Catálogos
+            </button>
+        </li>
+        <li class="nav-item ms-auto d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" asp-controller="Reporting" asp-action="CompaniesAndCiso">
+                🏢 Empresas y CISO
+            </a>
+            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" asp-controller="Reporting" asp-action="CompanyAdoptionByTechnology">
+                🛡️ Adopción por Tecnología
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="reportingTabsContent">
+        <!-- =================================================================== -->
+        <!-- TAB 1: DISTRIBUCIÓN DE DOMINIOS (MAPA DEL CATÁLOGO TSI)            -->
+        <!-- =================================================================== -->
+        <div class="tab-pane fade @(!isCatalogosTab ? "show active" : "")" id="pane-dominios" role="tabpanel" aria-labelledby="tab-dominios-btn">
+            <!-- Header Principal -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-primary px-2 py-1 fw-semibold" style="letter-spacing:0.5px;">REPORTERÍA & SEGUIMIENTO</span>
+                        <span class="badge bg-secondary-subtle text-secondary border">Arquitectura & Adopción Corporativa</span>
+                    </div>
+                    <h1 class="h2 mb-1 fw-bold text-dark">Distribución de Dominios</h1>
+                    <p class="text-muted mb-0" style="font-size:0.95rem;">
+                        Visualización estructurada por <strong>Dominios de Seguridad</strong> y <strong>Building Blocks</strong>. Explore capacidades, funcionalidades y subsidiarias con tecnología desplegada.
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                        <span>🗺️ Ver Mapa Landscape TSI</span>
+                    </a>
+                    <a asp-controller="AdoptionProcess" asp-action="Evaluations" class="btn btn-primary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                        <span>📋 Evaluaciones de Adopción</span>
+                    </a>
+                    <a asp-controller="MasterTables" asp-action="Map" class="btn btn-outline-secondary btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                        <span>📑 Mapa de Tablas</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Indicadores Clave de Distribución (KPIs) -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #0d6efd !important;">
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Dominios TSI</span>
+                        <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalDominios</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #198754 !important;">
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Building Blocks</span>
+                        <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalBuildingBlocks</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #0dcaf0 !important;">
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Funcionalidades</span>
+                        <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalFuncionalidades</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm h-100 p-3" style="border-radius:12px; border-left: 4px solid #ffc107 !important;">
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size:0.75rem; letter-spacing:0.5px;">Implementaciones</span>
+                        <div class="h3 fw-bold text-dark mb-0 mt-1">@Model.TotalImplementaciones</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mosaico por Dominios de Seguridad -->
+            <div class="d-flex flex-column gap-4 mb-5">
+                @foreach (var dom in Model.Dominios)
+                {
+                    <div class="card shadow-sm border" style="border-color:@dom.BorderHex !important; background-color:@dom.PastelHex; border-radius:12px; overflow:hidden;">
+                        <!-- Header del Dominio -->
+                        <div class="p-3 px-md-4 d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom" style="border-color:@dom.BorderHex !important;">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge rounded-pill fw-bold" style="background-color:@dom.TextHex; color:#fff; font-size:0.8rem;">
+                                    @dom.BuildingBlocks.Count BBs
+                                </span>
+                                <h2 class="h5 mb-0 fw-bold" style="color:@dom.TextHex;">@dom.Nombre</h2>
+                                <span class="badge bg-white shadow-xs" style="color:@dom.TextHex; font-size:0.75rem; border:1px solid @dom.BorderHex;">
+                                    @(dom.PorcentajeBb.ToString("0.0"))% del Catálogo
+                                </span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(dom.Descripcion))
+                            {
+                                <span class="small text-muted d-none d-lg-inline-block text-truncate" style="max-width:500px;" title="@dom.Descripcion">
+                                    • @dom.Descripcion
+                                </span>
+                            }
+                            <div>
+                                <a asp-controller="MasterTables" asp-action="Domain" class="btn btn-sm btn-light border py-0 px-2 fw-semibold" style="font-size:0.8rem; color:@dom.TextHex;">
+                                    Ver Dominio →
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Grilla de Building Blocks del Dominio -->
+                        <div class="p-3 p-md-4">
+                            @if (dom.BuildingBlocks.Count == 0)
+                            {
+                                <div class="text-muted small py-2">No hay Building Blocks registrados para este dominio.</div>
+                            }
+                            else
+                            {
+                                <div class="row g-3">
+                                    @foreach (var bb in dom.BuildingBlocks)
+                                    {
+                                        <div class="col-12 col-sm-6 col-md-4 col-xl-3">
+                                            <div class="card h-100 bg-white border shadow-xs p-3 d-flex flex-column justify-content-between bb-interactive-card"
+                                                 data-bb-id="@bb.Id"
+                                                 data-bb-name="@bb.Nombre"
+                                                 data-domain-name="@dom.Nombre"
+                                                 onclick="loadBuildingBlockDetail(@bb.Id)"
+                                                 style="border-radius:10px; cursor:pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;">
+                                                <div>
+                                                    <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                                        <h3 class="h6 fw-bold mb-0 text-dark text-truncate" title="@bb.Nombre">
+                                                            @bb.Nombre
+                                                        </h3>
+                                                        @if (!string.IsNullOrWhiteSpace(bb.PilarZt))
+                                                        {
+                                                            <span class="badge bg-light text-secondary border shadow-xs" style="font-size:0.65rem; white-space:nowrap;">
+                                                                @bb.PilarZt
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                    <p class="small text-muted mb-2 text-truncate-2" style="font-size:0.75rem; min-height:32px; line-height:1.3;" title="@bb.Definicion">
+                                                        @(string.IsNullOrWhiteSpace(bb.Definicion) ? "Building block de seguridad especializado." : bb.Definicion)
+                                                    </p>
+                                                </div>
+                                                <div class="pt-2 border-top d-flex justify-content-between align-items-center mt-2" style="font-size:0.72rem;">
+                                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" title="Funcionalidades registradas">
+                                                        ⚙ @bb.FuncionalidadesCount func.
+                                                    </span>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" title="Empresas subsidiarias con tecnología desplegada">
+                                                        🏢 @bb.EmpresasCount emp.
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Panel Flotante / Detalle Expandible de Building Block -->
+            <div class="card shadow-lg border-0 mb-5" id="bb-detail-panel" style="border-radius:12px; display:none;">
+                <div class="card-header bg-dark text-white p-3 px-md-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="border-radius:12px 12px 0 0;">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary text-white" style="font-size:0.8rem;">FICHA TÉCNICA</span>
+                        <div>
+                            <h3 class="h5 mb-0 fw-bold text-white" id="detail-bb-title">Detalle del Building Block</h3>
+                            <span class="small text-white-50" id="detail-bb-domain">Dominio TSI</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport) || User.IsInRole(SystemRoles.AdministratorName))
+                        {
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="btn-export-bb">
+                                    <span>📥 Descargar Información</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:0.85rem;">
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" onclick="downloadBbExcel(); return false;">📊 Descargar en Excel (.xlsx)</a></li>
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" onclick="downloadBbCsv(); return false;">📄 Descargar Funcionalidades (.csv)</a></li>
+                                </ul>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="closeDetailPanel()">✕ Cerrar Detalle</button>
+                    </div>
+                </div>
+
+                <div class="card-body p-3 p-md-4 bg-white">
+                    <!-- Resumen del BB -->
+                    <div class="row g-3 mb-4 p-3 bg-light rounded-3 border">
+                        <div class="col-12 col-md-6">
+                            <div class="small text-muted fw-semibold mb-1">DEFINICIÓN</div>
+                            <div id="detail-bb-def" class="text-dark small">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="small text-muted fw-semibold mb-1">PILAR ZERO TRUST</div>
+                            <div id="detail-bb-pilar" class="badge bg-secondary-subtle text-secondary border">—</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="small text-muted fw-semibold mb-1">FASE DE ADOPCIÓN</div>
+                            <div id="detail-bb-fase" class="badge bg-primary-subtle text-primary border">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Pestañas de Detalle Interno -->
+                    <ul class="nav nav-tabs mb-3" id="bbDetailTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-dark" id="funcs-tab" data-bs-toggle="tab" data-bs-target="#funcs-content" type="button" role="tab">
+                                Funcionalidades y Capacidades de Seguridad (<span id="count-funcs">0</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="impls-tab" data-bs-toggle="tab" data-bs-target="#impls-content" type="button" role="tab">
+                                Empresas con Tecnología Desplegada (<span id="count-impls">0</span>)
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- Tab Funcionalidades -->
+                        <div class="tab-pane fade show active" id="funcs-content" role="tabpanel">
+                            <!-- Filtro interactivo por Capacidad de Seguridad -->
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="filter-capacidad-select" class="small fw-semibold text-muted text-uppercase mb-0">Filtrar por Capacidad:</label>
+                                    <select class="form-select form-select-sm" id="filter-capacidad-select" style="min-width: 240px; font-size: 0.85rem;" onchange="onFilterCapacidadChange()">
+                                        <option value="">Todas las Capacidades de Seguridad</option>
+                                    </select>
+                                </div>
+                                <span class="small text-muted" id="showing-funcs-text">Mostrando todas las funcionalidades</span>
+                            </div>
+
+                            <div class="table-responsive border rounded">
+                                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                                    <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; user-select:none;">
+                                        <tr>
+                                            <th scope="col" style="width:45px; cursor:pointer;" onclick="sortFuncsTable('idx')" title="Ordenar por número"># <span id="sort-idx">↕</span></th>
+                                            <th scope="col" style="min-width:180px; cursor:pointer;" onclick="sortFuncsTable('capacidad')" title="Ordenar por Capacidad de Seguridad">Capacidad de Seguridad <span id="sort-capacidad">↕</span></th>
+                                            <th scope="col" style="min-width:200px; cursor:pointer;" onclick="sortFuncsTable('nombre')" title="Ordenar por Funcionalidad">Funcionalidad <span id="sort-nombre">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortFuncsTable('descripcion')" title="Ordenar por Descripción">Descripción <span id="sort-descripcion">↕</span></th>
+                                            <th scope="col" style="width:120px; cursor:pointer;" onclick="sortFuncsTable('estado')" title="Ordenar por Estado">Estado <span id="sort-estado">↕</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-funcs-body">
+                                        <tr><td colspan="5" class="text-center text-muted py-4">Seleccione un Building Block arriba para explorar sus funcionalidades.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab Empresas Implementadas -->
+                        <div class="tab-pane fade" id="impls-content" role="tabpanel">
+                            <div class="table-responsive border rounded">
+                                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                                    <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; user-select:none;">
+                                        <tr>
+                                            <th scope="col" style="width:45px; cursor:pointer;" onclick="sortImplsTable('idx')" title="Ordenar por número"># <span id="sort-impl-idx">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortImplsTable('empresaNombre')" title="Ordenar por Subsidiaria">Empresa Subsidiaria <span id="sort-impl-empresaNombre">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortImplsTable('pais')" title="Ordenar por País">País <span id="sort-impl-pais">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortImplsTable('tecnologiaAsIs')" title="Ordenar por Tecnología AS-IS">Tecnología AS-IS Desplegada <span id="sort-impl-tecnologiaAsIs">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortImplsTable('versionDesplegada')" title="Ordenar por Versión Desplegada">Versión Desplegada <span id="sort-impl-versionDesplegada">↕</span></th>
+                                            <th scope="col" style="cursor:pointer;" onclick="sortImplsTable('esInstanciaCorporativa')" title="Ordenar por Tipo de Instancia">Instancia Corporativa <span id="sort-impl-esInstanciaCorporativa">↕</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-impls-body">
+                                        <tr><td colspan="6" class="text-center text-muted py-4">Seleccione un Building Block para ver las subsidiarias con adopción tecnológica activa.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 2: REPORTERÍA DE CATÁLOGOS EXISTENTE                            -->
+        <!-- =================================================================== -->
+        <div class="tab-pane fade @(isCatalogosTab ? "show active" : "")" id="pane-catalogos" role="tabpanel" aria-labelledby="tab-catalogos-btn">
+            <div class="card mb-4 shadow-sm border-0" style="border-radius:12px;">
+                <div class="card-body p-3 p-md-4">
+                    <div class="row align-items-center g-3">
+                        <div class="col-md-6">
+                            <label for="group-filter" class="form-label fw-bold text-dark mb-1">Filtrar por Grupo Funcional</label>
+                            <select id="group-filter" class="form-select">
+                                <option value="">Todos los grupos funcionales</option>
+                                @foreach (var group in groups)
+                                {
+                                    <option value="@group">@group</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <span class="text-muted small">Mostrando catálogos maestros con relaciones analíticas</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico de Catálogos -->
+            <div class="card mb-4 shadow-sm border-0" style="border-radius:12px;">
+                <div class="card-header bg-white border-0 pt-3 px-3 px-md-4">
+                    <h2 class="h6 mb-0 fw-bold text-dark">Distribución de Registros por Catálogo</h2>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    <div style="height: 380px;">
+                        <canvas id="reporting-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Detalle de Catálogo -->
+            <div id="catalog-detail-panel" class="card shadow-sm border-0 mb-4" style="border-radius:12px; display: none;">
+                <div class="card-header bg-white border-bottom p-3 px-md-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="h5 mb-0 fw-bold text-dark" id="panel-title">Detalle del Catálogo</h3>
+                        <span class="badge bg-secondary-subtle text-secondary" id="panel-group">Grupo</span>
+                    </div>
+                    <button type="button" class="btn-close" onclick="closeCatalogDetail()"></button>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    <p class="text-muted" id="panel-description">Descripción del catálogo...</p>
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-light rounded text-center">
+                                <span class="d-block text-muted small">Total Registros</span>
+                                <span class="h4 fw-bold text-primary mb-0" id="panel-total-records">0</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-light rounded text-center">
+                                <span class="d-block text-muted small">Entidades Dependientes</span>
+                                <span class="h4 fw-bold text-success mb-0" id="panel-dep-count">0</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-light rounded text-center">
+                                <span class="d-block text-muted small">Estado</span>
+                                <span class="badge bg-success-subtle text-success px-3 py-2" id="panel-status">Activo</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a id="panel-catalog-link" href="#" class="btn btn-primary btn-sm">Ver Catálogo Maestro</a>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeCatalogDetail()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bb-interactive-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08) !important;
+        border-color: #0d6efd !important;
+    }
+    .bb-interactive-card.selected-card {
+        border-color: #0d6efd !important;
+        border-width: 2px !important;
+        background-color: #f0f7ff !important;
+    }
+    .text-truncate-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+
+@section Scripts {
+    <script src="~/js/domain-color-palette.js" asp-append-version="true"></script>
+    <script src="~/js/reporting.js" asp-append-version="true"></script>
+    <script>
+        let currentBbDetail = null;
+        let currentFuncsData = [];
+        let currentImplsData = [];
+        let funcsSortCol = 'idx';
+        let funcsSortAsc = true;
+        let implsSortCol = 'idx';
+        let implsSortAsc = true;
+        let selectedCapFilter = '';
+
+        function loadBuildingBlockDetail(bbId) {
+            document.querySelectorAll('.bb-interactive-card').forEach(c => c.classList.remove('selected-card'));
+            const card = document.querySelector(`.bb-interactive-card[data-bb-id="${bbId}"]`);
+            if (card) card.classList.add('selected-card');
+
+            const panel = document.getElementById('bb-detail-panel');
+            panel.style.display = 'block';
+
+            document.getElementById('table-funcs-body').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando funcionalidades...</td></tr>';
+            document.getElementById('table-impls-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando subsidiarias...</td></tr>';
+
+            fetch('/Home/GetBuildingBlockDetail/' + bbId)
+                .then(r => {
+                    if (!r.ok) throw new Error('Error al cargar detalle');
+                    return r.json();
+                })
+                .then(data => {
+                    currentBbDetail = data;
+                    document.getElementById('detail-bb-title').textContent = data.nombre;
+                    document.getElementById('detail-bb-domain').textContent = data.dominioNombre || 'Dominio TSI';
+                    document.getElementById('detail-bb-def').textContent = data.definicion || 'Sin definición registrada.';
+                    document.getElementById('detail-bb-pilar').textContent = data.pilarZt || 'General';
+                    document.getElementById('detail-bb-fase').textContent = data.faseAdopcion || 'En Definición';
+
+                    document.getElementById('count-funcs').textContent = data.funcionalidades.length;
+                    document.getElementById('count-impls').textContent = data.empresasImplementadas.length;
+
+                    currentFuncsData = data.funcionalidades.map((f, i) => ({
+                        idx: i + 1,
+                        id: f.id,
+                        capacidad: f.capacidadSeguridadNombre || 'General',
+                        nombre: f.nombre,
+                        descripcion: f.descripcion || '—',
+                        estado: f.estado || 'Activa'
+                    }));
+
+                    currentImplsData = data.empresasImplementadas.map((e, i) => ({
+                        idx: i + 1,
+                        empresaId: e.empresaId,
+                        empresaNombre: e.empresaNombre,
+                        pais: e.pais || 'Global',
+                        tecnologiaAsIs: e.tecnologiaAsIs || 'Tecnología Desplegada',
+                        versionDesplegada: e.versionDesplegada || 'Estándar',
+                        esInstanciaCorporativa: e.esInstanciaCorporativa ? 'Sí' : 'No'
+                    }));
+
+                    populateCapacidadFilter(currentFuncsData);
+
+                    funcsSortCol = 'idx';
+                    funcsSortAsc = true;
+                    implsSortCol = 'idx';
+                    implsSortAsc = true;
+                    selectedCapFilter = '';
+
+                    renderFuncsTable();
+                    renderImplsTable();
+
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('table-funcs-body').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos del Building Block.</td></tr>';
+                    document.getElementById('table-impls-body').innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error al cargar implementaciones.</td></tr>';
+                });
+        }
+
+        function populateCapacidadFilter(funcs) {
+            const select = document.getElementById('filter-capacidad-select');
+            if (!select) return;
+            const caps = Array.from(new Set(funcs.map(f => f.capacidad))).sort();
+            let options = '<option value="">Todas las Capacidades de Seguridad (' + funcs.length + ' func.)</option>';
+            caps.forEach(c => {
+                const count = funcs.filter(f => f.capacidad === c).length;
+                options += `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${count})</option>`;
+            });
+            select.innerHTML = options;
+            select.value = '';
+        }
+
+        function onFilterCapacidadChange() {
+            const select = document.getElementById('filter-capacidad-select');
+            selectedCapFilter = select ? select.value : '';
+            renderFuncsTable();
+        }
+
+        function renderFuncsTable() {
+            const tbody = document.getElementById('table-funcs-body');
+            if (!tbody) return;
+
+            let filtered = currentFuncsData;
+            if (selectedCapFilter) {
+                filtered = filtered.filter(f => f.capacidad === selectedCapFilter);
+            }
+
+            const counterText = document.getElementById('showing-funcs-text');
+            if (counterText) {
+                counterText.textContent = selectedCapFilter
+                    ? `Mostrando ${filtered.length} de ${currentFuncsData.length} funcionalidades`
+                    : `Mostrando todas las funcionalidades (${currentFuncsData.length})`;
+            }
+
+            filtered.sort((a, b) => {
+                let valA = a[funcsSortCol];
+                let valB = b[funcsSortCol];
+                if (typeof valA === 'string') {
+                    const cmp = valA.localeCompare(valB, 'es', { sensitivity: 'base' });
+                    return funcsSortAsc ? cmp : -cmp;
+                }
+                return funcsSortAsc ? (valA - valB) : (valB - valA);
+            });
+
+            const sortIcons = ['idx', 'capacidad', 'nombre', 'descripcion', 'estado'];
+            sortIcons.forEach(col => {
+                const el = document.getElementById(`sort-${col}`);
+                if (el) {
+                    el.textContent = (col === funcsSortCol) ? (funcsSortAsc ? '▲' : '▼') : '↕';
+                }
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No se encontraron funcionalidades registradas.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(f => `
+                <tr>
+                    <td class="text-muted fw-bold">${f.idx}</td>
+                    <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle">${escapeHtml(f.capacidad)}</span></td>
+                    <td class="fw-semibold text-dark">${escapeHtml(f.nombre)}</td>
+                    <td class="text-muted small">${escapeHtml(f.descripcion)}</td>
+                    <td><span class="badge bg-success-subtle text-success border border-success-subtle">${escapeHtml(f.estado)}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function sortFuncsTable(col) {
+            if (funcsSortCol === col) {
+                funcsSortAsc = !funcsSortAsc;
+            } else {
+                funcsSortCol = col;
+                funcsSortAsc = true;
+            }
+            renderFuncsTable();
+        }
+
+        function renderImplsTable() {
+            const tbody = document.getElementById('table-impls-body');
+            if (!tbody) return;
+
+            currentImplsData.sort((a, b) => {
+                let valA = a[implsSortCol];
+                let valB = b[implsSortCol];
+                if (typeof valA === 'string') {
+                    const cmp = valA.localeCompare(valB, 'es', { sensitivity: 'base' });
+                    return implsSortAsc ? cmp : -cmp;
+                }
+                return implsSortAsc ? (valA - valB) : (valB - valA);
+            });
+
+            const sortIcons = ['idx', 'empresaNombre', 'pais', 'tecnologiaAsIs', 'versionDesplegada', 'esInstanciaCorporativa'];
+            sortIcons.forEach(col => {
+                const el = document.getElementById(`sort-impl-${col}`);
+                if (el) {
+                    el.textContent = (col === implsSortCol) ? (implsSortAsc ? '▲' : '▼') : '↕';
+                }
+            });
+
+            if (currentImplsData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No hay empresas subsidiarias con implementación activa de este Building Block.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = currentImplsData.map(e => `
+                <tr>
+                    <td class="text-muted fw-bold">${e.idx}</td>
+                    <td class="fw-semibold text-dark">${escapeHtml(e.empresaNombre)}</td>
+                    <td><span class="badge bg-light text-dark border">${escapeHtml(e.pais)}</span></td>
+                    <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle">${escapeHtml(e.tecnologiaAsIs)}</span></td>
+                    <td><span class="badge bg-secondary-subtle text-secondary border">${escapeHtml(e.versionDesplegada)}</span></td>
+                    <td><span class="badge ${e.esInstanciaCorporativa === 'Sí' ? 'bg-purple text-white' : 'bg-light text-muted border'}">${e.esInstanciaCorporativa}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function sortImplsTable(col) {
+            if (implsSortCol === col) {
+                implsSortAsc = !implsSortAsc;
+            } else {
+                implsSortCol = col;
+                implsSortAsc = true;
+            }
+            renderImplsTable();
+        }
+
+        function downloadBbExcel() {
+            if (!currentBbDetail) return;
+            window.location.href = '/Home/ExportBuildingBlockDetail/' + currentBbDetail.id;
+        }
+
+        function downloadBbCsv() {
+            if (!currentBbDetail || currentFuncsData.length === 0) return;
+            const headers = ["#", "Capacidad de Seguridad", "Funcionalidad", "Descripción", "Estado"];
+            const rows = currentFuncsData.map(f => [
+                f.idx,
+                `"${(f.capacidad || '').replace(/"/g, '""')}"`,
+                `"${(f.nombre || '').replace(/"/g, '""')}"`,
+                `"${(f.descripcion || '').replace(/"/g, '""')}"`,
+                `"${(f.estado || '').replace(/"/g, '""')}"`
+            ]);
+
+            let csvContent = "\uFEFF";
+            csvContent += `Building Block: ${currentBbDetail.nombre}\r\n`;
+            csvContent += `Dominio: ${currentBbDetail.dominioNombre}\r\n`;
+            csvContent += headers.join(",") + "\r\n";
+            rows.forEach(rowArray => {
+                csvContent += rowArray.join(",") + "\r\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const safeName = currentBbDetail.nombre.replace(/[^a-zA-Z0-9]/g, "_");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Landscape_TSI_BB_${currentBbDetail.id}_${safeName}_Funcionalidades.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function closeDetailPanel() {
+            const panel = document.getElementById('bb-detail-panel');
+            panel.style.display = 'none';
+            document.querySelectorAll('.bb-interactive-card').forEach(c => c.classList.remove('selected-card'));
+            currentBbDetail = null;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+}

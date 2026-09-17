@@ -1,0 +1,110 @@
+@model Landscape.Tsi.Web.Models.AdoptionProcessIndexViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = "Procesos de Adopción TSI";
+}
+<section class="admin-shell" aria-labelledby="adoption-title">
+    <nav aria-label="Ruta de navegación">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li>Administración</li>
+            <li aria-current="page">Procesos de Adopción TSI</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="eyebrow">ADMINISTRACIÓN</p>
+            <h1 id="adoption-title">Procesos de Adopción TSI</h1>
+            <p class="supporting-text">Gestión de estándares corporativos (históricos e inmutables), convocatoria a subsidiarias, contratos, adendas y drivers de costo.</p>
+        </div>
+        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+        {
+            <a class="md-button md-button-filled" asp-action="Create">+ Iniciar Proceso de Adopción</a>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="app-alert app-alert-success" role="status">@success</div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error" role="alert">@error</div>
+    }
+
+    <div class="kpi-grid" aria-label="Indicadores de Procesos de Adopción">
+        <div class="kpi-card">
+            <span>Procesos Registrados</span>
+            <strong>@Model.TotalProcesses</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Subsidiarias Convocadas</span>
+            <strong>@Model.TotalEmpresasConvocadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Con Adopción Real</span>
+            <strong>@Model.TotalEmpresasImplementadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Declaran No Aplica</span>
+            <strong>@Model.TotalEmpresasNoAplica</strong>
+        </div>
+    </div>
+
+    <div class="responsive-table" role="region" aria-label="Listado de Procesos de Adopción" tabindex="0">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Nombre del Proceso</th>
+                    <th scope="col">Building Block</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Líder Corporativo</th>
+                    <th scope="col">Fecha Inicio</th>
+                    <th scope="col">Convocadas</th>
+                    <th scope="col">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Processes.Count == 0)
+            {
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No existen procesos de adopción registrados aún.
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                        {
+                            <br /><a class="md-button md-button-tonal mt-2" asp-action="Create">Iniciar el primer proceso</a>
+                        }
+                    </td>
+                </tr>
+            }
+            @foreach (var p in Model.Processes)
+            {
+                <tr>
+                    <td data-label="Código"><strong>@p.Codigo</strong></td>
+                    <td data-label="Nombre"><a asp-action="Details" asp-route-id="@p.Id">@p.Nombre</a></td>
+                    <td data-label="Building Block">
+                        <a asp-controller="MasterTables" asp-action="CatalogDetails" asp-route-catalogRoute="building-block" asp-route-id="@p.BuildingBlockId">
+                            @p.BuildingBlockNombre
+                        </a>
+                    </td>
+                    <td data-label="Estado">
+                        <span class="badge bg-secondary">@p.EstadoAdopcionNombre</span>
+                    </td>
+                    <td data-label="Líder">@(p.LiderCorporativo ?? "No asignado")</td>
+                    <td data-label="Inicio">@p.FechaInicio.ToString("dd/MM/yyyy")</td>
+                    <td data-label="Convocadas">
+                        <span title="Convocadas / Con Adopción / No Aplica">
+                            @p.TotalEmpresasConvocadas (@p.TotalEmpresasImplementadas impl. / @p.TotalEmpresasNoAplica no aplica)
+                        </span>
+                    </td>
+                    <td class="table-actions">
+                        <a class="md-button md-button-text" asp-action="Details" asp-route-id="@p.Id">Ver Detalle</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+@inject IWebHostEnvironment HostEnvironment
+@{
+    var rawTheme = Context.Request.Cookies[Landscape.Tsi.Web.Controllers.AccountController.ThemeCookieName];
+    var currentTheme = string.Equals(rawTheme, Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate, StringComparison.OrdinalIgnoreCase)
+        ? Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate
+        : Landscape.Tsi.Web.Controllers.AccountController.ThemeLight;
+}
+<html lang="es" data-environment="@HostEnvironment.EnvironmentName" data-theme="@currentTheme">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Landscape TSI</title>
+    <script>
+        (function() {
+            try {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var c = cookies[i].trim();
+                    if (c.indexOf('landscape_theme=') === 0) {
+                        var theme = c.substring('landscape_theme='.length);
+                        if (theme === 'corporate' || theme === 'light') {
+                            document.documentElement.setAttribute('data-theme', theme);
+                        }
+                        break;
+                    }
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Landscape.Tsi.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
+                    <partial name="_BrandLogo" />
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Inicio</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Documentación
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Documentation" asp-action="UserManual"><span class="fw-semibold">Manual de Usuario</span></a></li>
+                                <li><a class="dropdown-item" asp-controller="Documentation" asp-action="Index">Arquitectura del Sistema</a></li>
+                                @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                    Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                                {
+                                    <li><a class="dropdown-item" asp-controller="EntityView" asp-action="Index">Vista de entidades</a></li>
+                                }
+                            </ul>
+                        </li>
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                Landscape.Tsi.Application.Identity.Permissions.UserManage) ||
+                            User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                        {
+                            <li class="nav-item dropdown">
+                                <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Administración
+                                </button>
+                                <ul class="dropdown-menu">
+                                    @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                        Landscape.Tsi.Application.Identity.Permissions.UserManage))
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="Administration" asp-action="Users">Usuarios</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Administration" asp-action="Index">Identidad y acceso</a></li>
+                                    }
+                                    @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                                        Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Map">Mapa de Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="Index">Gestión de Tablas Maestras</a></li>
+                                        <li><a class="dropdown-item" asp-controller="MasterTables" asp-action="DomainColors">Configuración de Colores de Dominios</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="TechnologyMapping" asp-action="Index">Mapeo de Tecnologías TSI</a></li>
+                                    }
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Procesos de Adopción TSI
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><span class="dropdown-item text-muted d-flex justify-content-between align-items-center">Exploraciones <span class="badge bg-secondary text-white ms-2" style="font-size:0.65rem;">Próximamente</span></span></li>
+                                    <li><a class="dropdown-item fw-bold" asp-controller="AdoptionProcess" asp-action="Evaluations">Evaluaciones</a></li>
+                                    <li><span class="dropdown-item text-muted d-flex justify-content-between align-items-center">Implementaciones <span class="badge bg-secondary text-white ms-2" style="font-size:0.65rem;">Próximamente</span></span></li>
+                                </ul>
+                            </li>
+                        }
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                            Landscape.Tsi.Application.Identity.Permissions.CatalogView))
+                        {
+                            <li class="nav-item dropdown">
+                                <button class="nav-link dropdown-toggle text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Reportería
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item fw-semibold" asp-controller="Reporting" asp-action="Index">Distribución de Dominios</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="Catalogs">Reportería de catálogos</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompaniesAndCiso">Empresas y CISO</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Reporting" asp-action="CompanyAdoptionByTechnology">Adopción de Empresas por Tecnología</a></li>
+                                </ul>
+                            </li>
+                        }
+                        @if (User.HasClaim(Landscape.Tsi.Application.Identity.CustomClaimTypes.Permission,
+                            Landscape.Tsi.Application.Identity.Permissions.AuditView))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Audit" asp-action="Index">Auditoría</a>
+                            </li>
+                        }
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item ms-sm-auto d-flex align-items-center">
+                                <div class="dropdown">
+                                    <button class="nav-link dropdown-toggle d-flex align-items-center gap-2 border-0 bg-transparent py-1 px-2 text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="nav-user">@User.Identity.Name</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center gap-2" asp-controller="Account" asp-action="Preferences">
+                                                <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                Preferencias de cuenta
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form asp-controller="Account" asp-action="Logout" method="post" class="px-2 py-1">
+                                                <button class="dropdown-item text-danger border-0 bg-transparent p-0" type="submit">Cerrar sesión</button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item ms-sm-auto">
+                                <a class="nav-link" asp-controller="Account" asp-action="Login">Ingresar</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main id="main-content" role="main" class="pb-3" tabindex="-1">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - Landscape TSI
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/cytoscape/cytoscape.min.js" asp-append-version="true"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
