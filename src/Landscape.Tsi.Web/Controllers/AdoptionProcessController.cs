@@ -443,24 +443,56 @@ public sealed class AdoptionProcessController(
         });
     }
 
+    public sealed record UpdateCompanyOrderDto(IReadOnlyList<int>? OrderedCompanyIds);
+
+    [HttpPost("{id:int}/update-company-order")]
+    [HttpPost("/AdoptionProcess/{id:int}/update-company-order")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateCompanyOrder(
+        int id,
+        [FromBody] UpdateCompanyOrderDto? model,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        var result = await adoptionService.UpdateCompanyOrderAsync(
+            id,
+            model?.OrderedCompanyIds ?? [],
+            actorId,
+            HttpContext.TraceIdentifier,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = result.Message
+        });
+    }
+
     [HttpGet("empresa/{empresaId:int}/contacts-lookup")]
     [HttpGet("/AdoptionProcess/empresa/{empresaId:int}/contacts-lookup")]
     public async Task<IActionResult> GetCompanyContactsLookup(int empresaId, CancellationToken cancellationToken)
     {
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
         var contacts = await dbContext.CompanyContacts.AsNoTracking()
             .Where(c => c.IdEmpresaSubsidiaria == empresaId)
             .OrderBy(c => c.NombreContactoEmpresaSubsidiaria)
-            .Select(c => new
-            {
-                id = c.Id,
-                nombre = c.NombreContactoEmpresaSubsidiaria,
-                rol = c.Rol,
-                email = c.Email,
-                telefono = c.Telefono
-            })
             .ToListAsync(cancellationToken);
 
-        return Json(contacts);
+        return Json(contacts.Select(c => new
+        {
+            id = c.Id,
+            nombre = c.NombreContactoEmpresaSubsidiaria,
+            rol = c.Rol,
+            email = canViewSensitive ? c.Email : SensitiveDataMasker.MaskEmail(c.Email),
+            telefono = canViewSensitive ? c.Telefono : SensitiveDataMasker.MaskPhone(c.Telefono)
+        }));
     }
 
     [HttpGet("empresa/{empresaId:int}/contacts")]
@@ -483,6 +515,7 @@ public sealed class AdoptionProcessController(
             entityName = companyName,
             entityType = "empresa-subsidiaria",
             totalCount = contacts.Count,
+            canViewSensitive,
             items = contacts.Select(c => new
             {
                 id = c.Id,
@@ -545,10 +578,26 @@ public sealed class AdoptionProcessController(
 
         contact.NombreContactoEmpresaSubsidiaria = name;
         contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
-        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
-        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
         contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
         contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive)
+        {
+            contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+            contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(model?.Email) && !CatalogDisplayPrivacy.IsMasked(model.Email))
+            {
+                contact.Email = model.Email.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(model?.Telefono) && !CatalogDisplayPrivacy.IsMasked(model.Telefono))
+            {
+                contact.Telefono = model.Telefono.Trim();
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -738,6 +787,99 @@ public sealed class AdoptionProcessController(
             TempData["ErrorMessage"] = result.Message;
 
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost("{id:int}/ProcessDriver/Save")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveProcessDriver(
+        int id,
+        string descripcion,
+        string unidadMedida,
+        int? driverProcesoId,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.SaveProcessDriverAsync(new SaveProcessDriverCommand(
+            ProcesoId: id,
+            Descripcion: descripcion,
+            UnidadMedida: unidadMedida,
+            ActorUserId: actor.Value,
+            CorrelationId: HttpContext.TraceIdentifier,
+            DriverProcesoId: driverProcesoId), cancellationToken);
+
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost("{id:int}/ProcessDriver/{driverProcesoId:int}/Delete")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteProcessDriver(int id, int driverProcesoId, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.DeleteProcessDriverAsync(id, driverProcesoId, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+            TempData["SuccessMessage"] = result.Message;
+        else
+            TempData["ErrorMessage"] = result.Message;
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    public sealed record UpdateCompanyDriverValueDto(int DriverProcesoId, decimal Cantidad, decimal PrecioUnitario, string? Moneda);
+
+    [HttpPost("{id:int}/empresa/{procesoEmpresaId:int}/driver-value")]
+    [HttpPost("/AdoptionProcess/{id:int}/empresa/{procesoEmpresaId:int}/driver-value")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> UpdateCompanyDriverValue(
+        int id,
+        int procesoEmpresaId,
+        [FromBody] UpdateCompanyDriverValueDto? model,
+        CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        var actorId = actor ?? Guid.Empty;
+
+        if (model is null || model.DriverProcesoId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Datos del driver inválidos." });
+        }
+
+        var result = await adoptionService.UpdateCompanyDriverValueAsync(new UpdateCompanyDriverValueCommand(
+            ProcesoEmpresaId: procesoEmpresaId,
+            DriverProcesoId: model.DriverProcesoId,
+            Cantidad: model.Cantidad,
+            PrecioUnitario: model.PrecioUnitario,
+            Moneda: string.IsNullOrWhiteSpace(model.Moneda) ? "USD" : model.Moneda.Trim(),
+            ActorUserId: actorId,
+            CorrelationId: HttpContext.TraceIdentifier), cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { success = false, message = result.Message });
+        }
+
+        var subtotal = model.Cantidad * model.PrecioUnitario;
+        return Ok(new
+        {
+            success = true,
+            procesoEmpresaId,
+            driverProcesoId = model.DriverProcesoId,
+            cantidad = model.Cantidad,
+            precioUnitario = model.PrecioUnitario,
+            costoTotal = subtotal,
+            moneda = string.IsNullOrWhiteSpace(model.Moneda) ? "USD" : model.Moneda.Trim(),
+            message = result.Message
+        });
     }
 
     [HttpPost("{id:int}/OperationModel")]
@@ -2277,8 +2419,8 @@ public sealed class AdoptionProcessController(
         {
             var sheet = workbook.CreateSheet("Vencimiento_Contratos");
             var headers = report.EsWaap
-                ? new List<string?> { "#", "Empresa", "Producto AS-IS", "Throughput (GB/m)", "Apps FQDN", "WAF Req (M/m)", "Fecha Vencimiento" }
-                : new List<string?> { "#", "Empresa", "Tecnología AS-IS", "Tipo Contrato", "Operación", "Drivers Registrados", "Fecha Vencimiento" };
+                ? new List<string?> { "#", "Empresa", "Producto AS-IS", "Monto Contrato", "Throughput (GB/m)", "Apps FQDN", "WAF Req (M/m)", "Fecha Vencimiento" }
+                : new List<string?> { "#", "Empresa", "Tecnología AS-IS", "Monto Contrato", "Tipo Contrato", "Operación", "Drivers Registrados", "Fecha Vencimiento" };
 
             foreach (var m in report.VencimientoContratosReport.PeriodosHito)
             {
@@ -2288,12 +2430,17 @@ public sealed class AdoptionProcessController(
 
             foreach (var r in report.VencimientoContratosReport.Filas)
             {
+                var montoStr = r.MontoContrato.HasValue && r.MontoContrato.Value > 0
+                    ? $"{r.MonedaContrato ?? "USD"} {r.MontoContrato.Value:N2}"
+                    : "—";
+
                 var rowCells = report.EsWaap
                     ? new List<object?>
                     {
                         r.Secuencia,
                         r.EmpresaNombre,
                         r.ProductoActual ?? "—",
+                        montoStr,
                         r.ThroughputGbMes,
                         r.CantidadAppFqdn,
                         r.RequestWafMillonesMes,
@@ -2304,6 +2451,7 @@ public sealed class AdoptionProcessController(
                         r.Secuencia,
                         r.EmpresaNombre,
                         r.ProductoActual ?? "—",
+                        montoStr,
                         r.TipoContrato ?? "—",
                         r.TipoOperacion ?? "—",
                         r.CantidadDrivers > 0 ? $"{r.CantidadDrivers} driver(s)" : "—",
@@ -2319,12 +2467,17 @@ public sealed class AdoptionProcessController(
             }
 
             // Fila de Totales
+            var sumMontoTotal = report.VencimientoContratosReport.Filas.Sum(r => r.MontoContrato ?? 0m);
+            var monedaPred = report.VencimientoContratosReport.Filas.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.MonedaContrato))?.MonedaContrato ?? "USD";
+            var totalMontoStr = sumMontoTotal > 0 ? $"{monedaPred} {sumMontoTotal:N2}" : "—";
+
             var totalCells = report.EsWaap
                 ? new List<object?>
                 {
                     string.Empty,
                     "TOTAL CONSOLIDADO",
                     string.Empty,
+                    totalMontoStr,
                     report.VencimientoContratosReport.TotalThroughputGbMes,
                     report.VencimientoContratosReport.TotalAppsFqdn,
                     report.VencimientoContratosReport.TotalRequestWafMillonesMes,
@@ -2335,15 +2488,21 @@ public sealed class AdoptionProcessController(
                     string.Empty,
                     "TOTAL CONSOLIDADO",
                     string.Empty,
+                    totalMontoStr,
                     string.Empty,
                     string.Empty,
                     $"{report.VolumetriaReport.TotalCantidadDrivers} driver(s)",
                     string.Empty
                 };
 
+            decimal runMontoExcel = 0m;
             foreach (var m in report.VencimientoContratosReport.PeriodosHito)
             {
-                totalCells.Add(string.Empty);
+                var sumHito = report.VencimientoContratosReport.Filas
+                    .Where(r => r.HitoExpiracionPorPeriodo.TryGetValue(m.PeriodoLabel, out var exp) && exp)
+                    .Sum(r => r.MontoContrato ?? 0m);
+                runMontoExcel += sumHito;
+                totalCells.Add(runMontoExcel > 0 ? $"{monedaPred} {runMontoExcel:N0}" : string.Empty);
             }
             sheet.AddRow(totalCells);
         }

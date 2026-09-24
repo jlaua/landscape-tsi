@@ -253,6 +253,21 @@ public sealed class AdoptionProcessHttpTests
     }
 
     [Fact]
+    public async Task EvaluationReports_Authorized_Returns200_AndRendersMontoContratoAndToggle()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/Administration/AdoptionProcess/1/Reports");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("btnToggleMontoContrato", content);
+        Assert.Contains("Monto Contrato", content);
+        Assert.Contains("TOTAL MONTO CONTRATADO:", content);
+        Assert.Contains("USD 40,963.68", content);
+    }
+
+    [Fact]
     public async Task DeleteImplementedTechnology_WithoutAntiforgery_ReturnsBadRequest()
     {
         await using var factory = CreateFactory();
@@ -290,15 +305,16 @@ public sealed class AdoptionProcessHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
 
-        // Verifica que se muestre el título y las 4 pestañas/secciones del usuario
+        // Verifica que se muestre el título y las 5 pestañas/secciones del usuario
         Assert.Contains("Seguimiento y Reportería Operacional", content);
-        Assert.Contains("a) Alcance del Proceso", content);
-        Assert.Contains("b) Vencimiento de Contratos & Proyección", content);
+        Assert.Contains("1) Alcance del Proceso", content);
+        Assert.Contains("2) Vencimiento de Contratos & Proyección", content);
         Assert.Contains("3) Volumetría por Empresa", content);
         Assert.Contains("4) Capacidades por Empresa", content);
         Assert.Contains("5) Proyección de Costos AS-IS", content);
 
         // Verifica elementos clave de cada reporte
+        Assert.Contains("Monto Contrato", content);
         Assert.Contains("WAF AS-IS", content);
         Assert.Contains("Throughput", content);
         Assert.Contains("ACUM:", content);
@@ -475,13 +491,15 @@ public sealed class AdoptionProcessHttpTests
             var opModel = new OperationModelDto(1, 10, 1, "Operación Híbrida", 1, "Teletrabajo");
 
             var impl = new ImplementedTechnologyDto(10, 1, "Banco Subsidiaria", 1, 100, "Tech Impl", "Vendor X", true, "1.2.0", "ALINEADO", opModel, [contract], [driver]);
-            var comp = new CompanyAdoptionRowDto(1, 1, "Banco Subsidiaria", 5, "Juan Perez", "jperez@banco.corp", true, null, DateTime.Today, [impl], "ALINEADO");
+            var companyDriver = new CompanyDriverValueDto(1, 1, 1, "Licencias E5", "Usuarios", 100, 35m, 3500m, "USD");
+            var comp = new CompanyAdoptionRowDto(1, 1, "Banco Subsidiaria", 5, "Juan Perez", "jperez@banco.corp", true, null, DateTime.Today, [impl], "ALINEADO", Capacidades: [], DriversEmpresa: [companyDriver]);
+            var procDriver = new ProcessDriverTemplateDto(1, 1, "Licencias E5", "Usuarios", 1);
 
             var stdPrincipal = new StandardTechnologyDto(1, 1, 100, "Tech Corp Principal", "Vendor Corp", "Contacto V", "Partner P", "PRINCIPAL", "ACTIVO_VIGENTE", DateTime.Today, null, null, "Sustento corporativo", ["Caso A", "Caso B"]);
 
             return Task.FromResult<AdoptionProcessDetailDto?>(new AdoptionProcessDetailDto(
                 1, "PROC-TEST-001", "Proceso MFA 2026", 1, "MFA BB", "Identidad", "Autenticación", 1, "En Evaluación", "Objetivo", "Alcance", "Líder", DateTime.Today, DateTime.Today.AddMonths(6),
-                stdPrincipal, [], [], [comp]));
+                stdPrincipal, [], [], [comp], OrdenEmpresas: null, DriversProceso: [procDriver]));
         }
 
         public Task<AdoptionProcessDetailDto?> GetProcessDetailByBuildingBlockAsync(int buildingBlockId, CancellationToken cancellationToken = default) =>
@@ -517,6 +535,15 @@ public sealed class AdoptionProcessHttpTests
         public Task<AdoptionResult> DeleteDriverAsync(int driverId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
 
+        public Task<AdoptionResult> SaveProcessDriverAsync(SaveProcessDriverCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+
+        public Task<AdoptionResult> DeleteProcessDriverAsync(int procesoId, int driverProcesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> UpdateCompanyDriverValueAsync(UpdateCompanyDriverValueCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
         public Task<AdoptionResult> SaveOperationModelAsync(SaveOperationModelCommand command, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
 
@@ -544,7 +571,7 @@ public sealed class AdoptionProcessHttpTests
 
             var scopeRow = new EvaluationScopeReportRowDto(1, "Banco Subsidiaria", "Perú", DateTime.Today.AddMonths(12), "F5 WAAP", "Contrato", "F5 Networks", "Logicalis", "Autogestionado");
             var milestone = new ContractTimelineMilestoneDto("Dic-26", 2026, 12, false);
-            var expRow = new ContractExpirationRowDto(1, 1, "Banco Subsidiaria", "F5 WAAP", 250m, 35, 120m, DateTime.Today.AddMonths(12), "Dic-26", new Dictionary<string, bool> { ["Dic-26"] = true });
+            var expRow = new ContractExpirationRowDto(1, 1, "Banco Subsidiaria", "F5 WAAP", 250m, 35, 120m, DateTime.Today.AddMonths(12), "Dic-26", new Dictionary<string, bool> { ["Dic-26"] = true }, MontoContrato: 40963.68m, MonedaContrato: "USD");
             var expReport = new ContractExpirationReportDto([milestone], [expRow], new Dictionary<string, decimal> { ["Dic-26"] = 250m }, new Dictionary<string, int> { ["Dic-26"] = 35 }, new Dictionary<string, decimal> { ["Dic-26"] = 120m }, 250m, 35, 120m);
             var volRow = new CompanyVolumeReportRowDto(1, "Banco Subsidiaria", "F5 WAAP", 1.5m, 2.0m, 25, 15, 35, 12, 15m, 25m, 120m, 145m, 450m, "15", "45", "15 KB / 45 KB");
             var volReport = new CompanyVolumeReportDto([volRow], 1.5m, 2.0m, 40, 35, 12, 15m, 25m, 120m, 145m, 450m);
@@ -570,6 +597,9 @@ public sealed class AdoptionProcessHttpTests
             Task.FromResult(new AdoptionResult(true, "Ok", 1));
 
         public Task<AdoptionResult> SaveVencimientoReportDriversAsync(int procesoId, IEnumerable<string> drivers, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AdoptionResult(true, "Ok", 1));
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> UpdateCompanyOrderAsync(int procesoId, IEnumerable<int> orderedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
     }
 }

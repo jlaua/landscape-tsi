@@ -41,7 +41,9 @@ public sealed record ContractExpirationRowDto(
     string? TipoOperacion = null,
     int CantidadDrivers = 0,
     decimal CostoTotalDrivers = 0m,
-    IReadOnlyDictionary<string, decimal>? DriversPorNombre = null);
+    IReadOnlyDictionary<string, decimal>? DriversPorNombre = null,
+    decimal? MontoContrato = null,
+    string? MonedaContrato = null);
 
 /// <summary>
 /// Reporte b: Fechas de vencimiento de contratos por empresa y proyección acumulada.
@@ -209,4 +211,27 @@ public sealed record EvaluationReportsDto(
     CompanyVolumeReportDto VolumetriaReport,
     CompanyCapabilitiesMatrixDto CapacidadesMatrixReport,
     bool EsWaap = false,
-    AsIsCostsReportDto? CostosAsIsReport = null);
+    AsIsCostsReportDto? CostosAsIsReport = null,
+    string? OrdenEmpresas = null);
+
+/// <summary>
+/// Helper para formatear valores decimales de reportes:
+/// - Muestra hasta por lo menos 3 caracteres decimales sin truncar valores ingresados.
+/// - Si la parte decimal es 0, formatea como número entero sin sufijos decimales innecesarios.
+/// </summary>
+public static class EvaluationReportFormatHelper
+{
+    public static string FormatSmart(decimal val, int maxDecimals = 4)
+    {
+        if (val == 0m) return "0";
+        if (val % 1m == 0m) return val.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+        var fmt = "#,##0." + new string('#', Math.Max(3, maxDecimals));
+        return val.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    public static string FormatSmart(decimal? val, int maxDecimals = 4, string zeroOrNullDisplay = "—")
+    {
+        if (!val.HasValue || val.Value == 0m) return zeroOrNullDisplay;
+        return FormatSmart(val.Value, maxDecimals);
+    }
+}

@@ -8,8 +8,11 @@ public static class CatalogDisplayPrivacy
 
     public static bool IsSensitive(MasterCatalogDefinition definition, string columnCode) =>
         (definition.Code == "ciso" && columnCode is "email" or "telefono") ||
-        (definition.Code is "contacto-vendor" or "contacto-partner" && columnCode is "email" or "telefono") ||
+        (definition.Code is "contacto-vendor" or "contacto-partner" or "contacto-empresa" && columnCode is "email" or "telefono") ||
         (definition.Code == "empresa-subsidiaria" && columnCode == "contactoCiso");
+
+    public static bool IsMasked(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && (value.Contains("***") || value.Contains("••••") || value.Contains("•••"));
 
     public static string? Protect(MasterCatalogDefinition definition, string columnCode, string? value, bool canViewSensitive = false)
     {
@@ -45,8 +48,23 @@ public static class CatalogDisplayPrivacy
         MasterCatalogDefinition definition,
         string columnCode,
         object? submittedValue,
-        object? currentValue) =>
-        IsSensitive(definition, columnCode) && submittedValue is null
-            ? currentValue
-            : submittedValue;
+        object? currentValue)
+    {
+        if (!IsSensitive(definition, columnCode))
+        {
+            return submittedValue;
+        }
+
+        if (submittedValue is null)
+        {
+            return currentValue;
+        }
+
+        if (submittedValue is string text && (string.IsNullOrWhiteSpace(text) || IsMasked(text)))
+        {
+            return currentValue;
+        }
+
+        return submittedValue;
+    }
 }

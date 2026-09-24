@@ -35,6 +35,14 @@
     let currentEntityId = null;
     let currentEntityName = '';
     let contactsList = [];
+    let currentCanViewSensitive = true;
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 
     function showAlert(message, type = 'success') {
         if (!alertEl) return;
@@ -59,8 +67,16 @@
         if (fieldId) fieldId.value = '';
         if (fieldNombre) fieldNombre.value = '';
         if (fieldRol) fieldRol.value = '';
-        if (fieldEmail) fieldEmail.value = '';
-        if (fieldTelefono) fieldTelefono.value = '';
+        if (fieldEmail) {
+            fieldEmail.value = '';
+            fieldEmail.disabled = false;
+            fieldEmail.placeholder = 'ejemplo@empresa.com';
+        }
+        if (fieldTelefono) {
+            fieldTelefono.value = '';
+            fieldTelefono.disabled = false;
+            fieldTelefono.placeholder = '+51 999 888 777';
+        }
         if (fieldOtro) fieldOtro.value = '';
         if (fieldNotas) fieldNotas.value = '';
         if (formTitleEl) formTitleEl.textContent = 'Registrar Nuevo Contacto';
@@ -86,6 +102,34 @@
         if (fieldTelefono) fieldTelefono.value = contact.telefono === '—' ? '' : contact.telefono;
         if (fieldOtro) fieldOtro.value = contact.otro === '—' ? '' : contact.otro;
         if (fieldNotas) fieldNotas.value = contact.notas === '—' ? '' : contact.notas;
+
+        const isMaskedEmail = contact.email && (contact.email.includes('***') || contact.email.includes('••••'));
+        const isMaskedPhone = contact.telefono && (contact.telefono.includes('•••') || contact.telefono.includes('••••'));
+
+        if (!currentCanViewSensitive || isMaskedEmail) {
+            if (fieldEmail) {
+                fieldEmail.disabled = true;
+                fieldEmail.placeholder = '[Dato protegido por política de privacidad - Solo Administrador]';
+            }
+        } else {
+            if (fieldEmail) {
+                fieldEmail.disabled = false;
+                fieldEmail.placeholder = 'ejemplo@empresa.com';
+            }
+        }
+
+        if (!currentCanViewSensitive || isMaskedPhone) {
+            if (fieldTelefono) {
+                fieldTelefono.disabled = true;
+                fieldTelefono.placeholder = '[Dato protegido por política de privacidad - Solo Administrador]';
+            }
+        } else {
+            if (fieldTelefono) {
+                fieldTelefono.disabled = false;
+                fieldTelefono.placeholder = '+51 999 888 777';
+            }
+        }
+
         if (formTitleEl) formTitleEl.textContent = 'Editar Contacto';
         if (submitFormBtn) submitFormBtn.textContent = 'Actualizar Contacto';
         if (formCardEl) formCardEl.style.display = 'block';
@@ -153,11 +197,20 @@
 
             // Email
             const tdEmail = document.createElement('td');
+            const isMaskedEmail = contact.email && (contact.email.includes('***') || contact.email.includes('••••'));
             if (contact.email && contact.email !== '—') {
-                const a = document.createElement('a');
-                a.href = `mailto:${encodeURIComponent(contact.email)}`;
-                a.textContent = contact.email;
-                tdEmail.appendChild(a);
+                if (isMaskedEmail || !currentCanViewSensitive) {
+                    const span = document.createElement('span');
+                    span.className = 'text-muted d-inline-flex align-items-center gap-1 font-monospace';
+                    span.title = 'Dato sensible ofuscado por política de privacidad. Solo legible por el Administrador.';
+                    span.innerHTML = `<span style="font-size: 0.85em;">🔒</span> ${escapeHtml(contact.email)}`;
+                    tdEmail.appendChild(span);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = `mailto:${encodeURIComponent(contact.email)}`;
+                    a.textContent = contact.email;
+                    tdEmail.appendChild(a);
+                }
             } else {
                 tdEmail.textContent = '—';
             }
@@ -165,11 +218,20 @@
 
             // Teléfono
             const tdTel = document.createElement('td');
+            const isMaskedPhone = contact.telefono && (contact.telefono.includes('•••') || contact.telefono.includes('••••'));
             if (contact.telefono && contact.telefono !== '—') {
-                const a = document.createElement('a');
-                a.href = `tel:${encodeURIComponent(contact.telefono.replace(/\s+/g, ''))}`;
-                a.textContent = contact.telefono;
-                tdTel.appendChild(a);
+                if (isMaskedPhone || !currentCanViewSensitive) {
+                    const span = document.createElement('span');
+                    span.className = 'text-muted d-inline-flex align-items-center gap-1 font-monospace';
+                    span.title = 'Dato sensible ofuscado por política de privacidad. Solo legible por el Administrador.';
+                    span.innerHTML = `<span style="font-size: 0.85em;">🔒</span> ${escapeHtml(contact.telefono)}`;
+                    tdTel.appendChild(span);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = `tel:${encodeURIComponent(contact.telefono.replace(/\s+/g, ''))}`;
+                    a.textContent = contact.telefono;
+                    tdTel.appendChild(a);
+                }
             } else {
                 tdTel.textContent = '—';
             }
@@ -245,6 +307,7 @@
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
+            currentCanViewSensitive = data.canViewSensitive !== false;
             contactsList = data.items || [];
             const count = data.totalCount ?? contactsList.length;
 

@@ -153,6 +153,17 @@ public sealed class AdoptionProcessService(
             .ThenBy(c => c.Nombre)
             .ToListAsync(cancellationToken);
 
+        // Cargar drivers del proceso (Plantilla) y valores por empresa (TDriverEmpresa)
+        var processDrivers = await dbContext.ProcessDrivers.AsNoTracking()
+            .Where(dp => dp.IdProcesoAdopcionTSI == p.IdProcesoAdopcionTSI)
+            .OrderBy(dp => dp.OrdenVisual ?? 999999)
+            .ThenBy(dp => dp.IdDriverProceso)
+            .ToListAsync(cancellationToken);
+
+        var companyDriverValues = await dbContext.CompanyDrivers.AsNoTracking()
+            .Where(cd => companyProcessIds.Contains(cd.IdProcesoAdopcionEmpresa))
+            .ToListAsync(cancellationToken);
+
         var companyRows = new List<CompanyAdoptionRowDto>();
         foreach (var cp in companyProcesses)
         {
@@ -237,6 +248,26 @@ public sealed class AdoptionProcessService(
                     bc.OrdenVisualizacion ?? 0);
             }).ToList();
 
+            var compDriversList = processDrivers.Select(dp =>
+            {
+                var matching = companyDriverValues.FirstOrDefault(cd => cd.IdProcesoAdopcionEmpresa == cp.IdProcesoAdopcionEmpresa && cd.IdDriverProceso == dp.IdDriverProceso);
+                var cant = matching?.Cantidad ?? 0.00m;
+                var pu = matching?.PrecioUnitario ?? 0.00m;
+                var total = matching?.CostoTotal ?? (cant * pu);
+                var moneda = string.IsNullOrWhiteSpace(matching?.Moneda) ? "USD" : matching.Moneda;
+
+                return new CompanyDriverValueDto(
+                    matching?.IdDriverEmpresa ?? 0,
+                    cp.IdProcesoAdopcionEmpresa,
+                    dp.IdDriverProceso,
+                    dp.DescripcionDriver,
+                    dp.UnidadMedida,
+                    cant,
+                    pu,
+                    total,
+                    moneda);
+            }).ToList();
+
             companyRows.Add(new CompanyAdoptionRowDto(
                 cp.IdProcesoAdopcionEmpresa,
                 cp.IdEmpresaSubsidiaria,
@@ -250,8 +281,26 @@ public sealed class AdoptionProcessService(
                 compImplDtos,
                 globalAlign,
                 compCapsList,
-                cp.ComentarioCapacidades));
+                cp.ComentarioCapacidades,
+                compDriversList));
         }
+
+        var orderedCompanyIds = ParseOrderedCompanyIds(p.OrdenEmpresas);
+        if (orderedCompanyIds.Count > 0)
+        {
+            var orderMap = orderedCompanyIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
+            companyRows = companyRows
+                .OrderBy(r => orderMap.TryGetValue(r.EmpresaId, out var idx) ? idx : 999999)
+                .ThenBy(r => r.EmpresaNombre)
+                .ToList();
+        }
+
+        var processDriverTemplates = processDrivers.Select(dp => new ProcessDriverTemplateDto(
+            dp.IdDriverProceso,
+            dp.IdProcesoAdopcionTSI,
+            dp.DescripcionDriver,
+            dp.UnidadMedida,
+            dp.OrdenVisual ?? 1)).ToList();
 
         return new AdoptionProcessDetailDto(
             p.IdProcesoAdopcionTSI,
@@ -271,7 +320,9 @@ public sealed class AdoptionProcessService(
             principalVigente,
             alternativos,
             historicos,
-            companyRows);
+            companyRows,
+            p.OrdenEmpresas,
+            processDriverTemplates);
     }
 
     private static string ComputeSingleAlignment(bool applies, int techId, StandardTechnologyDto? principal, IReadOnlyList<StandardTechnologyDto> alternativos)
@@ -1016,10 +1067,38 @@ public sealed class AdoptionProcessService(
             .Where(c => c.IdProcesoAdopcionTSI == procesoId)
             .ToListAsync(cancellationToken);
 
+        var processDriverTemplates = await dbContext.ProcessDrivers
+            .Where(dp => dp.IdProcesoAdopcionTSI == procesoId)
+            .ToListAsync(cancellationToken);
+
         foreach (var apc in currentProcessCompanies)
         {
             await EnsureCompanyCapabilitiesInitializedAsync(proceso.IdBuildingBlock, apc.IdProcesoAdopcionEmpresa, cancellationToken);
+
+            // Clonar la plantilla de drivers a la nueva empresa convocada si no los tiene
+            foreach (var dp in processDriverTemplates)
+            {
+                var hasDrv = await dbContext.CompanyDrivers.AnyAsync(cd => 
+                    cd.IdProcesoAdopcionEmpresa == apc.IdProcesoAdopcionEmpresa && 
+                    cd.IdDriverProceso == dp.IdDriverProceso, cancellationToken);
+
+                if (!hasDrv)
+                {
+                    dbContext.CompanyDrivers.Add(new TDriverEmpresa
+                    {
+                        IdProcesoAdopcionEmpresa = apc.IdProcesoAdopcionEmpresa,
+                        IdDriverProceso = dp.IdDriverProceso,
+                        Cantidad = 0.00m,
+                        PrecioUnitario = 0.00m,
+                        CostoTotal = 0.00m,
+                        Moneda = "USD",
+                        FechaModificacion = DateTime.UtcNow,
+                        UsuarioModificacion = "CONVENE_AUTO_CLONE"
+                    });
+                }
+            }
         }
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditTrail.RecordUpdateAsync("proceso-adopcion-empresa", "TProcesoAdopcionEmpresa", procesoId,
             proceso.NombreProceso, actorUserId, correlationId, $"Sincronización de convocatoria ({countAdded} agregadas, {countUpdated} actualizadas, {countRemoved} retiradas)", cancellationToken);
@@ -1093,6 +1172,18 @@ public sealed class AdoptionProcessService(
             .ThenBy(c => c.Id)
             .ToListAsync(cancellationToken);
 
+        // Drivers del Proceso (Plantilla) y Drivers por Empresa
+        var processDrivers = await dbContext.ProcessDrivers.AsNoTracking()
+            .Where(dp => dp.IdProcesoAdopcionTSI == procesoId)
+            .OrderBy(dp => dp.OrdenVisual ?? 999999)
+            .ThenBy(dp => dp.IdDriverProceso)
+            .ToListAsync(cancellationToken);
+
+        var procEmpIds = convocadas.Select(cp => cp.IdProcesoAdopcionEmpresa).ToList();
+        var companyDrivers = await dbContext.CompanyDrivers.AsNoTracking()
+            .Where(cd => procEmpIds.Contains(cd.IdProcesoAdopcionEmpresa))
+            .ToListAsync(cancellationToken);
+
         // REPORTE A: ALCANCE DEL PROCESO
         var alcanceRows = new List<EvaluationScopeReportRowDto>();
         // Datos para Reporte B
@@ -1109,12 +1200,16 @@ public sealed class AdoptionProcessService(
             string? TipoOperacion,
             int CantidadDrivers,
             decimal CostoTotalDrivers,
-            IReadOnlyDictionary<string, decimal> CompDriversMap)>();
+            IReadOnlyDictionary<string, decimal> CompDriversMap,
+            decimal? MontoContrato,
+            string? MonedaContrato)>();
         // Datos para Reporte 3
         var volumeRows = new List<CompanyVolumeReportRowDto>();
         var genericDrivers = new List<CompanyDriverItemDto>();
         var allAvailableDriverNames = new List<string>();
         var driverUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var orderedCompanyIds = ParseOrderedCompanyIds(proceso.OrdenEmpresas);
 
         // Si no hay empresas convocadas registradas, recopilar a partir de las empresas generales o asociadas
         var empresaIdsTarget = convocadas.Count > 0
@@ -1124,6 +1219,15 @@ public sealed class AdoptionProcessService(
         if (empresaIdsTarget.Count == 0)
         {
             empresaIdsTarget = allCompanies.Keys.Take(10).ToList();
+        }
+
+        if (orderedCompanyIds.Count > 0)
+        {
+            var orderMap = orderedCompanyIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
+            empresaIdsTarget = empresaIdsTarget
+                .OrderBy(id => orderMap.TryGetValue(id, out var idx) ? idx : 999999)
+                .ThenBy(id => allCompanies.TryGetValue(id, out var c) ? c.Nombre : string.Empty)
+                .ToList();
         }
 
         foreach (var empId in empresaIdsTarget)
@@ -1156,6 +1260,8 @@ public sealed class AdoptionProcessService(
             string? tipoOperacion = null;
             DateTime? fechaVencimiento = null;
             bool esPayg = false;
+            decimal? montoContrato = null;
+            string? monedaContrato = null;
 
             decimal thgVal = 0m;
             int appsVal = 0;
@@ -1185,6 +1291,9 @@ public sealed class AdoptionProcessService(
                     .FirstOrDefault();
                 if (contract is not null)
                 {
+                    montoContrato = contract.MontoContratado ?? contract.MontoTrianual ?? contract.MontoAnual;
+                    monedaContrato = !string.IsNullOrWhiteSpace(contract.Moneda) ? contract.Moneda : "USD";
+
                     if (contract.EsPayg)
                     {
                         esPayg = true;
@@ -1219,6 +1328,16 @@ public sealed class AdoptionProcessService(
                             if (!string.IsNullOrWhiteSpace(parsedP) && !parsedP.Equals("N/A", StringComparison.OrdinalIgnoreCase))
                                 partner = parsedP;
                         }
+                    }
+                }
+
+                if (!montoContrato.HasValue && compContracts.Count > 0)
+                {
+                    var anyC = compContracts.FirstOrDefault(c => c.MontoContratado.HasValue || c.MontoTrianual.HasValue || c.MontoAnual.HasValue);
+                    if (anyC is not null)
+                    {
+                        montoContrato = anyC.MontoContratado ?? anyC.MontoTrianual ?? anyC.MontoAnual;
+                        monedaContrato = !string.IsNullOrWhiteSpace(anyC.Moneda) ? anyC.Moneda : "USD";
                     }
                 }
 
@@ -1327,7 +1446,37 @@ public sealed class AdoptionProcessService(
                 partner = "Directo";
             }
 
-            if (compDrivers.Count > 0)
+            // Si el proceso cuenta con drivers en el nuevo modelo (TDriverProceso y TDriverEmpresa), utilizarlos prioritariamente
+            var procEmpDriverValues = matchingConvocada is not null
+                ? companyDrivers.Where(cd => cd.IdProcesoAdopcionEmpresa == matchingConvocada.IdProcesoAdopcionEmpresa).ToList()
+                : [];
+
+            if (procEmpDriverValues.Count > 0)
+            {
+                foreach (var cd in procEmpDriverValues)
+                {
+                    var dp = processDrivers.FirstOrDefault(p => p.IdDriverProceso == cd.IdDriverProceso);
+                    var desc = dp?.DescripcionDriver ?? "Driver de Consumo";
+                    var unid = dp?.UnidadMedida ?? "Unidades";
+                    var cant = cd.Cantidad ?? 0m;
+                    var precio = cd.PrecioUnitario ?? 0m;
+                    var total = cd.CostoTotal ?? (cant * precio);
+                    var moneda = string.IsNullOrWhiteSpace(cd.Moneda) ? "USD" : cd.Moneda;
+
+                    genericDrivers.Add(new CompanyDriverItemDto(
+                        cd.IdDriverEmpresa,
+                        empId,
+                        empNombre,
+                        techNombre,
+                        desc,
+                        unid,
+                        cant,
+                        precio,
+                        moneda,
+                        total));
+                }
+            }
+            else if (compDrivers.Count > 0)
             {
                 foreach (var d in compDrivers)
                 {
@@ -1362,8 +1511,12 @@ public sealed class AdoptionProcessService(
                     0m));
             }
 
-            var compDriversCount = compDrivers.Count;
-            var compDriversCost = compDrivers.Sum(d => (d.Cantidad ?? 0m) * (d.PrecioUnitario ?? 0m));
+            var compDriversCount = procEmpDriverValues.Count > 0 
+                ? procEmpDriverValues.Count 
+                : compDrivers.Count;
+            var compDriversCost = procEmpDriverValues.Count > 0
+                ? procEmpDriverValues.Sum(cd => cd.CostoTotal ?? ((cd.Cantidad ?? 0m) * (cd.PrecioUnitario ?? 0m)))
+                : compDrivers.Sum(d => (d.Cantidad ?? 0m) * (d.PrecioUnitario ?? 0m));
 
             // Estimación de volumetría para demo/ejercicio ÚNICAMENTE cuando el building block es de tipo WAAP y no hay drivers reales cargados
             if (esWaap && compDrivers.Count == 0)
@@ -1371,12 +1524,12 @@ public sealed class AdoptionProcessService(
                 thgVal = (empId * 145m) % 1200m + 80m;
                 appsVal = (empId * 12) % 95 + 10;
                 reqWafVal = (empId * 85m) % 750m + 50m;
-                anchoBanda = Math.Round(thgVal / 120m, 2);
+                anchoBanda = Math.Round(thgVal / 120m, 3);
                 dominios = appsVal + 4;
                 appsApiSec = Math.Max(2, appsVal / 3);
-                apiProtReq = Math.Round(reqWafVal * 0.45m, 1);
-                reqAntibot = Math.Round(reqWafVal * 0.35m, 1);
-                dataTransferTb = Math.Round(thgVal * 1.8m, 1);
+                apiProtReq = Math.Round(reqWafVal * 0.45m, 3);
+                reqAntibot = Math.Round(reqWafVal * 0.35m, 3);
+                dataTransferTb = Math.Round(thgVal * 1.8m, 3);
                 reqRespSize = "15 KB / 45 KB";
             }
             else if (!esWaap && compDrivers.Count == 0)
@@ -1441,7 +1594,9 @@ public sealed class AdoptionProcessService(
                 tipoOperacion,
                 compDriversCount,
                 compDriversCost,
-                compDriverValues));
+                compDriverValues,
+                montoContrato,
+                monedaContrato));
 
             volumeRows.Add(new CompanyVolumeReportRowDto(
                 empId,
@@ -1464,22 +1619,39 @@ public sealed class AdoptionProcessService(
         }
 
         // REPORTE B: VENCIMIENTO CONTRACTUAL & PROYECCIÓN ACUMULADA
-        // Períodos hitos estándar del proceso (Dic-26, Ene-27, Mar-27, Jul-27, Ago-27, Set-27, PAYG)
-        var hitos = new List<ContractTimelineMilestoneDto>
-        {
-            new("Dic-26", 2026, 12, false),
-            new("Ene-27", 2027, 1, false),
-            new("Mar-27", 2027, 3, false),
-            new("Jul-27", 2027, 7, false),
-            new("Ago-27", 2027, 8, false),
-            new("Set-27", 2027, 9, false),
-            new("PAYG", 2099, 12, true)
-        };
+        // Períodos hitos dinámicos generados a partir de las fechas reales de vencimiento (Año y Mes)
+        var hitos = new List<ContractTimelineMilestoneDto>();
+        var distinctPeriods = expirationCandidates
+            .Where(c => !c.EsPayg && c.FechaFin.HasValue)
+            .Select(c => (Anio: c.FechaFin!.Value.Year, Mes: c.FechaFin!.Value.Month))
+            .Distinct()
+            .OrderBy(p => p.Anio)
+            .ThenBy(p => p.Mes)
+            .ToList();
 
-        // Ordenar candidatos por fecha más cercana (los PAYG o sin vencimiento van al final)
+        string[] mesesAbrev = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
+
+        foreach (var (anio, mes) in distinctPeriods)
+        {
+            var mesLabel = (mes >= 1 && mes <= 12) ? mesesAbrev[mes - 1] : $"M{mes:D2}";
+            var anioLabel = anio.ToString().Length >= 2 ? anio.ToString().Substring(anio.ToString().Length - 2) : anio.ToString();
+            var periodoLabel = $"{mesLabel}-{anioLabel}";
+            hitos.Add(new ContractTimelineMilestoneDto(periodoLabel, anio, mes, false));
+        }
+
+        // Si existen contratos PAYG o subsidiarias sin fecha fija de término (o si no hay hitos de fecha), agregar columna PAYG al final
+        var hasPaygOrSinFecha = expirationCandidates.Any(c => c.EsPayg || !c.FechaFin.HasValue);
+        if (hasPaygOrSinFecha || hitos.Count == 0)
+        {
+            hitos.Add(new ContractTimelineMilestoneDto("PAYG", 2099, 12, true));
+        }
+
+        // Ordenar candidatos por fecha más cercana (los PAYG o sin vencimiento van al final), desempatando por el orden visual configurado
+        var orderMapHito = orderedCompanyIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
         var sortedCandidates = expirationCandidates
             .OrderBy(c => c.EsPayg)
             .ThenBy(c => c.FechaFin.HasValue ? c.FechaFin.Value : DateTime.MaxValue)
+            .ThenBy(c => orderMapHito.TryGetValue(c.EmpresaId, out var idx) ? idx : 999999)
             .ThenBy(c => c.EmpresaNombre)
             .ToList();
 
@@ -1503,7 +1675,7 @@ public sealed class AdoptionProcessService(
             var item = sortedCandidates[i];
             var hitosDict = new Dictionary<string, bool>();
 
-            // Determinar hito asignado
+            // Determinar hito asignado según el Año y Mes de vencimiento
             string assignedPeriodo;
             if (item.EsPayg || !item.FechaFin.HasValue)
             {
@@ -1519,9 +1691,7 @@ public sealed class AdoptionProcessService(
                 }
                 else
                 {
-                    // Asignar al hito más cercano o por defecto secuencial
-                    var idx = Math.Min(i, hitos.Count - 2);
-                    assignedPeriodo = hitos[idx].PeriodoLabel;
+                    assignedPeriodo = hitos.Last().PeriodoLabel;
                 }
             }
 
@@ -1547,7 +1717,9 @@ public sealed class AdoptionProcessService(
                 item.TipoOperacion,
                 item.CantidadDrivers,
                 item.CostoTotalDrivers,
-                item.CompDriversMap));
+                item.CompDriversMap,
+                item.MontoContrato,
+                item.MonedaContrato));
         }
 
         // Calcular acumulación progresiva a través de los hitos cronológicos
@@ -1564,9 +1736,9 @@ public sealed class AdoptionProcessService(
             runReq += rowsInHito.Sum(r => r.RequestWafMillonesMes);
             runSubs += rowsInHito.Count;
 
-            thgAcumulado[h.PeriodoLabel] = Math.Round(runThg, 1);
+            thgAcumulado[h.PeriodoLabel] = Math.Round(runThg, 3);
             appsAcumulado[h.PeriodoLabel] = runApps;
-            reqWafAcumulado[h.PeriodoLabel] = Math.Round(runReq, 1);
+            reqWafAcumulado[h.PeriodoLabel] = Math.Round(runReq, 3);
             subsAcumulado[h.PeriodoLabel] = runSubs;
         }
 
@@ -1621,9 +1793,9 @@ public sealed class AdoptionProcessService(
             thgAcumulado,
             appsAcumulado,
             reqWafAcumulado,
-            Math.Round(expirationRows.Sum(r => r.ThroughputGbMes), 1),
+            Math.Round(expirationRows.Sum(r => r.ThroughputGbMes), 3),
             expirationRows.Sum(r => r.CantidadAppFqdn),
-            Math.Round(expirationRows.Sum(r => r.RequestWafMillonesMes), 1),
+            Math.Round(expirationRows.Sum(r => r.RequestWafMillonesMes), 3),
             subsAcumulado,
             expirationRows.Count,
             allAvailableDriverNames,
@@ -1635,12 +1807,23 @@ public sealed class AdoptionProcessService(
         var totalCantidadDrivers = genericDrivers.Count(g => g.DriverId > 0);
 
         // Construcción de la matriz de columnas dinámicas por Driver real: "[Descripción] / [Unidad]"
-        // Solo para los drivers válidos registrados en TDriver
         var activeDriverItems = genericDrivers.Where(g => g.DriverId > 0 && !string.IsNullOrWhiteSpace(g.DescripcionDriver)).ToList();
-        var distinctColHeaders = activeDriverItems
-            .Select(d => $"{d.DescripcionDriver.Trim()} / {d.UnidadMedida.Trim()}")
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        
+        List<string> distinctColHeaders;
+        if (processDrivers.Count > 0)
+        {
+            distinctColHeaders = processDrivers
+                .Select(dp => $"{dp.DescripcionDriver.Trim()} / {dp.UnidadMedida.Trim()}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        else
+        {
+            distinctColHeaders = activeDriverItems
+                .Select(d => $"{d.DescripcionDriver.Trim()} / {d.UnidadMedida.Trim()}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
 
         var matrixDriverRows = new List<CompanyDriverMatrixRowDto>();
         var totalPorColumna = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
@@ -1676,16 +1859,16 @@ public sealed class AdoptionProcessService(
 
         var volumeReport = new CompanyVolumeReportDto(
             volumeRows,
-            Math.Round(volumeRows.Sum(v => v.ThroughputMensualGbps), 1),
-            Math.Round(volumeRows.Sum(v => v.AnchoBandaMensualGbps), 1),
+            Math.Round(volumeRows.Sum(v => v.ThroughputMensualGbps), 3),
+            Math.Round(volumeRows.Sum(v => v.AnchoBandaMensualGbps), 3),
             volumeRows.Sum(v => v.DominioSubdominios),
             volumeRows.Sum(v => v.CantidadAppsFqdn),
             volumeRows.Sum(v => v.CantidadAppsFqdnApiSecurity),
-            Math.Round(volumeRows.Sum(v => v.ApiProtectionRequestMillonesMes), 1),
-            Math.Round(volumeRows.Sum(v => v.MillonesRequestAntibot), 1),
-            Math.Round(volumeRows.Sum(v => v.MillonesRequestWaf), 1),
-            Math.Round(volumeRows.Sum(v => v.MillonesRequestAntibotWaf), 1),
-            Math.Round(volumeRows.Sum(v => v.DataTransferTbMensual), 1),
+            Math.Round(volumeRows.Sum(v => v.ApiProtectionRequestMillonesMes), 3),
+            Math.Round(volumeRows.Sum(v => v.MillonesRequestAntibot), 3),
+            Math.Round(volumeRows.Sum(v => v.MillonesRequestWaf), 3),
+            Math.Round(volumeRows.Sum(v => v.MillonesRequestAntibotWaf), 3),
+            Math.Round(volumeRows.Sum(v => v.DataTransferTbMensual), 3),
             genericDrivers,
             totalInversionDrivers,
             totalCantidadDrivers,
@@ -1723,21 +1906,9 @@ public sealed class AdoptionProcessService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Fallback preventivo únicamente si el Building Block no tuviera ninguna capacidad registrada en BD
-        if (standardCaps.Count == 0)
-        {
-            standardCaps.AddRange([
-                "Web Application Firewall",
-                "Protección de API's",
-                "Protección contra ataques DDoS",
-                "Protección de Account Take Over (ATO)",
-                "Client Side Protection",
-                "Proteccion de Bot Management Avanzado",
-                "Detección basada en IA / Machine Learning",
-                "CAPTCHA",
-                "Balanceo de Carga / CDN / Optimización"
-            ]);
-        }
+        // Si el Building Block no tiene capacidades registradas en la tabla maestra,
+        // se deja standardCaps vacío y la vista mostrará un mensaje informativo
+        // en lugar de inyectar capacidades de otro Building Block (ej. WAAP)
 
         var procEmpresaIds = convocadas.Select(c => c.IdProcesoAdopcionEmpresa).ToList();
         var savedCompanyCaps = await dbContext.ProcessCompanyCapabilities.AsNoTracking()
@@ -1802,7 +1973,8 @@ public sealed class AdoptionProcessService(
             volumeReport,
             capsMatrixReport,
             esWaap,
-            costosAsIsReport);
+            costosAsIsReport,
+            proceso.OrdenEmpresas);
     }
 
     public async Task<AdoptionResult> DeactivateProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
@@ -2331,9 +2503,33 @@ public sealed class AdoptionProcessService(
                 targetUnit = targetDriver?.UnidadMedida ?? "KB / GB / TB";
                 break;
             default:
-                targetDriver = compDrivers.FirstOrDefault(d => (d.DescripcionDriver ?? "").Trim().Equals(driverKey.Trim(), StringComparison.OrdinalIgnoreCase));
-                targetDesc = targetDriver?.DescripcionDriver ?? driverKey.Trim();
-                targetUnit = targetDriver?.UnidadMedida ?? "Unidades";
+                // El driverKey puede venir en formato "Descripcion / Unidad" desde la matriz de reportería.
+                // Primero intentar coincidencia exacta por descripción completa.
+                var trimmedKey = driverKey.Trim();
+                string? parsedDesc = null;
+                string? parsedUnit = null;
+
+                // Separar descripción y unidad si el key tiene formato "Desc / Unidad"
+                var slashIdx = trimmedKey.LastIndexOf(" / ", StringComparison.Ordinal);
+                if (slashIdx > 0 && slashIdx < trimmedKey.Length - 3)
+                {
+                    parsedDesc = trimmedKey[..slashIdx].Trim();
+                    parsedUnit = trimmedKey[(slashIdx + 3)..].Trim();
+                }
+
+                // 1. Buscar por descripción exacta (sin la unidad)
+                if (parsedDesc is not null)
+                {
+                    targetDriver = compDrivers.FirstOrDefault(d =>
+                        (d.DescripcionDriver ?? "").Trim().Equals(parsedDesc, StringComparison.OrdinalIgnoreCase));
+                }
+
+                // 2. Fallback: buscar por el key completo como descripción
+                targetDriver ??= compDrivers.FirstOrDefault(d =>
+                    (d.DescripcionDriver ?? "").Trim().Equals(trimmedKey, StringComparison.OrdinalIgnoreCase));
+
+                targetDesc = targetDriver?.DescripcionDriver ?? parsedDesc ?? trimmedKey;
+                targetUnit = targetDriver?.UnidadMedida ?? parsedUnit ?? "Unidades";
                 break;
         }
 
@@ -2392,6 +2588,59 @@ public sealed class AdoptionProcessService(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Sincronizar en el nuevo modelo TDriverEmpresa si la empresa está convocada
+        if (procEmp is not null && !string.IsNullOrWhiteSpace(targetDesc))
+        {
+            var cleanDesc = targetDesc.Trim();
+            var cleanUnit = targetUnit.Trim();
+            var dp = await dbContext.ProcessDrivers.FirstOrDefaultAsync(p => 
+                p.IdProcesoAdopcionTSI == procesoId && 
+                p.DescripcionDriver.ToLower() == cleanDesc.ToLower(), cancellationToken);
+
+            if (dp is null)
+            {
+                dp = new TDriverProceso
+                {
+                    IdProcesoAdopcionTSI = procesoId,
+                    DescripcionDriver = cleanDesc,
+                    UnidadMedida = cleanUnit,
+                    OrdenVisual = 999,
+                    FechaCreacion = DateTime.UtcNow
+                };
+                dbContext.ProcessDrivers.Add(dp);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            var de = await dbContext.CompanyDrivers.FirstOrDefaultAsync(cd => 
+                cd.IdProcesoAdopcionEmpresa == procEmp.IdProcesoAdopcionEmpresa && 
+                cd.IdDriverProceso == dp.IdDriverProceso, cancellationToken);
+
+            if (de is null)
+            {
+                de = new TDriverEmpresa
+                {
+                    IdProcesoAdopcionEmpresa = procEmp.IdProcesoAdopcionEmpresa,
+                    IdDriverProceso = dp.IdDriverProceso,
+                    Cantidad = cantidad,
+                    PrecioUnitario = targetDriver.PrecioUnitario ?? 0m,
+                    CostoTotal = cantidad * (targetDriver.PrecioUnitario ?? 0m),
+                    Moneda = string.IsNullOrWhiteSpace(targetDriver.Moneda) ? "USD" : targetDriver.Moneda,
+                    FechaModificacion = DateTime.UtcNow,
+                    UsuarioModificacion = "REPORTERIA"
+                };
+                dbContext.CompanyDrivers.Add(de);
+            }
+            else
+            {
+                de.Cantidad = cantidad;
+                de.CostoTotal = cantidad * (de.PrecioUnitario ?? 0m);
+                de.FechaModificacion = DateTime.UtcNow;
+                de.UsuarioModificacion = "REPORTERIA";
+            }
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         return new AdoptionResult(true, "Driver de volumetría actualizado exitosamente.", targetDriver.IdDriver);
     }
 
@@ -2421,5 +2670,223 @@ public sealed class AdoptionProcessService(
             actorUserId, correlationId, $"Se actualizaron los drivers proyectados del proceso {procesoId}: {string.Join(", ", validDrivers)}", cancellationToken);
 
         return new AdoptionResult(true, "Preferencias de drivers guardadas en base de datos.");
+    }
+
+    public async Task<AdoptionResult> UpdateCompanyOrderAsync(
+        int procesoId,
+        IEnumerable<int> orderedCompanyIds,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (proceso is null)
+        {
+            return new AdoptionResult(false, "El proceso de evaluación no existe.");
+        }
+
+        var convocadas = await dbContext.AdoptionProcessCompanies
+            .Where(c => c.IdProcesoAdopcionTSI == procesoId && c.Aplica)
+            .Select(c => c.IdEmpresaSubsidiaria)
+            .ToListAsync(cancellationToken);
+
+        var convocadasSet = new HashSet<int>(convocadas);
+
+        var cleanList = (orderedCompanyIds ?? [])
+            .Where(id => id > 0 && convocadasSet.Contains(id))
+            .Distinct()
+            .ToList();
+
+        // Si faltan algunas empresas convocadas en la lista enviada, agregarlas al final
+        foreach (var id in convocadas)
+        {
+            if (!cleanList.Contains(id))
+            {
+                cleanList.Add(id);
+            }
+        }
+
+        proceso.OrdenEmpresas = System.Text.Json.JsonSerializer.Serialize(cleanList);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new AdoptionResult(true, "Orden de empresas guardado exitosamente en base de datos.");
+    }
+
+    public async Task<AdoptionResult> SaveProcessDriverAsync(SaveProcessDriverCommand command, CancellationToken cancellationToken = default)
+    {
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == command.ProcesoId, cancellationToken);
+        if (proceso is null)
+        {
+            return new AdoptionResult(false, "El proceso de adopción no existe.");
+        }
+
+        var cleanDesc = command.Descripcion.Trim();
+        var cleanUnit = string.IsNullOrWhiteSpace(command.UnidadMedida) ? "Unidades" : command.UnidadMedida.Trim();
+
+        TDriverProceso? template;
+        if (command.DriverProcesoId.HasValue && command.DriverProcesoId.Value > 0)
+        {
+            template = await dbContext.ProcessDrivers.FirstOrDefaultAsync(d => d.IdDriverProceso == command.DriverProcesoId.Value && d.IdProcesoAdopcionTSI == command.ProcesoId, cancellationToken);
+            if (template is null)
+            {
+                return new AdoptionResult(false, "El driver del proceso no fue encontrado.");
+            }
+            template.DescripcionDriver = cleanDesc;
+            template.UnidadMedida = cleanUnit;
+        }
+        else
+        {
+            // Validar unicidad de descripción dentro del proceso
+            var exists = await dbContext.ProcessDrivers.AnyAsync(d => 
+                d.IdProcesoAdopcionTSI == command.ProcesoId && 
+                d.DescripcionDriver.ToLower() == cleanDesc.ToLower(), cancellationToken);
+
+            if (exists)
+            {
+                return new AdoptionResult(false, $"Ya existe un driver con la descripción '{cleanDesc}' en este proceso.");
+            }
+
+            var maxOrder = await dbContext.ProcessDrivers
+                .Where(d => d.IdProcesoAdopcionTSI == command.ProcesoId)
+                .Select(d => d.OrdenVisual)
+                .MaxAsync(cancellationToken) ?? 0;
+
+            template = new TDriverProceso
+            {
+                IdProcesoAdopcionTSI = command.ProcesoId,
+                DescripcionDriver = cleanDesc,
+                UnidadMedida = cleanUnit,
+                OrdenVisual = maxOrder + 1,
+                FechaCreacion = DateTime.UtcNow
+            };
+            dbContext.ProcessDrivers.Add(template);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // CLONACIÓN / REPLICACIÓN: Asegurar que todas las empresas convocadas en este proceso tengan su fila en TDriverEmpresa
+        var convocadas = await dbContext.AdoptionProcessCompanies
+            .Where(c => c.IdProcesoAdopcionTSI == command.ProcesoId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var conv in convocadas)
+        {
+            var alreadyHas = await dbContext.CompanyDrivers.AnyAsync(cd => 
+                cd.IdProcesoAdopcionEmpresa == conv.IdProcesoAdopcionEmpresa && 
+                cd.IdDriverProceso == template.IdDriverProceso, cancellationToken);
+
+            if (!alreadyHas)
+            {
+                dbContext.CompanyDrivers.Add(new TDriverEmpresa
+                {
+                    IdProcesoAdopcionEmpresa = conv.IdProcesoAdopcionEmpresa,
+                    IdDriverProceso = template.IdDriverProceso,
+                    Cantidad = 0.00m,
+                    PrecioUnitario = 0.00m,
+                    CostoTotal = 0.00m,
+                    Moneda = "USD",
+                    FechaModificacion = DateTime.UtcNow,
+                    UsuarioModificacion = "AUTO_CLONE"
+                });
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrail.RecordUpdateAsync("proceso-adopcion-driver", "TDriverProceso", template.IdDriverProceso, template.DescripcionDriver,
+            command.ActorUserId, command.CorrelationId, $"Driver '{cleanDesc}' ({cleanUnit}) guardado y replicado en {convocadas.Count} empresas.", cancellationToken);
+
+        return new AdoptionResult(true, $"Driver '{cleanDesc}' guardado y replicado exitosamente en las empresas convocadas.", template.IdDriverProceso);
+    }
+
+    public async Task<AdoptionResult> DeleteProcessDriverAsync(int procesoId, int driverProcesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var template = await dbContext.ProcessDrivers.FirstOrDefaultAsync(d => d.IdDriverProceso == driverProcesoId && d.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (template is null)
+        {
+            return new AdoptionResult(false, "El driver del proceso no existe.");
+        }
+
+        // Eliminar valores por empresa correspondientes
+        var companyDriverRows = await dbContext.CompanyDrivers
+            .Where(cd => cd.IdDriverProceso == driverProcesoId)
+            .ToListAsync(cancellationToken);
+
+        dbContext.CompanyDrivers.RemoveRange(companyDriverRows);
+        dbContext.ProcessDrivers.Remove(template);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrail.RecordRelationAsync("DELETE_PROCESS_DRIVER", "proceso-adopcion-driver", "TDriverProceso",
+            driverProcesoId, null, actorUserId, correlationId, $"Driver '{template.DescripcionDriver}' eliminado de la plantilla del proceso y de sus empresas asociadas.", cancellationToken);
+
+        return new AdoptionResult(true, $"El driver '{template.DescripcionDriver}' fue eliminado exitosamente del proceso.");
+    }
+
+    public async Task<AdoptionResult> UpdateCompanyDriverValueAsync(UpdateCompanyDriverValueCommand command, CancellationToken cancellationToken = default)
+    {
+        var procEmp = await dbContext.AdoptionProcessCompanies.FirstOrDefaultAsync(p => p.IdProcesoAdopcionEmpresa == command.ProcesoEmpresaId, cancellationToken);
+        if (procEmp is null)
+        {
+            return new AdoptionResult(false, "La empresa participante no fue encontrada en este proceso.");
+        }
+
+        var template = await dbContext.ProcessDrivers.FirstOrDefaultAsync(d => d.IdDriverProceso == command.DriverProcesoId, cancellationToken);
+        if (template is null)
+        {
+            return new AdoptionResult(false, "El driver especificado no existe en la plantilla del proceso.");
+        }
+
+        var de = await dbContext.CompanyDrivers.FirstOrDefaultAsync(cd => 
+            cd.IdProcesoAdopcionEmpresa == command.ProcesoEmpresaId && 
+            cd.IdDriverProceso == command.DriverProcesoId, cancellationToken);
+
+        var subtotal = command.Cantidad * command.PrecioUnitario;
+        var moneda = string.IsNullOrWhiteSpace(command.Moneda) ? "USD" : command.Moneda.Trim();
+
+        if (de is null)
+        {
+            de = new TDriverEmpresa
+            {
+                IdProcesoAdopcionEmpresa = command.ProcesoEmpresaId,
+                IdDriverProceso = command.DriverProcesoId,
+                Cantidad = command.Cantidad,
+                PrecioUnitario = command.PrecioUnitario,
+                CostoTotal = subtotal,
+                Moneda = moneda,
+                FechaModificacion = DateTime.UtcNow,
+                UsuarioModificacion = "MANUAL_EDIT"
+            };
+            dbContext.CompanyDrivers.Add(de);
+        }
+        else
+        {
+            de.Cantidad = command.Cantidad;
+            de.PrecioUnitario = command.PrecioUnitario;
+            de.CostoTotal = subtotal;
+            de.Moneda = moneda;
+            de.FechaModificacion = DateTime.UtcNow;
+            de.UsuarioModificacion = "MANUAL_EDIT";
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrail.RecordUpdateAsync("driver-empresa", "TDriverEmpresa", de.IdDriverEmpresa, template.DescripcionDriver,
+            command.ActorUserId, command.CorrelationId, $"Valores actualizados para driver '{template.DescripcionDriver}': Cant={command.Cantidad}, PU={command.PrecioUnitario}, Total={subtotal} {moneda}.", cancellationToken);
+
+        return new AdoptionResult(true, "Valores del driver actualizados correctamente.", de.IdDriverEmpresa);
+    }
+
+    private static List<int> ParseOrderedCompanyIds(string? ordenEmpresasJson)
+    {
+        if (string.IsNullOrWhiteSpace(ordenEmpresasJson)) return [];
+        try
+        {
+            var list = System.Text.Json.JsonSerializer.Deserialize<List<int>>(ordenEmpresasJson);
+            return list ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 }

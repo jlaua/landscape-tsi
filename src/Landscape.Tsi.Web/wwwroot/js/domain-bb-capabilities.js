@@ -2,7 +2,24 @@
     const canvas = document.querySelector('#domain-bb-capabilities-chart');
     const container = document.querySelector('#domain-bb-capabilities-container');
     const status = document.querySelector('[data-bb-cap-status]');
-    if (!canvas || !container || typeof Chart === 'undefined') return;
+    if (!canvas || !container) return;
+
+    let chartRetries = 0;
+    const ensureChartLoaded = (callback) => {
+        if (typeof Chart !== 'undefined') {
+            callback();
+            return;
+        }
+        if (chartRetries < 30) {
+            chartRetries++;
+            setTimeout(() => ensureChartLoaded(callback), 100);
+            return;
+        }
+        if (status) {
+            status.textContent = 'No se pudo inicializar la librería de gráficos (Chart.js).';
+            status.classList.add('app-alert', 'app-alert-error');
+        }
+    };
 
     const domainId = canvas.getAttribute('data-domain-id');
     if (!domainId) return;
@@ -130,5 +147,5 @@
         }
     };
 
-    load();
+    ensureChartLoaded(load);
 })();

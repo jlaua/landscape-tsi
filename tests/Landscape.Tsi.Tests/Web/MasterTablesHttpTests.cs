@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 
 using Landscape.Tsi.Application.Catalogs;
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Domain.Catalogs;
 using Landscape.Tsi.Infrastructure.Catalogs;
 using Landscape.Tsi.Infrastructure.Identity;
 using Landscape.Tsi.Web.Models;
@@ -79,6 +80,59 @@ public sealed class MasterTablesHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("Configuración de Colores de Dominios", html);
+    }
+
+    [Fact]
+    public async Task ExportToExcel_RequestsAllRecordsUpTo100000_AndReturnsExcelFile()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/export-excel");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("empresa-subsidiaria", response.Content.Headers.ContentDisposition?.FileName ?? "");
+        Assert.EndsWith(".xlsx", response.Content.Headers.ContentDisposition?.FileName ?? "");
+        Assert.Equal(100000, StubCatalogService.LastRequestedPageSize);
+        Assert.Equal("empresa-subsidiaria", StubCatalogService.LastRequestedCatalogCode);
+    }
+
+    [Fact]
+    public async Task ExportToExcel_Domain_RequestsAllRecords_AndReturnsExcelFile()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/dominio/export-excel");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("dominio", response.Content.Headers.ContentDisposition?.FileName ?? "");
+        Assert.EndsWith(".xlsx", response.Content.Headers.ContentDisposition?.FileName ?? "");
+        Assert.Equal(100000, StubCatalogService.LastRequestedPageSize);
+        Assert.Equal("dominio", StubCatalogService.LastRequestedCatalogCode);
+    }
+
+    [Fact]
+    public async Task Domain_RendersBuildingBlocksColumn_AndRemovesSubdominioCvt()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/Domain");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Building Blocks", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<th>Subdominio CVT</th>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-label=\"Subdominio CVT\"", html, StringComparison.Ordinal);
+        Assert.Contains("table-auto-sort.js", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildingBlockCatalog_RendersCapacidadesColumn()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/building-block");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Capacidades", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -637,6 +691,84 @@ public sealed class MasterTablesHttpTests
     }
 
     [Fact]
+    public async Task BuildingBlockCatalog_RendersCapabilitiesModal_AndScript()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var listResponse = await client.GetAsync("/Administration/MasterTables/building-block");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var rawListHtml = await listResponse.Content.ReadAsStringAsync();
+        var listHtml = WebUtility.HtmlDecode(rawListHtml);
+
+        Assert.Contains("bb-cap-count-btn", listHtml);
+        Assert.Contains("bb-capabilities-modal", listHtml);
+        Assert.Contains("building-block-capabilities-modal.js", listHtml);
+    }
+
+    [Fact]
+    public async Task BuildingBlockCapabilitiesEndpoint_ReturnsJsonWithCapabilities()
+    {
+        await using var factory = CreateFactory();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+
+        var bb = new TBuildingBlock { Id = 10, Nombre = "Web Application Firewall" };
+        var state = new TMEstadoCapacidad { Id = 1, Nombre = "Activo" };
+        var cap = new TCapacidadSeguridad
+        {
+            Id = 101,
+            IdBuildingBlock = 10,
+            Nombre = "Inspección de Tráfico HTTP/S",
+            Descripcion = "Inspecciona y filtra peticiones maliciosas",
+            IdEstado = 1,
+            OrdenVisualizacion = 1
+        };
+
+        db.BuildingBlocks.Add(bb);
+        db.CapabilityStates.Add(state);
+        db.Capabilities.Add(cap);
+        await db.SaveChangesAsync();
+
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/10/capacidades");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(10, json.GetProperty("buildingBlockId").GetInt32());
+        Assert.Equal("Web Application Firewall", json.GetProperty("buildingBlockName").GetString());
+        Assert.Equal(1, json.GetProperty("totalCount").GetInt32());
+
+        var items = json.GetProperty("items");
+        Assert.Equal(1, items.GetArrayLength());
+        Assert.Equal(101, items[0].GetProperty("id").GetInt32());
+        Assert.Equal("Inspección de Tráfico HTTP/S", items[0].GetProperty("nombre").GetString());
+        Assert.Equal("Activo", items[0].GetProperty("estado").GetString());
+    }
+
+    [Fact]
+    public async Task BuildingBlockDirectRoute_WithoutDetailsInUrl_LoadsDetailsSuccessfully()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/building-block/1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Detalle", html);
+    }
+
+    [Fact]
+    public async Task CapacidadSeguridad_WithParentId_ReturnsOk()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/Administration/MasterTables/capacidad-seguridad?parentId=1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task PartnerCatalog_RendersAttributes_InListAndDetails()
     {
         await using var factory = CreateFactory();
@@ -865,12 +997,25 @@ public sealed class MasterTablesHttpTests
         Assert.True(createResult.GetProperty("success").GetBoolean());
         var contactId = createResult.GetProperty("id").GetInt32();
 
-        // 2. Query contacts list for Empresa 1 (has 1 contact)
+        // 2. Query contacts list for Empresa 1 as standard user (sensitive data must be masked)
         var listResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var listJson = await listResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.False(listJson.GetProperty("canViewSensitive").GetBoolean());
         var items = listJson.GetProperty("items").EnumerateArray().ToList();
-        Assert.Contains(items, item => item.GetProperty("nombre").GetString() == "Especialista Test Subsidiaria");
+        var maskedContact = items.Single(item => item.GetProperty("nombre").GetString() == "Especialista Test Subsidiaria");
+        Assert.Equal("e***a@subsidiaria.com", maskedContact.GetProperty("email").GetString());
+        Assert.Contains("•••", maskedContact.GetProperty("telefono").GetString()!);
+
+        // 2b. Query contacts list as Admin with withSensitive=true (cleartext)
+        var adminListResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts?withSensitive=true");
+        Assert.Equal(HttpStatusCode.OK, adminListResponse.StatusCode);
+        var adminListJson = await adminListResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.True(adminListJson.GetProperty("canViewSensitive").GetBoolean());
+        var adminItems = adminListJson.GetProperty("items").EnumerateArray().ToList();
+        var unmaskedContact = adminItems.Single(item => item.GetProperty("nombre").GetString() == "Especialista Test Subsidiaria");
+        Assert.Equal("especialista@subsidiaria.com", unmaskedContact.GetProperty("email").GetString());
+        Assert.Equal("987654321", unmaskedContact.GetProperty("telefono").GetString());
 
         // 3. Query contacts list for Empresa 99 (has 0 contacts, e.g. Bolivia scenario)
         var emptyResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/99/contacts");
@@ -879,14 +1024,25 @@ public sealed class MasterTablesHttpTests
         Assert.Equal(0, emptyJson.GetProperty("totalCount").GetInt32());
         Assert.Empty(emptyJson.GetProperty("items").EnumerateArray().ToList());
 
-        // 4. Edit contact
+        // 4. Edit contact as non-admin passing masked email to test anti-overwrite protection
         var editDto = new SaveMasterContactDto
         {
             Nombre = "Especialista Lead Actualizado",
-            Rol = "Lead Security Architect"
+            Rol = "Lead Security Architect",
+            Email = "e***a@subsidiaria.com", // Masked value submitted by frontend
+            Telefono = "••• 321"
         };
         var editResponse = await client.PostAsJsonAsync($"/Administration/MasterTables/empresa-subsidiaria/1/contacts/{contactId}/edit", editDto);
         Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        // 4b. Verify database preserved real email and phone
+        var verifyResponse = await client.GetAsync("/Administration/MasterTables/empresa-subsidiaria/1/contacts?withSensitive=true");
+        var verifyJson = await verifyResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var updatedContact = verifyJson.GetProperty("items").EnumerateArray().Single(item => item.GetProperty("id").GetInt32() == contactId);
+        Assert.Equal("Especialista Lead Actualizado", updatedContact.GetProperty("nombre").GetString());
+        Assert.Equal("Lead Security Architect", updatedContact.GetProperty("rol").GetString());
+        Assert.Equal("especialista@subsidiaria.com", updatedContact.GetProperty("email").GetString()); // Real email preserved!
+        Assert.Equal("987654321", updatedContact.GetProperty("telefono").GetString()); // Real phone preserved!
 
         // 5. Delete contact
         var deleteResponse = await client.PostAsync($"/Administration/MasterTables/empresa-subsidiaria/1/contacts/{contactId}/delete", null);
@@ -938,9 +1094,11 @@ public sealed class MasterTablesHttpTests
             if (Request.Query.ContainsKey("anonymous")) return Task.FromResult(AuthenticateResult.NoResult());
             var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, TestUserId) };
             if (!Request.Query.ContainsKey("noPermission")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogView));
+            if (!Request.Query.ContainsKey("noPermission")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogExport));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noCreate")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogCreate));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noEdit")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogEdit));
             if (!Request.Query.ContainsKey("noPermission") && !Request.Query.ContainsKey("noDelete")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.CatalogDelete));
+            if (Request.Query.ContainsKey("withSensitive")) claims.Add(new Claim(CustomClaimTypes.Permission, Permissions.SensitiveDataView));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name)));
         }
     }
@@ -954,8 +1112,15 @@ public sealed class MasterTablesHttpTests
     private sealed class StubCatalogService : ICatalogManagementService
     {
         public static string CurrentName { get; private set; } = "Familia de prueba";
+        public static int LastRequestedPageSize { get; private set; }
+        public static string? LastRequestedCatalogCode { get; private set; }
         private static CatalogRow Row => new(1, new Dictionary<string, object?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike", ["nombrePartner"] = "Partner Test", ["descripcionPartner"] = "Descripción del partner", ["vendor"] = "Vendor Test" }, new Dictionary<string, string?> { ["nombre"] = CurrentName, ["nombreCorporativo"] = CurrentName, ["nombreBuildingBlock"] = CurrentName, ["nombreVendor"] = "Vendor Test", ["descripcionVendor"] = "Descripción de prueba", ["tecnologia"] = "Crowdstrike", ["nombrePartner"] = "Partner Test", ["descripcionPartner"] = "Descripción del partner", ["vendor"] = "Vendor Test" });
-        public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null) => Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
+        public Task<CatalogPageResult> ListAsync(MasterCatalogDefinition definition, string? search, int page, int pageSize, CancellationToken cancellationToken = default, string? sortColumn = null, string? sortDirection = null)
+        {
+            LastRequestedPageSize = pageSize;
+            LastRequestedCatalogCode = definition.Code;
+            return Task.FromResult(new CatalogPageResult([Row], 1, pageSize, 1));
+        }
         public Task<CatalogPageResult> ListRelatedAsync(MasterCatalogDefinition definition, CatalogColumnDefinition foreignKey, int parentId, string? search, int page, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CatalogPageResult([new CatalogRow(1, new Dictionary<string, object?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" }, new Dictionary<string, string?> { ["empresa"] = "BCP", ["tecnologia"] = "Crowdstrike", ["buildingBlock"] = "EDR", ["versionDesplegada"] = "v1" })], 1, pageSize, 1));
         public Task<IReadOnlyList<CatalogRelationBucket>> GetRelationCountsAsync(MasterCatalogDefinition parent, MasterCatalogDefinition child, CatalogColumnDefinition foreignKey, CancellationToken cancellationToken = default) =>
@@ -1006,7 +1171,7 @@ public sealed class MasterTablesHttpTests
     private sealed class StubDominioService : IDominioService
     {
         private static readonly DominioRecord Record = new(1, "ITEST_DOMINIO", "Descripción", null, null, null, null, null);
-        public Task<PagedResult<DominioRecord>> ListAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<DominioRecord>([Record], page, pageSize, 1));
+        public Task<PagedResult<DominioRecord>> ListAsync(string? search, int page, int pageSize, string? sort = null, string? dir = null, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<DominioRecord>([Record], page, pageSize, 1));
         public Task<DominioRecord?> GetAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<DominioRecord?>(id == 1 ? Record : null);
         public Task<int> CreateAsync(DominioCommand command, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task<bool> UpdateAsync(int id, DominioCommand command, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(id == 1);

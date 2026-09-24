@@ -931,6 +931,273 @@ public sealed class AdoptionProcessUnitTests
         Assert.Contains("Millones Request WAF (mensual)", updated.DriversReporteVencimiento);
     }
 
+    [Fact]
+    public async Task GetEvaluationReportsAsync_GeneratesDynamicMilestonesFromContractDates_GroupedByYearMonth_AndCalculatesContractAmounts()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 99,
+            CodigoProceso = "PROC-DYN-099",
+            NombreProceso = "Evaluación WAAP Dinámica",
+            IdBuildingBlock = 1,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var bb = new TBuildingBlock { Id = 1, Nombre = "Web Application Firewall" };
+        ctx.BuildingBlocks.Add(bb);
+
+        var emp1 = new TEmpresaSubsidiaria { Id = 101, Nombre = "Yape Bolivia", Pais = "Bolivia" };
+        var emp2 = new TEmpresaSubsidiaria { Id = 102, Nombre = "Banco de Crédito de Bolivia", Pais = "Bolivia" };
+        var emp3 = new TEmpresaSubsidiaria { Id = 103, Nombre = "Credicorp Capital", Pais = "Perú" };
+        ctx.Companies.AddRange(emp1, emp2, emp3);
+
+        var tech1 = new TTecnologiaTSI { Id = 201, NombreCorporativo = "Cloudflare WAAP" };
+        var tech2 = new TTecnologiaTSI { Id = 202, NombreCorporativo = "Imperva WAF" };
+        var tech3 = new TTecnologiaTSI { Id = 203, NombreCorporativo = "AWS WAF (PAYG)" };
+        ctx.Technologies.AddRange(tech1, tech2, tech3);
+
+        ctx.AdoptionProcessCompanies.AddRange(
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 301, IdProcesoAdopcionTSI = 99, IdEmpresaSubsidiaria = 101, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 302, IdProcesoAdopcionTSI = 99, IdEmpresaSubsidiaria = 102, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 303, IdProcesoAdopcionTSI = 99, IdEmpresaSubsidiaria = 103, Aplica = true }
+        );
+
+        var impl1 = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 401,
+            IdEmpresaSubsidiaria = 101,
+            IdTecnologiaTSI = 201,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 301,
+            EsTecnologiaPrimaria = true
+        };
+        var impl2 = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 402,
+            IdEmpresaSubsidiaria = 102,
+            IdTecnologiaTSI = 202,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 302,
+            EsTecnologiaPrimaria = true
+        };
+        var impl3 = new TTecnologiaTSIimplementadaSubsidiaria
+        {
+            IdTecnologiaTSIimplementadaSubsidiaria = 403,
+            IdEmpresaSubsidiaria = 103,
+            IdTecnologiaTSI = 203,
+            IdBuildingBlock = 1,
+            IdProcesoAdopcionEmpresa = 303,
+            EsTecnologiaPrimaria = true
+        };
+        ctx.ImplementedTechnologies.AddRange(impl1, impl2, impl3);
+
+        // Yape Bolivia: contract expires 2027-05-22, amount 31,642.19 USD
+        ctx.TechnologyContracts.Add(new TContratoTecnologia
+        {
+            IdContratoTecnologia = 501,
+            IdTecnologiaTSIimplementadaSubsidiaria = 401,
+            NumeroContrato = "CT-YB",
+            FechaFin = new DateTime(2027, 5, 22),
+            MontoContratado = 31642.19m,
+            Moneda = "USD",
+            EsPayg = false
+        });
+
+        // Banco de Crédito Bolivia: contract expires 2027-09-29, amount 40,963.68 USD
+        ctx.TechnologyContracts.Add(new TContratoTecnologia
+        {
+            IdContratoTecnologia = 502,
+            IdTecnologiaTSIimplementadaSubsidiaria = 402,
+            NumeroContrato = "CT-BCB",
+            FechaFin = new DateTime(2027, 9, 29),
+            MontoContratado = 40963.68m,
+            Moneda = "USD",
+            EsPayg = false
+        });
+
+        // Credicorp Capital: PAYG (no expiration date)
+        ctx.TechnologyContracts.Add(new TContratoTecnologia
+        {
+            IdContratoTecnologia = 503,
+            IdTecnologiaTSIimplementadaSubsidiaria = 403,
+            NumeroContrato = "CT-PAYG",
+            FechaFin = null,
+            MontoContratado = 0m,
+            Moneda = "USD",
+            EsPayg = true
+        });
+
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var report = await service.GetEvaluationReportsAsync(99);
+
+        Assert.NotNull(report);
+        var venc = report.VencimientoContratosReport;
+        Assert.NotNull(venc);
+
+        // Dynamic milestones must be: May-27, Set-27, PAYG
+        Assert.Equal(3, venc.PeriodosHito.Count);
+        Assert.Equal("May-27", venc.PeriodosHito[0].PeriodoLabel);
+        Assert.Equal("Set-27", venc.PeriodosHito[1].PeriodoLabel);
+        Assert.Equal("PAYG", venc.PeriodosHito[2].PeriodoLabel);
+
+        // Check rows
+        var rowYb = venc.Filas.FirstOrDefault(f => f.EmpresaNombre == "Yape Bolivia");
+        Assert.NotNull(rowYb);
+        Assert.Equal(31642.19m, rowYb.MontoContrato);
+        Assert.True(rowYb.HitoExpiracionPorPeriodo.TryGetValue("May-27", out var activeYb) && activeYb);
+        Assert.False(rowYb.HitoExpiracionPorPeriodo.TryGetValue("Set-27", out var activeYbSet) && activeYbSet);
+
+        var rowBcb = venc.Filas.FirstOrDefault(f => f.EmpresaNombre == "Banco de Crédito de Bolivia");
+        Assert.NotNull(rowBcb);
+        Assert.Equal(40963.68m, rowBcb.MontoContrato);
+        Assert.True(rowBcb.HitoExpiracionPorPeriodo.TryGetValue("Set-27", out var activeBcb) && activeBcb);
+
+        var rowCc = venc.Filas.FirstOrDefault(f => f.EmpresaNombre == "Credicorp Capital");
+        Assert.NotNull(rowCc);
+        Assert.True(rowCc.HitoExpiracionPorPeriodo.TryGetValue("PAYG", out var activeCc) && activeCc);
+    }
+
+    [Fact]
+    public void EvaluationReportFormatHelper_FormatsDecimalsAndIntegersCorrectly()
+    {
+        // Whole numbers / zero decimals -> integer format without trailing decimals
+        Assert.Equal("0", EvaluationReportFormatHelper.FormatSmart(0m));
+        Assert.Equal("120", EvaluationReportFormatHelper.FormatSmart(120m));
+        Assert.Equal("120", EvaluationReportFormatHelper.FormatSmart(120.00m));
+        Assert.Equal("3,767", EvaluationReportFormatHelper.FormatSmart(3767m));
+
+        // Decimals -> preserves up to at least 3 decimal places without rounding to 1 decimal
+        Assert.Equal("0.06", EvaluationReportFormatHelper.FormatSmart(0.06m));
+        Assert.Equal("0.005", EvaluationReportFormatHelper.FormatSmart(0.005m));
+        Assert.Equal("0.01", EvaluationReportFormatHelper.FormatSmart(0.01m));
+        Assert.Equal("0.15", EvaluationReportFormatHelper.FormatSmart(0.15m));
+        Assert.Equal("0.1", EvaluationReportFormatHelper.FormatSmart(0.1m));
+        Assert.Equal("1,370.5", EvaluationReportFormatHelper.FormatSmart(1370.5m));
+        Assert.Equal("0.0005", EvaluationReportFormatHelper.FormatSmart(0.0005m));
+
+        // Nullable overload
+        Assert.Equal("—", EvaluationReportFormatHelper.FormatSmart((decimal?)null));
+        Assert.Equal("—", EvaluationReportFormatHelper.FormatSmart((decimal?)0m));
+        Assert.Equal("0.06", EvaluationReportFormatHelper.FormatSmart((decimal?)0.06m));
+        Assert.Equal("120", EvaluationReportFormatHelper.FormatSmart((decimal?)120m));
+    }
+
+    [Fact]
+    public async Task UpdateCompanyOrderAsync_SavesOrderedCompanyIdsAndAuditTrail()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 910,
+            CodigoProceso = "EVAL-ORDEN-001",
+            NombreProceso = "Proceso Test Orden",
+            IdBuildingBlock = 1,
+            IdEstadoAdopcionTSI = 1
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        var c1 = new TEmpresaSubsidiaria { Id = 1, Nombre = "Empresa Alfa" };
+        var c2 = new TEmpresaSubsidiaria { Id = 2, Nombre = "Empresa Beta" };
+        var c3 = new TEmpresaSubsidiaria { Id = 3, Nombre = "Empresa Gamma" };
+        ctx.Companies.AddRange(c1, c2, c3);
+
+        ctx.AdoptionProcessCompanies.AddRange(
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 11, IdProcesoAdopcionTSI = 910, IdEmpresaSubsidiaria = 1, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 12, IdProcesoAdopcionTSI = 910, IdEmpresaSubsidiaria = 2, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 13, IdProcesoAdopcionTSI = 910, IdEmpresaSubsidiaria = 3, Aplica = true }
+        );
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+        var updateResult = await service.UpdateCompanyOrderAsync(910, [3, 1, 2], Guid.NewGuid(), "test-corr");
+
+        Assert.True(updateResult.Succeeded);
+        var updatedProc = await ctx.AdoptionProcesses.FindAsync(910);
+        Assert.NotNull(updatedProc);
+        Assert.Equal("[3,1,2]", updatedProc.OrdenEmpresas);
+    }
+
+    [Fact]
+    public async Task GetProcessDetailAndReports_RespectsConfiguredCompanyVisualOrder()
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new CatalogDbContext(options);
+
+        var bb = new TBuildingBlock { Id = 10, Nombre = "WAAP Corporativo" };
+        ctx.BuildingBlocks.Add(bb);
+
+        var c1 = new TEmpresaSubsidiaria { Id = 1, Nombre = "BCP Perú" };
+        var c2 = new TEmpresaSubsidiaria { Id = 2, Nombre = "BCP Bolivia" };
+        var c3 = new TEmpresaSubsidiaria { Id = 3, Nombre = "Mibanco" };
+        ctx.Companies.AddRange(c1, c2, c3);
+
+        var proceso = new TProcesoAdopcionTSI
+        {
+            IdProcesoAdopcionTSI = 920,
+            CodigoProceso = "EVAL-ORDEN-002",
+            NombreProceso = "Evaluación WAAP",
+            IdBuildingBlock = 10,
+            IdEstadoAdopcionTSI = 1,
+            OrdenEmpresas = "[3, 2, 1]" // Visual sequence: Mibanco (3), BCP Bolivia (2), BCP Perú (1)
+        };
+        ctx.AdoptionProcesses.Add(proceso);
+
+        ctx.AdoptionProcessCompanies.AddRange(
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 21, IdProcesoAdopcionTSI = 920, IdEmpresaSubsidiaria = 1, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 22, IdProcesoAdopcionTSI = 920, IdEmpresaSubsidiaria = 2, Aplica = true },
+            new TProcesoAdopcionEmpresa { IdProcesoAdopcionEmpresa = 23, IdProcesoAdopcionTSI = 920, IdEmpresaSubsidiaria = 3, Aplica = true }
+        );
+        await ctx.SaveChangesAsync();
+
+        var service = new AdoptionProcessService(ctx, new NullAuditTrail());
+
+        // 1. Validar orden en Details (Convocatoria)
+        var detail = await service.GetProcessDetailAsync(920);
+        Assert.NotNull(detail);
+        Assert.Equal("[3, 2, 1]", detail.OrdenEmpresas);
+        Assert.Equal(3, detail.EmpresasParticipantes.Count);
+        Assert.Equal(3, detail.EmpresasParticipantes[0].EmpresaId); // Mibanco first
+        Assert.Equal(2, detail.EmpresasParticipantes[1].EmpresaId); // BCP Bolivia second
+        Assert.Equal(1, detail.EmpresasParticipantes[2].EmpresaId); // BCP Perú third
+
+        // 2. Validar orden en Reports (Reportería y Seguimiento)
+        var reports = await service.GetEvaluationReportsAsync(920);
+        Assert.NotNull(reports);
+        Assert.Equal("[3, 2, 1]", reports.OrdenEmpresas);
+
+        // Reporte 1: Alcance
+        Assert.Equal(3, reports.AlcanceReport.Count);
+        Assert.Equal(3, reports.AlcanceReport[0].EmpresaId);
+        Assert.Equal(2, reports.AlcanceReport[1].EmpresaId);
+        Assert.Equal(1, reports.AlcanceReport[2].EmpresaId);
+
+        // Reporte 3: Volumetría
+        Assert.Equal(3, reports.VolumetriaReport.Filas.Count);
+        Assert.Equal(3, reports.VolumetriaReport.Filas[0].EmpresaId);
+        Assert.Equal(2, reports.VolumetriaReport.Filas[1].EmpresaId);
+        Assert.Equal(1, reports.VolumetriaReport.Filas[2].EmpresaId);
+
+        // Reporte 4: Capacidades
+        Assert.Equal(3, reports.CapacidadesMatrixReport.Filas.Count);
+        Assert.Equal(3, reports.CapacidadesMatrixReport.Filas[0].EmpresaId);
+        Assert.Equal(2, reports.CapacidadesMatrixReport.Filas[1].EmpresaId);
+        Assert.Equal(1, reports.CapacidadesMatrixReport.Filas[2].EmpresaId);
+    }
+
     private sealed class NullAuditTrail : IAuditTrailService
     {
         public Task RecordCreateAsync(string entityCode, string physicalTableName, long recordId, string? displayName, Guid actorUserId, string correlationId, string? description = null, int affectedRecordCount = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;

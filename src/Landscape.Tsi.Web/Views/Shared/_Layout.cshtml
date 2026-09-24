@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 @inject IWebHostEnvironment HostEnvironment
 @{
-    var rawTheme = Context.Request.Cookies[Landscape.Tsi.Web.Controllers.AccountController.ThemeCookieName];
+    var userThemeClaim = User.Identity?.IsAuthenticated == true
+        ? User.FindFirst(Landscape.Tsi.Application.Identity.CustomClaimTypes.Theme)?.Value
+        : null;
+    var rawTheme = !string.IsNullOrWhiteSpace(userThemeClaim)
+        ? userThemeClaim
+        : Context.Request.Cookies[Landscape.Tsi.Web.Controllers.AccountController.ThemeCookieName];
     var currentTheme = string.Equals(rawTheme, Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate, StringComparison.OrdinalIgnoreCase)
         ? Landscape.Tsi.Web.Controllers.AccountController.ThemeCorporate
         : Landscape.Tsi.Web.Controllers.AccountController.ThemeLight;
@@ -174,6 +179,7 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/lib/cytoscape/cytoscape.min.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/table-auto-sort.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

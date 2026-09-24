@@ -73,7 +73,7 @@
     else
     {
         <div class="responsive-table" role="region" aria-label="Building Blocks relacionados" tabindex="0">
-            <table><thead><tr><th>Building Block</th><th>Fase de Adopción</th><th>Pilar ZT</th><th><span class="visually-hidden">Acciones</span></th></tr></thead><tbody>
+            <table><thead><tr><th scope="col" data-sortable="true">Building Block</th><th scope="col" data-sortable="true">Fase de Adopción</th><th scope="col" data-sortable="true">Pilar ZT</th><th><span class="visually-hidden">Acciones</span></th></tr></thead><tbody>
             @foreach (var item in Model.RelatedBuildingBlocks.Items)
             {
                 <tr>
@@ -190,6 +190,7 @@
 }
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
     <script src="~/js/domain-bb-capabilities.js" asp-append-version="true"></script>
 }

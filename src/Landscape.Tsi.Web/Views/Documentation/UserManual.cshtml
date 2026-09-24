@@ -19,8 +19,8 @@
 </section>
 
 <!-- Índice de Contenido Rápido -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6 col-lg-3">
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-5 g-3 mb-4">
+    <div class="col">
         <a href="#tablas-maestras" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-2">
@@ -31,36 +31,47 @@
             </div>
         </a>
     </div>
-    <div class="col-md-6 col-lg-3">
+    <div class="col">
         <a href="#flujo-adopcion" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="badge bg-info text-dark">2</span>
                     <h6 class="card-title mb-0 fw-bold text-dark">Flujo de Evaluaciones</h6>
                 </div>
-                <small class="text-muted">Ciclo completo: Convocatoria, Diagnóstico AS-IS, Contratos vigentes y Volumetría.</small>
+                <small class="text-muted">Convocatoria, exclusión formal (Aplica=false), especialistas focales, diagnóstico AS-IS y PoC.</small>
             </div>
         </a>
     </div>
-    <div class="col-md-6 col-lg-3">
+    <div class="col">
         <a href="#cierre-evaluacion" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="badge bg-success">3</span>
-                    <h6 class="card-title mb-0 fw-bold text-dark">Nuevo Estándar vs Descarte</h6>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Estándar vs Descarte</h6>
                 </div>
-                <small class="text-muted">Qué ocurre al adjudicar un nuevo estándar corporativo o si la evaluación no es exitosa.</small>
+                <small class="text-muted">Adjudicación corporativa formal en TEstandarTecnologiaHistorico o cierre sin adopción.</small>
             </div>
         </a>
     </div>
-    <div class="col-md-6 col-lg-3">
-        <a href="#reporteria-seguridad" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+    <div class="col">
+        <a href="#reporteria-seguimiento" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="badge bg-danger">4</span>
-                    <h6 class="card-title mb-0 fw-bold text-dark">Reportería & Seguridad</h6>
+                    <span class="badge bg-warning text-dark">4</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Reportería & Seguimiento</h6>
                 </div>
-                <small class="text-muted">Las 5 vistas operacionales (Costos AS-IS, Treemap de Dominios) y controles técnicos (PBAC, safety).</small>
+                <small class="text-muted">Las 5 vistas operacionales (/Reports/{id}), exportación integral a Excel y Treemap de catálogo.</small>
+            </div>
+        </a>
+    </div>
+    <div class="col">
+        <a href="#controles-seguridad" class="card text-decoration-none border-0 shadow-sm h-100 hover-shadow">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-danger">5</span>
+                    <h6 class="card-title mb-0 fw-bold text-dark">Controles de Seguridad</h6>
+                </div>
+                <small class="text-muted">Ofuscación PII de contactos (Admin-only), protección anti-sobrescritura, PBAC y safety.</small>
             </div>
         </a>
     </div>
@@ -267,6 +278,7 @@
         <small class="text-muted">Procedimiento operativo para abrir, diagnosticar y ejecutar evaluaciones corporativas.</small>
     </div>
     <div class="card-body">
+        <h5 class="fw-bold text-dark mb-3">2.1. Etapas del Ciclo de Evaluación Técnica</h5>
         <div class="timeline-steps mb-4">
             <div class="row g-3">
                 <div class="col-md-3">
@@ -277,7 +289,8 @@
                             <li>Código de evaluación y fechas estimadas.</li>
                             <li>Selección de Dominio y Building Block.</li>
                             <li>Carga reactiva de capacidades y funcionalidades.</li>
-                            <li><strong>Selección de empresas participantes</strong>: Las empresas que no participen deben ser desmarcadas para que no aparezcan en la evaluación ni en reportería.</li>
+                            <li><strong>Convocatoria estricta</strong>: Desmarcar subsidiarias que no participan (<code>Aplica = false</code>).</li>
+                            <li><strong>Especialista Focal</strong>: Asignación del interlocutor técnico oficial por empresa.</li>
                         </ul>
                     </div>
                 </div>
@@ -288,7 +301,7 @@
                         <ul class="small ps-3 mb-0 text-secondary">
                             <li>Tecnología actual en uso por subsidiaria.</li>
                             <li>Versión Desplegada (SaaS, On-Prem, etc.).</li>
-                            <li><strong>Tipo de Operación</strong> (Autogestionado / Gestionado).</li>
+                            <li><strong>Tipo de Operación</strong> (Autogestionado / Gestionado 24x7).</li>
                             <li><strong>Modalidad Laboral</strong> (Propio / Tercero / Híbrido).</li>
                         </ul>
                     </div>
@@ -298,24 +311,91 @@
                         <span class="badge bg-warning text-dark w-fit mb-2">Paso 3</span>
                         <h6 class="fw-bold text-dark">Contratos y Partners</h6>
                         <ul class="small ps-3 mb-0 text-secondary">
-                            <li>Contrato vigente a fecha fija o modalidad <strong>PAYG</strong>.</li>
-                            <li>Fechas de vigencia y monto contratado total.</li>
-                            <li>Selección de Fabricante (Vendor) y Partner local.</li>
-                            <li>Carga automática de contactos comerciales y soporte.</li>
+                            <li>Contrato tradicional vigente o modalidad flexible <strong>PAYG</strong>.</li>
+                            <li>Fechas de inicio/término y monto total pactado.</li>
+                            <li>Selección de Fabricante (Vendor) y Partner canal local.</li>
+                            <li>Carga automática de contactos de soporte y cuentas.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card h-100 border-success shadow-none bg-success-subtle p-3">
                         <span class="badge bg-success w-fit mb-2">Paso 4</span>
-                        <h6 class="fw-bold text-dark">Volumetría y PoC</h6>
+                        <h6 class="fw-bold text-dark">Volumetría, Matriz & PoC</h6>
                         <ul class="small ps-3 mb-0 text-secondary">
-                            <li>Throughput proyectado (Gbps).</li>
-                            <li>Apps FQDN y millones de requests (WAF, Bot, API).</li>
-                            <li>Evaluación técnica de funcionalidades.</li>
-                            <li>Auditoría y matrices de cobertura.</li>
+                            <li>Drivers de consumo reales por subsidiaria (Gbps, apps, transacciones).</li>
+                            <li>Matriz de cobertura de capacidades (A, F, NA).</li>
+                            <li>Evaluación técnica de funcionalidades en pruebas PoC.</li>
+                            <li>Auditoría y sustentación técnica.</li>
                         </ul>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="fw-bold text-dark mb-3">2.2. Reglas Clave de Convocatoria, Focales Técnicos y Reportería</h5>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-danger mb-2 d-flex align-items-center gap-2">
+                        <span>🚫</span> Exclusión Formal de Subsidiarias (<code>Aplica = false</code>)
+                    </h6>
+                    <p class="small text-muted mb-2">
+                        Al configurar la convocatoria de empresas para un Building Block, el evaluador delimita qué subsidiarias deben participar. Las empresas no pertinentes se desmarcan estableciendo <code>Aplica = false</code>:
+                    </p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li><strong>Aislamiento Completo</strong>: La empresa desmarcada <strong>no figurará en las grillas de diagnóstico ni en ninguna de las 5 vistas operacionales de Reportería & Seguimiento</strong>.</li>
+                        <li><strong>Integridad de Métricas</strong>: Evita distorsiones en sumatorias de volumetría, brechas de capacidades o proyecciones financieras corporativas.</li>
+                        <li><strong>Reversibilidad</strong>: Si la subsidiaria requiere incorporarse con posterioridad, puede ser reactivada desde el modal de convocatoria.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-primary mb-2 d-flex align-items-center gap-2">
+                        <span>👤</span> Especialistas Focales Técnicos (<code>TContactoEmpresaSubsidiaria</code>)
+                    </h6>
+                    <p class="small text-muted mb-2">
+                        Cada subsidiaria cuenta con un directorio especializado de contactos técnicos y líderes de ciberseguridad en base de datos:
+                    </p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li><strong>Asignación Oficial</strong>: Desde la grilla de convocatoria, se puede designar al especialista focal que representa técnicamente a la empresa en la evaluación.</li>
+                        <li><strong>Trazabilidad en Reportes</strong>: El especialista focal asignado se visualiza directamente en la pestaña <em>Alcance del Proceso</em> del reporte de seguimiento.</li>
+                        <li><strong>Seguridad de Datos (PII)</strong>: La información de contacto (correo y teléfono) se encuentra sujeta a enmascaramiento dinámico (solo legible por Administradores).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-warning mb-2 d-flex align-items-center gap-2">
+                        <span>⚙️</span> Modelo Operativo y Modalidad Laboral
+                    </h6>
+                    <p class="small text-muted mb-2">
+                        En el diagnóstico AS-IS se captura la realidad operativa de la tecnología instalada en cada subsidiaria:
+                    </p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li><strong>Tipo de Operación</strong>: Clasifica la gobernanza operativa (<em>Autogestionado</em>, <em>Servicio Gestionado 24x7</em>, <em>SaaS Operado</em>).</li>
+                        <li><strong>Modalidad Laboral</strong>: Identifica el esquema de dotación de personal (<em>Propio / In-House</em>, <em>Tercerizado</em>, <em>Híbrido</em>).</li>
+                        <li><strong>Impacto en Costos</strong>: Permite valorizar no solo las licencias de software sino el esfuerzo operacional en la proyección de costos AS-IS.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded border h-100">
+                    <h6 class="fw-bold text-success mb-2 d-flex align-items-center gap-2">
+                        <span>📊</span> Acceso Permanente a Reportería & Seguimiento
+                    </h6>
+                    <p class="small text-muted mb-2">
+                        Durante todo el ciclo de vida del proceso de adopción, los evaluadores y líderes de arquitectura cuentan con visibilidad analítica en tiempo real:
+                    </p>
+                    <ul class="small text-secondary ps-3 mb-0">
+                        <li><strong>Botón Directo</strong>: Ubicado en la cabecera superior del expediente (<code>/AdoptionProcess/Details/{id}</code>) con el enlace <code>📊 Reportería & Seguimiento</code> hacia <code>/AdoptionProcess/Reports/{id}</code>.</li>
+                        <li><strong>Actualización Instantánea</strong>: Refleja inmediatamente cualquier modificación en contratos, volumetrías o coberturas sin esperar al cierre.</li>
+                        <li><strong>Exportación Consolidada</strong>: Permite descargar en cualquier momento el libro completo en Excel con las 5 pestañas operacionales.</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -381,11 +461,11 @@
     </div>
 </div>
 
-<!-- SECCIÓN 4: REPORTERÍA & VISUALIZACIÓN EJECUTIVA -->
-<div class="card border-0 shadow-sm mb-4" id="reporteria-seguridad">
+<!-- SECCIÓN 4: REPORTERÍA & SEGUIMIENTO -->
+<div class="card border-0 shadow-sm mb-4" id="reporteria-seguimiento">
     <div class="card-header bg-white border-bottom py-3">
         <h2 class="h5 mb-0 fw-bold text-primary">4. Reportería, Visualización Ejecutiva y Mapas del Catálogo</h2>
-        <small class="text-muted">Estructura de navegación ejecutiva y módulos analíticos de Landscape TSI.</small>
+        <small class="text-muted">Estructura de navegación ejecutiva, catálogo global y módulo analítico de seguimiento de evaluaciones.</small>
     </div>
     <div class="card-body">
         <!-- 4.1 PORTADA: MAPA LANDSCAPE TSI -->
@@ -415,9 +495,9 @@
         </div>
 
         <!-- 4.2 REPORTERÍA: DISTRIBUCIÓN DE DOMINIOS -->
-        <h5 class="fw-bold text-dark mb-2">4.2. Módulo de Reportería: Distribución de Dominios & Ficha Interactiva</h5>
+        <h5 class="fw-bold text-dark mb-2">4.2. Módulo de Reportería del Catálogo Maestro: Distribución de Dominios & Ficha Interactiva</h5>
         <p class="text-muted mb-3">
-            Ubicado en <strong>Reportería › Distribución de Dominios</strong> (opción 1 del menú y pestaña por defecto al entrar a <code>/reporteria</code>). Ofrece la vista detallada de todos los bloques constructivos:
+            Ubicado en <strong>Reportería › Distribución de Dominios</strong> (opción 1 del menú principal y ruta <code>/reporteria</code>). Ofrece la vista de inventario tecnológico general de todos los bloques constructivos:
         </p>
         <div class="p-3 bg-light rounded border mb-4">
             <ul class="small text-secondary ps-3 mb-0">
@@ -430,19 +510,23 @@
         </div>
 
         <!-- 4.3 REPORTERÍA OPERACIONAL DE EVALUACIONES -->
-        <h5 class="fw-bold text-dark mb-3">4.3. Resumen de Reportería Operacional y de Seguimiento de Evaluaciones</h5>
+        <h5 class="fw-bold text-dark mb-2">4.3. Módulo Especializado: Reportería & Seguimiento de Evaluaciones (<code>/AdoptionProcess/Reports/{id}</code>)</h5>
+        <p class="text-muted mb-3">
+            Accesible desde la cabecera de cualquier evaluación técnica mediante el botón <strong>`📊 Reportería & Seguimiento`</strong>. Presenta un centro de control analítico en tiempo real compuesto por <strong>5 pestañas operacionales estandarizadas numéricamente</strong> y el botón de cabecera <strong>`📥 Exportar Todo a Excel`</strong> (que genera un libro consolidado multi-hoja <code>.xlsx</code> con toda la información del proceso):
+        </p>
         <div class="row g-3">
             <div class="col-md-6">
                 <div class="card h-100 border-0 bg-light p-3">
                     <h6 class="fw-bold text-primary d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">a</span> Reporte de Alcance del Proceso
+                        <span class="badge bg-primary">1</span> 1) Alcance del Proceso
                     </h6>
-                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Transparentar el perímetro de aplicación y las empresas activamente involucradas.</p>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Transparentar el perímetro exacto de aplicación y las empresas activamente involucradas.</p>
                     <ul class="small text-secondary ps-3 mb-0">
-                        <li>Lista de subsidiarias participantes convocadas.</li>
-                        <li>Tecnología actual en producción (AS-IS) y país.</li>
-                        <li>Fecha de fin de contrato vigente y partner local.</li>
-                        <li>Modelo de operación (Autogestionado vs. Gestionado).</li>
+                        <li><strong>Filtro Estricto de Convocatoria</strong>: Muestra <strong>únicamente las empresas convocadas</strong> (<code>Aplica = true</code>); las empresas no participantes quedan completamente excluidas.</li>
+                        <li><strong>Especialista Técnico Focal</strong>: Exhibe el nombre del interlocutor técnico oficial asignado por cada subsidiaria (de <code>TContactoEmpresaSubsidiaria</code>).</li>
+                        <li><strong>Tecnología AS-IS y País</strong>: Solución actualmente desplegada en producción y país de operación.</li>
+                        <li><strong>Contrato y Fabricante / Partner</strong>: Fin de contrato vigente, fabricante directo y canal partner autorizado.</li>
+                        <li><strong>Modelo Operativo</strong>: Modelo de operación (Autogestionado vs. Gestionado) y modalidad laboral.</li>
                     </ul>
                 </div>
             </div>
@@ -450,13 +534,15 @@
             <div class="col-md-6">
                 <div class="card h-100 border-0 bg-light p-3">
                     <h6 class="fw-bold text-info d-flex align-items-center gap-2">
-                        <span class="badge bg-info text-dark">b</span> Vencimiento de Contratos & Proyección
+                        <span class="badge bg-info text-dark">2</span> 2) Vencimiento de Contratos & Proyección
                     </h6>
                     <p class="small text-muted mb-2"><strong>Objetivo:</strong> Planificar la ventana de migración corporativa sin incurrir en penalidades ni doble facturación.</p>
                     <ul class="small text-secondary ps-3 mb-0">
-                        <li>Línea de tiempo mes a mes de vencimientos de contratos.</li>
-                        <li>Identificación de contratos tradicionales vs. modelos flexibles <strong>PAYG</strong>.</li>
-                        <li>Costo económico acumulado que se libera para renegociación corporativa.</li>
+                        <li><strong>Monto Contrato Registrado</strong>: Columna financiera adyacente a <em>Producto Actual</em> que expone el valor del contrato cargado al momento de convocar la subsidiaria (ej. <code>USD 40,963.68</code> para Banco de Crédito de Bolivia), permitiendo comparar importes frente a la volumetría y los hitos cronológicos.</li>
+                        <li><strong>Cronología Mensual de Vencimientos</strong>: Proyección mes a mes de las fechas en que culminan los contratos locales.</li>
+                        <li><strong>Diferenciación PAYG vs. Tradicional</strong>: Identificación clara entre contratos tradicionales a plazo fijo y contratos de nube flexibles bajo consumo (Pay-As-You-Go).</li>
+                        <li><strong>Presupuesto Liberado</strong>: Cuantificación del monto económico acumulado que se libera gradualmente para renegociación del contrato marco corporativo.</li>
+                        <li><strong>Alertas Preventivas</strong>: Indicadores de contratos próximos a expirar (30, 60 y 90 días).</li>
                     </ul>
                 </div>
             </div>
@@ -464,13 +550,13 @@
             <div class="col-md-6">
                 <div class="card h-100 border-0 bg-light p-3">
                     <h6 class="fw-bold text-warning d-flex align-items-center gap-2">
-                        <span class="badge bg-warning text-dark">3</span> Volumetría por Empresa (Columnas de Consumo)
+                        <span class="badge bg-warning text-dark">3</span> 3) Volumetría por Empresa (Columnas de Consumo Dinámicas)
                     </h6>
-                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Sustentar cuantitativamente el dimensionamiento técnico y consumo real sin mezclar precios.</p>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Sustentar cuantitativamente el dimensionamiento técnico y consumo real sin distorsión de precios.</p>
                     <ul class="small text-secondary ps-3 mb-0">
-                        <li><strong>Drivers Operativos en Columnas Dinámicas</strong>: Cada driver cargado por las subsidiarias en la evaluación genera su columna con formato <code>[Descripción Driver] / [Unidad de Medida]</code> (ej. <em>Licencias por Servidor / Unidad</em>, <em>Datastores / Datastores</em>).</li>
-                        <li><strong>Valor por Defecto</strong>: Si una empresa no registró el driver, se muestra <code>0.00</code>.</li>
-                        <li><strong>Cero Data Sintética</strong>: Se muestran únicamente los valores reales cargados en base de datos.</li>
+                        <li><strong>Drivers Operativos en Columnas Dinámicas</strong>: Cada driver registrado por las subsidiarias en la evaluación genera su propia columna con formato <code>[Descripción Driver] / [Unidad de Medida]</code> (ej. <em>Licencias por Servidor / Unidad</em>, <em>Throughput / Gbps</em>, <em>FQDNs / Dominios</em>).</li>
+                        <li><strong>Valor por Defecto Cero</strong>: Si una empresa convocada no consume ese driver específico, se presenta <code>0.00</code>.</li>
+                        <li><strong>Cero Data Sintética</strong>: Presenta estrictamente los valores reales cargados en base de datos para las empresas que aplican al proceso.</li>
                     </ul>
                 </div>
             </div>
@@ -478,27 +564,27 @@
             <div class="col-md-6">
                 <div class="card h-100 border-0 bg-light p-3">
                     <h6 class="fw-bold text-success d-flex align-items-center gap-2">
-                        <span class="badge bg-success">4</span> Matriz de Cobertura de Capacidades
+                        <span class="badge bg-success">4</span> 4) Capacidades por Empresa (Gap Analysis)
                     </h6>
-                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Análisis de brecha (Gap Analysis) de seguridad por cada subsidiaria.</p>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Análisis de brecha (Gap Analysis) de seguridad técnica comparativa por subsidiaria.</p>
                     <ul class="small text-secondary ps-3 mb-0">
-                        <li>Columnas alimentadas <strong>exclusivamente de las capacidades de seguridad registradas en la tabla maestra para el Building Block</strong>.</li>
-                        <li>Estado de cobertura: <strong>A (Activo)</strong> en producción, <strong>F (Futuro)</strong> planificado, <strong>NA (No Aplica)</strong>.</li>
-                        <li>Comentarios particulares y observaciones de arquitectura por empresa.</li>
+                        <li><strong>Catálogo Canónico</strong>: Columnas alimentadas <strong>exclusivamente de las capacidades de seguridad registradas en la tabla maestra para el Building Block evaluado</strong>.</li>
+                        <li><strong>Estados de Cobertura Estandarizados</strong>: <strong>A (Activo)</strong> en producción actual, <strong>F (Futuro)</strong> planificado en roadmap, y <strong>NA (No Aplica)</strong> para excepciones sustentadas.</li>
+                        <li><strong>Observaciones Técnicas</strong>: Comentarios particulares de arquitectura y justificaciones técnicas por subsidiaria.</li>
                     </ul>
                 </div>
             </div>
 
             <div class="col-md-12">
-                <div class="card h-100 border-0 bg-light p-3 border-start border-4 border-success">
+                <div class="card h-100 border-0 bg-light p-3 border-start border-4 border-success shadow-sm">
                     <h6 class="fw-bold text-dark d-flex align-items-center gap-2">
-                        <span class="badge bg-success">5</span> Proyección de Costos AS-IS (Valorización Financiera)
+                        <span class="badge bg-success">5</span> 5) Proyección de Costos AS-IS (Valorización Financiera Integral)
                     </h6>
-                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Consolidar el costo financiero total de la tecnología y contratos instalados en cada subsidiaria.</p>
+                    <p class="small text-muted mb-2"><strong>Objetivo:</strong> Consolidar el costo financiero total de la tecnología y contratos instalados en cada subsidiaria participante.</p>
                     <ul class="small text-secondary ps-3 mb-0">
-                        <li>Detalle valorizado: <code>Empresa | Tecnología AS-IS | Driver de Costo | Unidad | Cantidad | Precio Unitario | Costo Total</code>.</li>
-                        <li>Fila de totales consolidados con la suma general de inversión en dólares (USD).</li>
-                        <li>Exportable a Excel de manera independiente o como parte del libro completo de evaluación.</li>
+                        <li><strong>Detalle Económico Valorizado</strong>: Grilla granular estructurada con <code>Empresa | Tecnología AS-IS | Driver de Costo | Unidad | Cantidad | Precio Unitario | Costo Total Anualizado</code>.</li>
+                        <li><strong>Total Consolidado Corporativo</strong>: Fila final de totales con la sumatoria general de inversión en dólares americanos (USD), esencial para sustentar el retorno de inversión (ROI) y caso de negocio ante el Comité de Seguridad.</li>
+                        <li><strong>Exportabilidad Total</strong>: Descarga individual en Excel o incluida en el libro integral mediante el botón <strong>📥 Exportar Todo a Excel</strong>.</li>
                     </ul>
                 </div>
             </div>
@@ -507,59 +593,73 @@
 </div>
 
 <!-- SECCIÓN 5: CONTROLES DE SEGURIDAD -->
-<div class="card border-0 shadow-sm mb-4">
+<div class="card border-0 shadow-sm mb-4" id="controles-seguridad">
     <div class="card-header bg-white border-bottom py-3">
         <h2 class="h5 mb-0 fw-bold text-danger">5. Controles de Seguridad de la Plataforma Landscape TSI</h2>
-        <small class="text-muted">Medidas de defensa técnica en profundidad implementadas para salvaguardar la confidencialidad e integridad del sistema.</small>
+        <small class="text-muted">Medidas de defensa técnica en profundidad implementadas para salvaguardar la confidencialidad, integridad y trazabilidad del sistema.</small>
     </div>
     <div class="card-body">
         <div class="row g-4">
             <div class="col-md-4">
                 <div class="card h-100 border-0 bg-light p-3">
-                    <h6 class="fw-bold text-dark mb-2">🔐 Gestión de Identidad y Acceso (IAM) & PBAC</h6>
+                    <h6 class="fw-bold text-dark mb-2">🔐 Identidad y Acceso (IAM) & PBAC</h6>
                     <ul class="small ps-3 mb-0 text-secondary">
-                        <li><strong>Autenticación Híbrida</strong>: Soporte para credenciales locales y federación corporativa <strong>OIDC</strong> (OpenID Connect).</li>
+                        <li><strong>Autenticación Híbrida</strong>: Soporte para credenciales locales seguras y federación corporativa <strong>OIDC</strong> (OpenID Connect).</li>
                         <li><strong>Cookies de Sesión Blindadas</strong>:
                             <ul class="ps-3 mt-1">
-                                <li>Prefijo <code>__Host-LandscapeTsi.Auth</code>.</li>
-                                <li><code>HttpOnly = true</code> (inmune a robo de token por XSS).</li>
+                                <li>Prefijo estricto <code>__Host-LandscapeTsi.Auth</code>.</li>
+                                <li><code>HttpOnly = true</code> (inmune a exfiltración por XSS).</li>
                                 <li><code>SameSite = Lax</code> y <code>SecurePolicy = Always</code> (HTTPS forzado).</li>
                                 <li>Expiración deslizante automática de 30 minutos.</li>
                             </ul>
                         </li>
-                        <li><strong>Autorización PBAC Granular</strong>: Políticas por permisos específicos:
+                        <li><strong>Políticas PBAC Granulares</strong>:
                             <ul class="ps-3 mt-1">
                                 <li><code>Catalogos.ExportarExcel</code>: Exclusivo del <strong>Administrador</strong> para exportación masiva de tablas maestras.</li>
-                                <li><code>ProcesosTsi.ExportarExcel</code>: Habilitado para Administrador, Arquitecto y <strong>SPOC / Gobierno</strong> para descargar reportes de adopción.</li>
-                                <li><code>DatosSensibles.Ver</code>: Enmascara correos y teléfonos salvo para Administradores.</li>
+                                <li><code>ProcesosTsi.ExportarExcel</code>: Habilitado para Administrador, Arquitecto y <strong>SPOC / Gobierno</strong> para descargar reportes de evaluaciones.</li>
+                                <li><code>DatosSensibles.Ver</code>: Exclusivo para <strong>Administradores</strong>; autoriza la visualización de correos y teléfonos en texto claro.</li>
                             </ul>
                         </li>
-                        <li><strong>Rol Gobierno / SPOC</strong>: Perfil de supervisión con acceso a catálogos, auditoría y exportación de reportes de evaluaciones TSI sin visualización de PII sin enmascarar.</li>
+                        <li><strong>Rol Gobierno / SPOC</strong>: Perfil de supervisión con acceso a catálogos, auditoría y reportes de adopción TSI con ofuscación de PII activa.</li>
                     </ul>
                 </div>
             </div>
 
             <div class="col-md-4">
                 <div class="card h-100 border-0 bg-light p-3">
-                    <h6 class="fw-bold text-dark mb-2">🛡️ Protección Perimetral y Datos Sensibles (PII)</h6>
+                    <h6 class="fw-bold text-dark mb-2">🛡️ Protección de Datos Sensibles (PII) & Ofuscación</h6>
                     <ul class="small ps-3 mb-0 text-secondary">
-                        <li><strong>Enmascaramiento Dinámico de Contactos</strong>: Correos (<code>a***o@dominio.com</code>) y teléfonos (<code>+51  ••• 99</code>) de CISOs, contactos de vendors y partners se protegen dinámicamente frente a accesos no autorizados.</li>
-                        <li><strong>Pantallas Amigables de Acceso Denegado</strong>: Interfaz explicativa con identificación de usuario y roles asignados ante denegación por PBAC.</li>
-                        <li><strong>Rate Limiter en Inicio de Sesión</strong>: Política de limitación que restringe a <strong>10 peticiones por minuto por IP</strong> en <code>/Account/Login</code>, previniendo ataques de fuerza bruta y credential stuffing.</li>
-                        <li><strong>Bloqueo Automático de Cuentas (Lockout)</strong>: Tras 5 intentos fallidos, la cuenta queda temporalmente bloqueada durante 15 minutos.</li>
-                        <li><strong>Mecanismo Break-Glass</strong>: Protocolo de acceso de emergencia para administradores con justificación obligatoria y auditoría reforzada.</li>
+                        <li><strong>Ofuscación Multidimensional de Contactos</strong>: Aplicada transversalmente sobre:
+                            <ul class="ps-3 mt-1">
+                                <li>Especialistas por subsidiaria (<code>TContactoEmpresaSubsidiaria</code>).</li>
+                                <li>Contactos comerciales y técnicos de fabricantes (<code>TVendorContacto</code>).</li>
+                                <li>Contactos de canales integradores (<code>TPartnerContacto</code>).</li>
+                                <li>Líderes CISO de empresas (<code>TEmpresaSubsidiaria</code>).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Formato Seguro & UI</strong>: Correos (<code>j***u@empresa.com</code>) y teléfonos (<code>+51  ••• 99</code>) se ofuscan dinámicamente con candado 🔒, tipografía monoespaciada e hipervínculos <code>mailto:</code> y <code>tel:</code> desactivados.</li>
+                        <li><strong>Protección Anti-Sobrescritura Accidental</strong>:
+                            <ul class="ps-3 mt-1">
+                                <li>En formularios de edición, los campos de email y teléfono se deshabilitan (<code>disabled</code>) con placeholder <code>[Dato protegido por política de privacidad - Solo Administrador]</code>.</li>
+                                <li>A nivel de backend, el servidor <strong>preserva de forma transparente el valor real de la base de datos</strong> si un usuario sin <code>DatosSensibles.Ver</code> envía valores enmascarados (<code>***</code>, <code>•••</code>) o vacíos.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Exportaciones Sanitizadas</strong>: Las descargas a Excel y CSV respetan dinámicamente el permiso <code>DatosSensibles.Ver</code>.</li>
+                        <li><strong>Rate Limiter & Lockout</strong>: Límite de <strong>10 peticiones/minuto por IP</strong> en login y bloqueo temporal de cuenta por 15 min tras 5 fallos.</li>
+                        <li><strong>Mecanismo Break-Glass</strong>: Protocolo de emergencia para administradores con justificación obligatoria y auditoría reforzada.</li>
                     </ul>
                 </div>
             </div>
 
             <div class="col-md-4">
                 <div class="card h-100 border-0 bg-light p-3">
-                    <h6 class="fw-bold text-dark mb-2">🗄️ Seguridad en Base de Datos y Trazabilidad</h6>
+                    <h6 class="fw-bold text-dark mb-2">🗄️ Seguridad en Base de Datos & Trazabilidad</h6>
                     <ul class="small ps-3 mb-0 text-secondary">
-                        <li><strong>Database Safety Validator</strong>: Validación estricta en el inicio de la aplicación para comprobar que el catálogo de base de datos coincida con el nombre esperado, bloqueando conexiones a bases de datos equivocadas.</li>
-                        <li><strong>Pistas de Auditoría Inmutables</strong>: Registro de todas las transacciones de modificación, creación y borrado en <code>IamAuditoriaAcceso</code> con IP, actor y correlation ID.</li>
-                        <li><strong>Consultas Parametrizadas al 100%</strong>: Prevención integral contra ataques de inyección SQL (SQLi).</li>
-                        <li><strong>Exportación Nativa Segura a Excel (.xlsx)</strong>: Motor de generación en memoria OpenXML sin dependencias externas pesadas, respetando el control de acceso y enmascaramiento de datos.</li>
+                        <li><strong>Database Safety Validator</strong>: Verificación estricta en el inicio para comprobar que el catálogo de BD coincida con el nombre homologado, impidiendo conexiones erróneas.</li>
+                        <li><strong>Pistas de Auditoría Inmutables</strong>: Registro de toda mutación en <code>IamAuditoriaAcceso</code> con IP de origen, usuario actor y correlation ID trazable.</li>
+                        <li><strong>Consultas Parametrizadas al 100%</strong>: Blindaje integral contra vulnerabilidades de inyección SQL (SQLi).</li>
+                        <li><strong>Motor OpenXML Nativo en Memoria</strong>: Generación de libros Excel seguros sin dependencias pesadas ni escritura en disco temporal no protegida.</li>
+                        <li><strong>Pantallas Amigables de Acceso Denegado</strong>: Mensajes claros ante rechazo PBAC identificando usuario y permisos requeridos.</li>
                     </ul>
                 </div>
             </div>

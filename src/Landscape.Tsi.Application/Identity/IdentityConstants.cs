@@ -105,4 +105,5 @@ public static class CustomClaimTypes
 {
     public const string Permission = "landscape_tsi_permission";
     public const string AuthenticationMethod = "landscape_tsi_authentication_method";
+    public const string Theme = "theme";
 }

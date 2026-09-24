@@ -19,12 +19,24 @@
             <h1 id="domain-title">Dominio</h1>
             <p class="supporting-text">Consulte y mantenga los dominios de seguridad registrados.</p>
         </div>
-        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
-        {
-            <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-domain-modal">
-                Crear dominio
-            </button>
-        }
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogExport))
+            {
+                <a class="md-button md-button-tonal d-inline-flex align-items-center gap-1"
+                   asp-action="ExportToExcel"
+                   asp-route-catalogRoute="dominio"
+                   asp-route-search="@Model.Search"
+                   title="Exportar registros filtrados a formato Microsoft Excel (.xlsx)">
+                    <span>📥 Exportar a Excel</span>
+                </a>
+            }
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogCreate))
+            {
+                <button class="md-button md-button-filled" type="button" data-bs-toggle="modal" data-bs-target="#create-domain-modal">
+                    Crear dominio
+                </button>
+            }
+        </div>
     </div>
 
     @if (TempData["SuccessMessage"] is string successMessage)
@@ -73,15 +85,29 @@
         <div class="responsive-table" role="region" aria-label="Dominios registrados" tabindex="0">
             <table>
                 <thead>
-                    <tr><th>Dominio</th><th>Descripción</th><th>Subdominio CVT</th><th><span class="visually-hidden">Acciones</span></th></tr>
+                    <tr>
+                        <th scope="col" data-sortable="true">Dominio</th>
+                        <th scope="col" data-sortable="true">Descripción</th>
+                        <th scope="col" data-sortable="true" class="text-center" style="width: 190px;">Building Blocks</th>
+                        <th><span class="visually-hidden">Acciones</span></th>
+                    </tr>
                 </thead>
                 <tbody>
                 @foreach (var item in Model.Result.Items)
                 {
                     <tr>
-                        <td data-label="Dominio">@(item.Dominio ?? "—")</td>
+                        <td data-label="Dominio"><strong>@(item.Dominio ?? "—")</strong></td>
                         <td data-label="Descripción">@(item.DescripcionDominio ?? "—")</td>
-                        <td data-label="Subdominio CVT">@(item.SubDominioCvt ?? "—")</td>
+                        <td data-label="Building Blocks" class="text-center">
+                            <a class="md-button md-button-chip text-decoration-none px-2"
+                               asp-action="Catalog"
+                               asp-route-catalogRoute="building-block"
+                               asp-route-parentId="@item.Id"
+                               title="Ver los @item.BuildingBlockCount Building Blocks de @(item.Dominio ?? "este dominio")"
+                               aria-label="Ver @item.BuildingBlockCount Building Blocks de @(item.Dominio ?? "este dominio")">
+                                <span class="badge rounded-pill @(item.BuildingBlockCount > 0 ? "bg-primary text-white" : "bg-secondary text-white") fs-6 px-3 py-1">@item.BuildingBlockCount</span>
+                            </a>
+                        </td>
                         <td data-label="Acciones" class="table-actions">
                             @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
                             {
@@ -108,11 +134,13 @@
                 @if (Model.Result.Page > 1)
                 {
                     <a class="md-button md-button-text" asp-action="Domain" asp-route-search="@Model.Search"
+                       asp-route-sort="@Model.SortColumn" asp-route-dir="@Model.SortDirection"
                        asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize">Anterior</a>
                 }
                 @if (Model.Result.Page < Model.Result.TotalPages)
                 {
                     <a class="md-button md-button-text" asp-action="Domain" asp-route-search="@Model.Search"
+                       asp-route-sort="@Model.SortColumn" asp-route-dir="@Model.SortDirection"
                        asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize">Siguiente</a>
                 }
             </div>

@@ -412,7 +412,7 @@
             document.getElementById('table-funcs-body').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando funcionalidades...</td></tr>';
             document.getElementById('table-impls-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando subsidiarias...</td></tr>';
 
-            fetch('/Home/GetBuildingBlockDetail/' + bbId)
+            fetch('@Url.Content("~/api/building-block-detail/")' + bbId)
                 .then(r => {
                     if (!r.ok) throw new Error('Error al cargar detalle');
                     return r.json();
@@ -597,7 +597,7 @@
 
         function downloadBbExcel() {
             if (!currentBbDetail) return;
-            window.location.href = '/Home/ExportBuildingBlockDetail/' + currentBbDetail.id;
+            window.location.href = '@Url.Content("~/api/building-block-detail/")' + currentBbDetail.id + '/export';
         }
 
         function downloadBbCsv() {

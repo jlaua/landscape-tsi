@@ -162,6 +162,33 @@ public sealed class CatalogMapMetadataTests
     }
 
     [Fact]
+    public void CompanySpecialistAndVendorPartnerContacts_RedactSensitiveData_AndPreserveOnMaskedUpdate()
+    {
+        var empresa = MasterCatalogRegistry.GetByCode("contacto-empresa")!;
+        var vendor = MasterCatalogRegistry.GetByCode("contacto-vendor")!;
+        var partner = MasterCatalogRegistry.GetByCode("contacto-partner")!;
+
+        // 1. Obfuscation when canViewSensitive = false
+        Assert.Equal("e***a@example.com", CatalogDisplayPrivacy.Protect(empresa, "email", "especialista@example.com"));
+        Assert.Equal("v***r@vendor.com", CatalogDisplayPrivacy.Protect(vendor, "email", "vendedor@vendor.com"));
+        Assert.Equal("p***r@partner.com", CatalogDisplayPrivacy.Protect(partner, "email", "partner@partner.com"));
+        Assert.Equal("+51  ••• 88", CatalogDisplayPrivacy.Protect(empresa, "telefono", "+51 999 888 788"));
+
+        // 2. Unmasked when canViewSensitive = true
+        Assert.Equal("especialista@example.com", CatalogDisplayPrivacy.Protect(empresa, "email", "especialista@example.com", canViewSensitive: true));
+        Assert.Equal("+51 999 888 788", CatalogDisplayPrivacy.Protect(empresa, "telefono", "+51 999 888 788", canViewSensitive: true));
+
+        // 3. Preserve original value on blank, null, or masked updates (anti-overwrite protection)
+        Assert.Equal("especialista@example.com", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(empresa, "email", null, "especialista@example.com"));
+        Assert.Equal("especialista@example.com", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(empresa, "email", "  ", "especialista@example.com"));
+        Assert.Equal("especialista@example.com", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(empresa, "email", "e***a@example.com", "especialista@example.com"));
+        Assert.Equal("+51 999 888 788", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(empresa, "telefono", "+51  ••• 88", "+51 999 888 788"));
+
+        // 4. Valid unmasked update replaces original value
+        Assert.Equal("nuevo@example.com", CatalogDisplayPrivacy.PreserveExistingOnBlankUpdate(empresa, "email", "nuevo@example.com", "especialista@example.com"));
+    }
+
+    [Fact]
     public void ComplexModalCatalogs_UseResponsiveDrawerPresentation()
     {
         var drawerCatalogs = MasterCatalogRegistry.Catalogs.Where(catalog => catalog.UsesResponsiveDrawer).Select(catalog => catalog.Code).Order().ToArray();

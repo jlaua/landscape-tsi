@@ -60,6 +60,23 @@ public sealed class DominioServiceTests
     }
 
     [Fact]
+    public async Task List_WithLargePageSize_ReturnsAllRecordsWithoutClampingTo10()
+    {
+        await using var context = CreateContext();
+        for (var i = 1; i <= 25; i++)
+        {
+            context.Domains.Add(new TmDominio { Dominio = $"Dominio {i:D2}", DescripcionDominio = $"Desc {i}" });
+        }
+        await context.SaveChangesAsync();
+        var service = new DominioService(context);
+
+        var result = await service.ListAsync(null, 1, 100000);
+
+        Assert.Equal(25, result.TotalCount);
+        Assert.Equal(25, result.Items.Count);
+    }
+
+    [Fact]
     public void Registry_IsExplicitCompleteAndInternallyConsistent()
     {
         Assert.True(MasterCatalogRegistry.IsAdministrable("dominio"));
@@ -84,6 +101,37 @@ public sealed class DominioServiceTests
         Assert.True(MasterCatalogRegistry.Relations.Count >= 12);
         Assert.All(MasterCatalogRegistry.Catalogs, catalog =>
             Assert.True(catalog.Columns.Count > 0));
+    }
+
+    [Fact]
+    public async Task List_WithCatalogDbContext_CalculatesBuildingBlockCountAndSorts()
+    {
+        var dbName = $"dominio-bb-{Guid.NewGuid():N}";
+        var identityOptions = new DbContextOptionsBuilder<IdentityDbContext>().UseInMemoryDatabase(dbName).Options;
+        var catalogOptions = new DbContextOptionsBuilder<CatalogDbContext>().UseInMemoryDatabase(dbName).Options;
+
+        await using var identityContext = new IdentityDbContext(identityOptions);
+        await using var catalogContext = new CatalogDbContext(catalogOptions);
+
+        identityContext.Domains.AddRange(
+            new TmDominio { Id = 1, Dominio = "Dominio A" },
+            new TmDominio { Id = 2, Dominio = "Dominio B" });
+        await identityContext.SaveChangesAsync();
+
+        catalogContext.BuildingBlocks.AddRange(
+            new TBuildingBlock { Id = 101, IdDominio = 1, Nombre = "BB 1" },
+            new TBuildingBlock { Id = 102, IdDominio = 1, Nombre = "BB 2" },
+            new TBuildingBlock { Id = 103, IdDominio = 2, Nombre = "BB 3" });
+        await catalogContext.SaveChangesAsync();
+
+        var service = new DominioService(identityContext, catalogContext);
+        var result = await service.ListAsync(null, 1, 10, sort: "buildingBlocks", dir: "desc");
+
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(1, result.Items[0].Id);
+        Assert.Equal(2, result.Items[0].BuildingBlockCount);
+        Assert.Equal(2, result.Items[1].Id);
+        Assert.Equal(1, result.Items[1].BuildingBlockCount);
     }
 
     private static IdentityDbContext CreateContext()

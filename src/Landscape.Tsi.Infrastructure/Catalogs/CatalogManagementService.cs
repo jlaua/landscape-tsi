@@ -19,7 +19,7 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
     {
         EnsureWhitelisted(definition);
         page = Math.Max(1, page);
-        pageSize = pageSize is 10 or 25 or 50 or 100 ? pageSize : 10;
+        pageSize = pageSize > 0 ? Math.Min(pageSize, 100000) : 10;
         await OpenConnectionAsync(cancellationToken);
         try
         {
@@ -51,7 +51,7 @@ public sealed class CatalogManagementService(IdentityDbContext dbContext, IAudit
         EnsureWhitelisted(definition);
         EnsureForeignKey(definition, foreignKey);
         page = Math.Max(1, page);
-        pageSize = pageSize is 10 or 25 or 50 or 100 ? pageSize : 10;
+        pageSize = pageSize > 0 ? Math.Min(pageSize, 100000) : 10;
         await OpenConnectionAsync(cancellationToken);
         try
         {
@@ -448,6 +448,47 @@ FROM [dbo].[TEmpresaSubsidiaria] e
 LEFT JOIN [dbo].[TContactoEmpresaSubsidiaria] ce ON ce.idEmpresaSubsidiaria = e.idEmpresaSubsidiaria
 WHERE e.idEmpresaSubsidiaria IN ({string.Join(", ", paramNames)})
 GROUP BY e.idEmpresaSubsidiaria";
+
+            await using var command = CreateCommand(sql);
+            for (var i = 0; i < idList.Count; i++)
+            {
+                AddParameter(command, paramNames[i], idList[i]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetInt32(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+        catch
+        {
+            return result;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task<IReadOnlyDictionary<int, int>> GetBuildingBlockCapabilityCountsAsync(IEnumerable<int> buildingBlockIds, CancellationToken cancellationToken = default)
+    {
+        var idList = buildingBlockIds.Distinct().ToList();
+        var result = new Dictionary<int, int>();
+        if (idList.Count == 0) return result;
+        foreach (var id in idList) result[id] = 0;
+
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var paramNames = new List<string>();
+            for (var i = 0; i < idList.Count; i++) paramNames.Add($"@p{i}");
+
+            var sql = $@"
+SELECT b.idBuildingBlock, COUNT(DISTINCT c.idCapacidad) AS CapCount
+FROM [dbo].[TBuildingBlock] b
+LEFT JOIN [dbo].[TCapacidadDeSeguridad] c ON c.idBuildingBlock = b.idBuildingBlock
+WHERE b.idBuildingBlock IN ({string.Join(", ", paramNames)})
+GROUP BY b.idBuildingBlock";
 
             await using var command = CreateCommand(sql);
             for (var i = 0; i < idList.Count; i++)

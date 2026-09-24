@@ -22,6 +22,7 @@ public class HomeController(CatalogDbContext catalogDbContext) : Controller
     }
 
     [HttpGet("api/building-block-detail/{id:int}")]
+    [HttpGet("Home/GetBuildingBlockDetail/{id:int}")]
     public async Task<IActionResult> GetBuildingBlockDetail(int id, CancellationToken cancellationToken)
     {
         var bb = await catalogDbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -92,6 +93,7 @@ public class HomeController(CatalogDbContext catalogDbContext) : Controller
     }
 
     [HttpGet("api/building-block-detail/{id:int}/export")]
+    [HttpGet("Home/ExportBuildingBlockDetail/{id:int}")]
     [Authorize(Policy = Permissions.CatalogExport)]
     public async Task<IActionResult> ExportBuildingBlockDetail(int id, CancellationToken cancellationToken)
     {

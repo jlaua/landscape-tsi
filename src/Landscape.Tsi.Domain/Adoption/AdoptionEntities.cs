@@ -15,6 +15,7 @@ public sealed class TProcesoAdopcionTSI
     public DateTime FechaCreacion { get; set; }
     public string UsuarioCreacion { get; set; } = string.Empty;
     public string? DriversReporteVencimiento { get; set; }
+    public string? OrdenEmpresas { get; set; }
 }
 
 public sealed class TProcesoAdopcionEmpresa
@@ -89,6 +90,31 @@ public sealed class TDriver
     public decimal? Cantidad { get; set; }
     public decimal? PrecioUnitario { get; set; }
     public string Moneda { get; set; } = "USD";
+}
+
+public sealed class TDriverProceso
+{
+    public int IdDriverProceso { get; set; }
+    public int IdProcesoAdopcionTSI { get; set; }
+    public string DescripcionDriver { get; set; } = string.Empty;
+    public string UnidadMedida { get; set; } = "Unidades";
+    public int? OrdenVisual { get; set; } = 1;
+    public DateTime? FechaCreacion { get; set; }
+}
+
+public sealed class TDriverEmpresa
+{
+    public int IdDriverEmpresa { get; set; }
+    public int IdProcesoAdopcionEmpresa { get; set; }
+    public int IdDriverProceso { get; set; }
+    public decimal? Cantidad { get; set; } = 0.00m;
+    public decimal? PrecioUnitario { get; set; } = 0.00m;
+    public decimal? CostoTotal { get; set; } = 0.00m;
+    public string Moneda { get; set; } = "USD";
+    public DateTime? FechaModificacion { get; set; }
+    public string? UsuarioModificacion { get; set; }
+
+    public TDriverProceso? DriverProceso { get; set; }
 }
 
 public sealed class TProcesoEmpresaCapacidad

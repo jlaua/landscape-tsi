@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Landscape.Tsi.Application.Identity;
 using Landscape.Tsi.Domain.Identity;
 using Landscape.Tsi.Infrastructure.Identity;
@@ -57,18 +58,29 @@ public sealed class AccountController(
 
         if (result.Succeeded)
         {
-            if (!string.IsNullOrWhiteSpace(model.SelectedTheme))
+            var userClaims = await userManager.GetClaimsAsync(user!);
+            var savedTheme = userClaims.FirstOrDefault(c => c.Type == CustomClaimTypes.Theme)?.Value;
+            string themeToPersist;
+
+            if (!string.IsNullOrWhiteSpace(savedTheme))
             {
-                var themeToPersist = model.SelectedTheme.Trim().ToLowerInvariant() == ThemeCorporate ? ThemeCorporate : ThemeLight;
-                Response.Cookies.Append(ThemeCookieName, themeToPersist, new CookieOptions
-                {
-                    Path = "/",
-                    MaxAge = TimeSpan.FromDays(365),
-                    SameSite = SameSiteMode.Lax,
-                    Secure = Request.IsHttps,
-                    HttpOnly = false
-                });
+                themeToPersist = savedTheme == ThemeCorporate ? ThemeCorporate : ThemeLight;
             }
+            else
+            {
+                themeToPersist = model.SelectedTheme?.Trim().ToLowerInvariant() == ThemeCorporate ? ThemeCorporate : ThemeLight;
+                await userManager.AddClaimAsync(user!, new Claim(CustomClaimTypes.Theme, themeToPersist));
+                await signInManager.RefreshSignInAsync(user!);
+            }
+
+            Response.Cookies.Append(ThemeCookieName, themeToPersist, new CookieOptions
+            {
+                Path = "/",
+                MaxAge = TimeSpan.FromDays(365),
+                SameSite = SameSiteMode.Lax,
+                Secure = Request.IsHttps,
+                HttpOnly = false
+            });
 
             return LocalRedirect(SafeReturnUrl(model.ReturnUrl));
         }
@@ -128,7 +140,7 @@ public sealed class AccountController(
     [HttpPost("SetTheme")]
     [AllowAnonymous]
     [IgnoreAntiforgeryToken]
-    public IActionResult SetTheme([FromBody] SetThemeRequest? request)
+    public async Task<IActionResult> SetTheme([FromBody] SetThemeRequest? request)
     {
         var rawTheme = request?.Theme?.Trim().ToLowerInvariant()
                        ?? Request.Form["theme"].FirstOrDefault()?.Trim().ToLowerInvariant()
@@ -145,6 +157,15 @@ public sealed class AccountController(
             HttpOnly = false
         });
 
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var user = await userManager.GetUserAsync(User);
+            if (user is not null)
+            {
+                await PersistUserThemeClaimAsync(user, validatedTheme);
+            }
+        }
+
         if (Request.Headers.Accept.ToString().Contains("application/json") || Request.ContentType?.Contains("application/json") == true)
         {
             return Json(new { success = true, theme = validatedTheme });
@@ -160,7 +181,11 @@ public sealed class AccountController(
     [Authorize]
     public IActionResult Preferences()
     {
-        var currentTheme = Request.Cookies[ThemeCookieName] == ThemeCorporate ? ThemeCorporate : ThemeLight;
+        var userThemeClaim = User.FindFirst(CustomClaimTypes.Theme)?.Value;
+        var currentTheme = !string.IsNullOrWhiteSpace(userThemeClaim)
+            ? (userThemeClaim == ThemeCorporate ? ThemeCorporate : ThemeLight)
+            : (Request.Cookies[ThemeCookieName] == ThemeCorporate ? ThemeCorporate : ThemeLight);
+
         return View(new AccountPreferencesViewModel
         {
             UserName = User.Identity?.Name ?? string.Empty,
@@ -174,7 +199,7 @@ public sealed class AccountController(
     [HttpPost("Preferencias")]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public IActionResult Preferences(AccountPreferencesViewModel model)
+    public async Task<IActionResult> Preferences(AccountPreferencesViewModel model)
     {
         var validatedTheme = model.SelectedTheme?.Trim().ToLowerInvariant() == ThemeCorporate
             ? ThemeCorporate
@@ -189,8 +214,33 @@ public sealed class AccountController(
             HttpOnly = false
         });
 
+        var user = await userManager.GetUserAsync(User);
+        if (user is not null)
+        {
+            await PersistUserThemeClaimAsync(user, validatedTheme);
+        }
+
         TempData["StatusMessage"] = $"Preferencia de tema visual actualizada a '{(validatedTheme == ThemeCorporate ? "Corporativo (Credicorp)" : "Ligero")}'.";
         return RedirectToAction(nameof(Preferences));
+    }
+
+    private async Task PersistUserThemeClaimAsync(IamUsuario user, string theme)
+    {
+        var claims = await userManager.GetClaimsAsync(user);
+        var oldClaim = claims.FirstOrDefault(c => c.Type == CustomClaimTypes.Theme);
+        if (oldClaim is not null)
+        {
+            if (oldClaim.Value != theme)
+            {
+                await userManager.ReplaceClaimAsync(user, oldClaim, new Claim(CustomClaimTypes.Theme, theme));
+                await signInManager.RefreshSignInAsync(user);
+            }
+        }
+        else
+        {
+            await userManager.AddClaimAsync(user, new Claim(CustomClaimTypes.Theme, theme));
+            await signInManager.RefreshSignInAsync(user);
+        }
     }
 
     private string SafeReturnUrl(string? returnUrl) =>

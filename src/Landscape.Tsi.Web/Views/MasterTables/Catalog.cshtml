@@ -8,6 +8,7 @@
     var isVendor = Model.Definition.Route == "vendor";
     var isPartner = Model.Definition.Route == "partner";
     var isEmpresaSubsidiaria = Model.Definition.Route == "empresa-subsidiaria";
+    var isBuildingBlock = Model.Definition.Route == "building-block";
     var canDelete = Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete);
 }
 <nav aria-label="Ruta de navegación">
@@ -28,6 +29,8 @@
                    asp-action="ExportToExcel"
                    asp-route-catalogRoute="@Model.Definition.Route"
                    asp-route-search="@Model.Search"
+                   asp-route-sortColumn="@Model.SortColumn"
+                   asp-route-sortDirection="@Model.SortDirection"
                    title="Exportar registros filtrados a formato Microsoft Excel (.xlsx)">
                     <span>📥 Exportar a Excel</span>
                 </a>
@@ -119,6 +122,10 @@
                         {
                             <th scope="col">Contactos</th>
                         }
+                        @if (isBuildingBlock)
+                        {
+                            <th scope="col" style="width: 170px;">Capacidades</th>
+                        }
                         <th><span class="visually-hidden">Acciones</span></th>
                     </tr>
                 </thead>
@@ -201,6 +208,29 @@
                                             aria-label="Ver @contactCount contactos de @entityName">
                                         <span class="badge rounded-pill @(contactCount > 0 ? "bg-success text-white" : "bg-secondary text-white") me-1" id="contact-badge-row-@row.Id">@contactCount</span>
                                         <span id="contact-label-row-@row.Id">@(contactCount == 1 ? "contacto" : "contactos")</span>
+                                    </button>
+                                </td>
+                            }
+                            @if (isBuildingBlock)
+                            {
+                                var capCount = 0;
+                                if (Model.CapabilityCounts != null && Model.CapabilityCounts.TryGetValue(row.Id, out var cc))
+                                {
+                                    capCount = cc;
+                                }
+                                var bbName = row.DisplayValues.GetValueOrDefault("nombre") ?? $"Building Block #{row.Id}";
+                                <td data-label="Capacidades">
+                                    <button type="button"
+                                            class="md-button md-button-chip bb-cap-count-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#bb-capabilities-modal"
+                                            data-bb-id="@row.Id"
+                                            data-bb-name="@bbName"
+                                            data-cap-count="@capCount"
+                                            title="Ver las @capCount capacidades de @bbName"
+                                            aria-label="Ver @capCount capacidades de @bbName">
+                                        <span class="badge rounded-pill @(capCount > 0 ? "bg-success text-white" : "bg-secondary text-white") me-1" id="bb-cap-badge-row-@row.Id">@capCount</span>
+                                        <span id="bb-cap-label-row-@row.Id">@(capCount == 1 ? "capacidad" : "capacidades")</span>
                                     </button>
                                 </td>
                             }
@@ -553,6 +583,82 @@
     </div>
 }
 
+@if (isBuildingBlock)
+{
+    <div class="modal fade" id="bb-capabilities-modal" tabindex="-1" aria-labelledby="bb-capabilities-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content md-modal">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow">CAPACIDADES DE SEGURIDAD</p>
+                        <h2 class="modal-title" id="bb-capabilities-title">Capacidades Asociadas</h2>
+                        <p class="supporting-text small mb-0">Building Block: <span id="bb-cap-modal-bb-name" class="fw-semibold">—</span></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="bb-cap-modal-loading" class="text-center py-4" hidden>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando capacidades...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Consultando capacidades del Building Block...</p>
+                    </div>
+
+                    <div id="bb-cap-modal-error" class="app-alert app-alert-error mb-3" hidden>
+                        <span>No fue posible cargar las capacidades del Building Block. Intente nuevamente.</span>
+                    </div>
+
+                    <div id="bb-cap-modal-content">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 450px;">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" id="bb-cap-search-addon">🔍</span>
+                                    <input type="search" id="bb-cap-modal-search" class="form-control border-start-0" placeholder="Buscar por capacidad, descripción o estado..." aria-label="Buscar capacidades" aria-describedby="bb-cap-search-addon" />
+                                </div>
+                            </div>
+                            <div>
+                                <span class="badge bg-light text-dark border px-3 py-2 fs-6" id="bb-cap-modal-badge-count">0 capacidades</span>
+                            </div>
+                        </div>
+
+                        <div class="responsive-table" tabindex="0">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" style="width: 80px;">ID</th>
+                                        <th scope="col" style="width: 32%;">Capacidad de Seguridad</th>
+                                        <th scope="col" style="width: 18%;">Estado</th>
+                                        <th scope="col" style="width: 35%;">Descripción</th>
+                                        <th scope="col" style="text-align: right; width: 15%;"><span class="visually-hidden">Acciones</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bb-cap-modal-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="empty-state text-center py-4 my-2" id="bb-cap-modal-empty" hidden>
+                            No existen capacidades de seguridad asociadas a este Building Block.
+                        </p>
+                        <p class="empty-state text-center py-4 my-2" id="bb-cap-modal-no-search" hidden>
+                            No se encontraron capacidades que coincidan con el criterio de búsqueda.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <a href="#" class="md-button md-button-tonal" id="bb-cap-modal-detail-link">
+                            Ficha del Building Block →
+                        </a>
+                    </div>
+                    <div>
+                        <button type="button" class="md-button md-button-text" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     @if (canDelete)
     {
@@ -570,5 +676,9 @@
     @if (isVendor || isPartner || isEmpresaSubsidiaria)
     {
         <script src="~/js/vendor-partner-contacts-admin.js" asp-append-version="true"></script>
+    }
+    @if (isBuildingBlock)
+    {
+        <script src="~/js/building-block-capabilities-modal.js" asp-append-version="true"></script>
     }
 }

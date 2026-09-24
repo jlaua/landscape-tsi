@@ -1,5 +1,6 @@
 @model Landscape.Tsi.Application.Adoption.EvaluationReportsDto
 @using Landscape.Tsi.Application.Identity
+@using static Landscape.Tsi.Application.Adoption.EvaluationReportFormatHelper
 @{
     ViewData["Title"] = $"Seguimiento y Reportería - {Model.NombreProceso}";
 }
@@ -55,7 +56,7 @@
         {
             <div class="kpi-card">
                 <span>Throughput Global Proyectado</span>
-                <strong>@Model.VencimientoContratosReport.TotalThroughputGbMes.ToString("N1") GB/m</strong>
+                <strong>@FormatSmart(Model.VencimientoContratosReport.TotalThroughputGbMes) GB/m</strong>
             </div>
             <div class="kpi-card">
                 <span>Total Apps FQDN Protegidas</span>
@@ -63,7 +64,7 @@
             </div>
             <div class="kpi-card">
                 <span>Tráfico WAF Corporativo</span>
-                <strong>@Model.VencimientoContratosReport.TotalRequestWafMillonesMes.ToString("N1") M req/m</strong>
+                <strong>@FormatSmart(Model.VencimientoContratosReport.TotalRequestWafMillonesMes) M req/m</strong>
             </div>
         }
         else
@@ -87,12 +88,12 @@
     <ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active fw-semibold" id="tab-alcance" data-bs-toggle="tab" data-bs-target="#pane-alcance" type="button" role="tab" aria-controls="pane-alcance" aria-selected="true">
-                📋 a) Alcance del Proceso
+                📋 1) Alcance del Proceso
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link fw-semibold" id="tab-vencimientos" data-bs-toggle="tab" data-bs-target="#pane-vencimientos" type="button" role="tab" aria-controls="pane-vencimientos" aria-selected="false">
-                ⏱️ b) Vencimiento de Contratos & Proyección
+                ⏱️ 2) Vencimiento de Contratos & Proyección
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -121,9 +122,14 @@
                 <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
                     <div>
                         <h2 class="h5 mb-0">Alcance del Proceso de Evaluación</h2>
-                        <small class="text-muted">Resumen consolidado de empresas participantes, tecnología AS-IS, contratos, partners y modo de operación</small>
+                        <small class="text-muted">Resumen consolidado de empresas participantes. Puede ordenar las empresas arrastrándolas con el ratón mediante el icono <span class="fw-bold">⠿</span>.</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        <span id="orderSavedFeedbackReports" class="badge bg-success-subtle text-success border border-success-subtle small d-none order-saved-feedback-reports">✓ Orden sincronizado con Convocatoria</span>
+                        <button type="button" id="btnResetCompanyOrderReports" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 @(string.IsNullOrWhiteSpace(Model.OrdenEmpresas) ? "d-none" : "")" title="Restablecer el orden alfabético original de las empresas">
+                            <svg style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                            <span>Restablecer Orden</span>
+                        </button>
                         @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
                         {
                             <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="as-is"
@@ -136,9 +142,10 @@
                     </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="tableAlcanceReport">
                         <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem; letter-spacing:0.5px;">
                             <tr>
+                                <th scope="col" style="width: 45px;" class="text-center">#</th>
                                 <th scope="col">Empresa</th>
                                 <th scope="col">País</th>
                                 <th scope="col">Fecha Vencimiento</th>
@@ -149,10 +156,17 @@
                                 <th scope="col">Operación</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="tbodyAlcanceReport">
+                        @{ var seqAlcance = 1; }
                         @foreach (var row in Model.AlcanceReport)
                         {
-                            <tr>
+                            <tr class="report-draggable-row" data-empresa-id="@row.EmpresaId">
+                                <td class="text-center text-muted text-nowrap" style="width: 45px;">
+                                    <span class="company-drag-handle text-secondary cursor-grab me-1" title="Arrastrar para ordenar" style="cursor: grab; user-select: none;">
+                                        <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                    </span>
+                                    <span class="row-seq-badge small fw-semibold">@(seqAlcance++)</span>
+                                </td>
                                 <td class="fw-bold text-dark">@row.EmpresaNombre</td>
                                 <td>
                                     <span class="badge bg-secondary-subtle text-secondary border">@(row.Pais ?? "Global")</span>
@@ -249,6 +263,12 @@
                                 </div>
                             </div>
                         }
+                        <button class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                                type="button" id="btnToggleMontoContrato"
+                                title="Mostrar u ocultar la columna de Monto Contrato">
+                            <span>💵 Monto Contrato:</span>
+                            <span class="badge bg-success text-white" id="badgeMontoVisibility">Visible</span>
+                        </button>
                         @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
                         {
                             <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="vencimientos"
@@ -266,6 +286,7 @@
                                 <th scope="col" rowspan="2" style="vertical-align:middle; width:40px;">#</th>
                                 <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:180px;">Subsidiaria</th>
                                 <th scope="col" rowspan="2" style="vertical-align:middle; text-align:left; min-width:160px;">Producto Actual</th>
+                                <th scope="col" rowspan="2" class="th-monto-col" id="thMontoContrato" style="vertical-align:middle; text-align:right; min-width:130px;">Monto Contrato</th>
                                 <th scope="col" colspan="@(Math.Max(1, activeDrivers.Count))" class="bg-light" id="thGroupDrivers">Drivers Proyectados</th>
                                 <th scope="col" colspan="@Model.VencimientoContratosReport.PeriodosHito.Count" class="bg-primary text-white">Línea Cronológica de Expiración Contractual</th>
                             </tr>
@@ -296,14 +317,23 @@
                         {
                             var assignedHito = row.HitoExpiracionPorPeriodo.FirstOrDefault(kv => kv.Value).Key ?? (row.TipoContrato == "PAYG" ? "PAYG" : "PAYG");
                             <tr data-empresa-id="@row.EmpresaId" data-assigned-hito="@assignedHito">
-                                <td class="text-muted small">@row.Secuencia</td>
+                                <td class="text-muted small td-venc-seq">@row.Secuencia</td>
                                 <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
                                 <td class="text-start small text-primary">@(row.ProductoActual ?? (Model.EsWaap ? "WAF Local" : "No configurada"))</td>
+                                <td class="text-end small text-nowrap fw-semibold td-monto-col">
+                                    @if (row.MontoContrato.HasValue && row.MontoContrato.Value > 0)
+                                    {
+                                        <span class="text-dark">@(row.MonedaContrato ?? "USD") @row.MontoContrato.Value.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                                 @foreach (var d in activeDrivers)
                                 {
                                     var val = row.DriversPorNombre != null && row.DriversPorNombre.TryGetValue(d, out var v) ? v : 0m;
-                                    var fmt = (val > 0 && val < 0.05m) ? val.ToString("0.###") : (val % 1 == 0 ? val.ToString("N0") : val.ToString("N1"));
-                                    <td class="text-end fw-semibold small td-driver-val" data-driver-key="@d">@(val == 0 ? "—" : fmt)</td>
+                                    <td class="text-end fw-semibold small td-driver-val" data-driver-key="@d">@(val == 0m ? "—" : FormatSmart(val))</td>
                                 }
                                 @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
                                 {
@@ -323,17 +353,48 @@
                         }
                         </tbody>
                         <tfoot class="table-dark" id="tfootVencimientosReport" style="font-size:0.85rem;">
+                        @{
+                            var totalMontoContratos = Model.VencimientoContratosReport.Filas.Sum(r => r.MontoContrato ?? 0m);
+                            var monedaPredominante = Model.VencimientoContratosReport.Filas.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.MonedaContrato))?.MonedaContrato ?? "USD";
+                            var totalMontoFormateado = $"{monedaPredominante} {totalMontoContratos:N2}";
+                        }
+                        <tr class="table-primary text-dark fw-bold border-top border-2 border-primary" id="trTotalMontoContrato">
+                            <td colspan="3" class="text-end fw-bold text-uppercase text-nowrap" id="tdLabelTotalMonto" data-total-amount="@totalMontoFormateado" style="letter-spacing:0.5px;">
+                                TOTAL MONTO CONTRATADO:
+                            </td>
+                            <td class="text-end fw-bold text-primary td-monto-col text-nowrap" id="tdTotalMontoContratoVal">
+                                @totalMontoFormateado
+                            </td>
+                            @foreach (var d in activeDrivers)
+                            {
+                                <td class="text-center text-muted td-driver-monto-placeholder" data-driver-placeholder="@d">—</td>
+                            }
+                            @{
+                                decimal runMontoLiberado = 0m;
+                                foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
+                                {
+                                    var rowsInHito = Model.VencimientoContratosReport.Filas
+                                        .Where(r => r.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active)
+                                        .ToList();
+                                    runMontoLiberado += rowsInHito.Sum(r => r.MontoContrato ?? 0m);
+                                    <td class="text-center fw-bold bg-dark border-start text-warning text-nowrap" data-monto-accum="@h.PeriodoLabel" title="Presupuesto acumulado liberado al período @h.PeriodoLabel">
+                                        @(runMontoLiberado > 0 ? $"{monedaPredominante} {runMontoLiberado:N0}" : "—")
+                                    </td>
+                                }
+                            }
+                        </tr>
                         @foreach (var d in activeDrivers)
                         {
                             var totalVal = Model.VencimientoContratosReport.Filas
                                 .Sum(r => (r.DriversPorNombre != null && r.DriversPorNombre.TryGetValue(d, out var v)) ? v : 0m);
-                            var fmtTotal = (totalVal > 0 && totalVal < 0.05m) ? totalVal.ToString("0.###") : (totalVal % 1 == 0 ? totalVal.ToString("N0") : totalVal.ToString("N1"));
+                            var fmtTotal = FormatSmart(totalVal);
                             var unit = driverUnits.GetValueOrDefault(d) ?? "";
                             
                             <tr data-footer-driver="@d">
                                 <td colspan="3" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
                                     @d @(!string.IsNullOrWhiteSpace(unit) ? $"({unit})" : "") ACUM:
                                 </td>
+                                <td class="text-center text-muted td-monto-col" data-monto-placeholder="true">—</td>
                                 @foreach (var otherD in activeDrivers)
                                 {
                                     if (string.Equals(otherD, d, StringComparison.OrdinalIgnoreCase))
@@ -350,10 +411,10 @@
                                     foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
                                     {
                                         var rowsInHito = Model.VencimientoContratosReport.Filas
-                                            .Where(r => r.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active)
+                                             .Where(r => r.HitoExpiracionPorPeriodo.TryGetValue(h.PeriodoLabel, out var active) && active)
                                             .ToList();
                                         runSum += rowsInHito.Sum(r => (r.DriversPorNombre != null && r.DriversPorNombre.TryGetValue(d, out var v)) ? v : 0m);
-                                        var fmtRun = (runSum > 0 && runSum < 0.05m) ? runSum.ToString("0.###") : (runSum % 1 == 0 ? runSum.ToString("N0") : runSum.ToString("N1"));
+                                        var fmtRun = FormatSmart(runSum);
                                         <td class="text-center fw-bold bg-dark border-start" data-hito-accum="@h.PeriodoLabel">
                                             @fmtRun
                                         </td>
@@ -362,9 +423,14 @@
                             </tr>
                         }
                             <tr class="table-secondary text-dark fw-bold" id="trSubsidiariasAcumuladas">
-                                <td colspan="@(3 + activeDrivers.Count)" class="text-end fw-bold text-uppercase" id="tdSubsidiariasAcumuladasLabel" style="letter-spacing:0.5px;">
+                                <td colspan="3" class="text-end fw-bold text-uppercase" id="tdSubsidiariasAcumuladasLabel" style="letter-spacing:0.5px;">
                                     SUBSIDIARIAS ACUMULADAS:
                                 </td>
+                                <td class="text-center text-muted td-monto-col" data-monto-placeholder="true">—</td>
+                                @foreach (var otherD in activeDrivers)
+                                {
+                                    <td class="text-center text-muted td-driver-sub-placeholder" data-driver-placeholder="@otherD">—</td>
+                                }
                                 @foreach (var h in Model.VencimientoContratosReport.PeriodosHito)
                                 {
                                     <td class="text-center fw-bold bg-dark border-start text-white" data-sub-accum="@h.PeriodoLabel">
@@ -402,18 +468,21 @@
                         <h2 class="h5 mb-0">@(Model.EsWaap ? "Volumetría Detallada y Dimensionamiento por Empresa" : "Drivers de Consumo y Dimensionamiento por Empresa")</h2>
                         <small class="text-muted">
                             @(Model.EsWaap 
-                                ? "Drivers de consumo mensual por subsidiaria, capacidad de throughput, transacciones y transferencia de datos" 
-                                : $"Métricas y drivers operativos registrados para el Building Block {Model.BuildingBlockNombre}")
+                                ? "Drivers de consumo mensual por subsidiaria, capacidad de throughput, transacciones y transferencia de datos. Puede ordenar arrastrando mediante el icono ⠿." 
+                                : $"Métricas y drivers operativos registrados para el Building Block {Model.BuildingBlockNombre}. Puede ordenar arrastrando mediante el icono ⠿.")
                         </small>
                     </div>
-                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
-                    {
-                        <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="volumetria"
-                           class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
-                           title="Exportar volumetría y drivers por empresa a formato Excel">
-                            <span>📥 Exportar a Excel</span>
-                        </a>
-                    }
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle small d-none order-saved-feedback-reports">✓ Orden sincronizado con Convocatoria</span>
+                        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
+                        {
+                            <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="volumetria"
+                               class="btn btn-outline-success btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                               title="Exportar volumetría y drivers por empresa a formato Excel">
+                                <span>📥 Exportar a Excel</span>
+                            </a>
+                        }
+                    </div>
                 </div>
 
                 @if (Model.EsWaap)
@@ -439,42 +508,47 @@
                                     <th scope="col" title="Response Size (mensual)">Response Size<br/><small class="text-muted fw-normal">(KB/GB/TB)</small></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tbodyVolumetriaWaapReport">
                             @foreach (var row in Model.VolumetriaReport.Filas)
                             {
-                                <tr data-empresa-id="@row.EmpresaId">
-                                    <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
+                                <tr class="report-draggable-row" data-empresa-id="@row.EmpresaId">
+                                    <td class="text-start fw-bold text-dark text-nowrap">
+                                        <span class="company-drag-handle text-secondary cursor-grab me-1" title="Arrastrar para ordenar" style="cursor: grab; user-select: none;">
+                                            <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                        </span>
+                                        @row.EmpresaNombre
+                                    </td>
                                     <td class="text-start text-primary">@(row.TecnologiaAsIs ?? "WAF Local")</td>
-                                    <td class="text-end fw-semibold editable-vol-cell" contenteditable="true" data-driver-key="throughput" data-decimals="1" title="Haga clic para editar Throughput (mensual)">@row.ThroughputMensualGbps.ToString("N1")</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="ancho_banda" data-decimals="2" title="Haga clic para editar Ancho de Banda (mensual)">@row.AnchoBandaMensualGbps.ToString("N2")</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="dominio" data-decimals="0" title="Haga clic para editar Dominio">@row.Dominio</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="subdominios" data-decimals="0" title="Haga clic para editar Sub Dominios">@row.SubDominios</td>
-                                    <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="apps_fqdn" data-decimals="0" title="Haga clic para editar Cantidad de aplicaciones (FQDN)">@row.CantidadAppsFqdn</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="apps_api_sec" data-decimals="0" title="Haga clic para editar Cantidad de Aplicaciones FQDN en API Security">@row.CantidadAppsFqdnApiSecurity</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="api_prot" data-decimals="1" title="Haga clic para editar API Protection / API Security Request">@row.ApiProtectionRequestMillonesMes.ToString("N1")</td>
-                                    <td class="text-end editable-vol-cell col-antibot" contenteditable="true" data-driver-key="antibot" data-decimals="1" title="Haga clic para editar Millones de Request (mensual / antibot)">@row.MillonesRequestAntibot.ToString("N1")</td>
-                                    <td class="text-end fw-semibold editable-vol-cell col-waf" contenteditable="true" data-driver-key="waf" data-decimals="1" title="Haga clic para editar Millones Request WAF (mensual)">@row.MillonesRequestWaf.ToString("N1")</td>
-                                    <td class="text-end fw-bold text-primary col-antibot-waf">@row.MillonesRequestAntibotWaf.ToString("N1")</td>
-                                    <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="data_transfer" data-decimals="1" title="Haga clic para editar Data Transfer (mensual)">@row.DataTransferTbMensual.ToString("N1")</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="request_size" data-decimals="0" title="Haga clic para editar Request Size (mensual)">@(row.RequestSize ?? "—")</td>
-                                    <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="response_size" data-decimals="0" title="Haga clic para editar Response Size (mensual)">@(row.ResponseSize ?? "—")</td>
+                                     <td class="text-end fw-semibold editable-vol-cell" contenteditable="true" data-driver-key="throughput" data-decimals="3" title="Haga clic para editar Throughput (mensual)">@FormatSmart(row.ThroughputMensualGbps)</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="ancho_banda" data-decimals="3" title="Haga clic para editar Ancho de Banda (mensual)">@FormatSmart(row.AnchoBandaMensualGbps)</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="dominio" data-decimals="0" title="Haga clic para editar Dominio">@row.Dominio</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="subdominios" data-decimals="0" title="Haga clic para editar Sub Dominios">@row.SubDominios</td>
+                                     <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="apps_fqdn" data-decimals="0" title="Haga clic para editar Cantidad de aplicaciones (FQDN)">@row.CantidadAppsFqdn</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="apps_api_sec" data-decimals="0" title="Haga clic para editar Cantidad de Aplicaciones FQDN en API Security">@row.CantidadAppsFqdnApiSecurity</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="api_prot" data-decimals="3" title="Haga clic para editar API Protection / API Security Request">@FormatSmart(row.ApiProtectionRequestMillonesMes)</td>
+                                     <td class="text-end editable-vol-cell col-antibot" contenteditable="true" data-driver-key="antibot" data-decimals="3" title="Haga clic para editar Millones de Request (mensual / antibot)">@FormatSmart(row.MillonesRequestAntibot)</td>
+                                     <td class="text-end fw-semibold editable-vol-cell col-waf" contenteditable="true" data-driver-key="waf" data-decimals="3" title="Haga clic para editar Millones Request WAF (mensual)">@FormatSmart(row.MillonesRequestWaf)</td>
+                                     <td class="text-end fw-bold text-primary col-antibot-waf">@FormatSmart(row.MillonesRequestAntibotWaf)</td>
+                                     <td class="text-end fw-bold editable-vol-cell" contenteditable="true" data-driver-key="data_transfer" data-decimals="3" title="Haga clic para editar Data Transfer (mensual)">@FormatSmart(row.DataTransferTbMensual)</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="request_size" data-decimals="0" title="Haga clic para editar Request Size (mensual)">@(row.RequestSize ?? "—")</td>
+                                     <td class="text-end editable-vol-cell" contenteditable="true" data-driver-key="response_size" data-decimals="0" title="Haga clic para editar Response Size (mensual)">@(row.ResponseSize ?? "—")</td>
                                 </tr>
                             }
                             </tbody>
                             <tfoot class="table-dark fw-bold" style="font-size:0.8rem;">
                                 <tr>
                                     <td colspan="2" class="text-start text-uppercase">TOTALES CONSOLIDADOS:</td>
-                                    <td class="text-end tot-throughput">@Model.VolumetriaReport.TotalThroughputMensualGbps.ToString("N1")</td>
-                                    <td class="text-end tot-ancho_banda">@Model.VolumetriaReport.TotalAnchoBandaMensualGbps.ToString("N2")</td>
+                                    <td class="text-end tot-throughput">@FormatSmart(Model.VolumetriaReport.TotalThroughputMensualGbps)</td>
+                                    <td class="text-end tot-ancho_banda">@FormatSmart(Model.VolumetriaReport.TotalAnchoBandaMensualGbps)</td>
                                     <td class="text-end tot-dominio">@Model.VolumetriaReport.TotalDominio</td>
                                     <td class="text-end tot-subdominios">@Model.VolumetriaReport.TotalSubDominios</td>
                                     <td class="text-end tot-apps_fqdn">@Model.VolumetriaReport.TotalAppsFqdn</td>
                                     <td class="text-end tot-apps_api_sec">@Model.VolumetriaReport.TotalAppsFqdnApiSecurity</td>
-                                    <td class="text-end tot-api_prot">@Model.VolumetriaReport.TotalApiProtectionRequestMillonesMes.ToString("N1")</td>
-                                    <td class="text-end tot-antibot">@Model.VolumetriaReport.TotalMillonesRequestAntibot.ToString("N1")</td>
-                                    <td class="text-end tot-waf">@Model.VolumetriaReport.TotalMillonesRequestWaf.ToString("N1")</td>
-                                    <td class="text-end text-info tot-antibot-waf">@Model.VolumetriaReport.TotalMillonesRequestAntibotWaf.ToString("N1")</td>
-                                    <td class="text-end tot-data_transfer">@Model.VolumetriaReport.TotalDataTransferTbMensual.ToString("N1")</td>
+                                    <td class="text-end tot-api_prot">@FormatSmart(Model.VolumetriaReport.TotalApiProtectionRequestMillonesMes)</td>
+                                    <td class="text-end tot-antibot">@FormatSmart(Model.VolumetriaReport.TotalMillonesRequestAntibot)</td>
+                                    <td class="text-end tot-waf">@FormatSmart(Model.VolumetriaReport.TotalMillonesRequestWaf)</td>
+                                    <td class="text-end text-info tot-antibot-waf">@FormatSmart(Model.VolumetriaReport.TotalMillonesRequestAntibotWaf)</td>
+                                    <td class="text-end tot-data_transfer">@FormatSmart(Model.VolumetriaReport.TotalDataTransferTbMensual)</td>
                                     <td>-</td>
                                     <td>-</td>
                                 </tr>
@@ -520,13 +594,18 @@
                                     }
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tbodyVolumetriaGenericReport">
                             @if (tieneColumnas && matriz!.Filas.Count > 0)
                             {
                                 @foreach (var fila in matriz.Filas)
                                 {
-                                    <tr data-empresa-id="@fila.EmpresaId">
-                                        <td class="fw-bold text-dark">@fila.EmpresaNombre</td>
+                                    <tr class="report-draggable-row" data-empresa-id="@fila.EmpresaId">
+                                        <td class="fw-bold text-dark text-nowrap">
+                                            <span class="company-drag-handle text-secondary cursor-grab me-1" title="Arrastrar para ordenar" style="cursor: grab; user-select: none;">
+                                                <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                            </span>
+                                            @fila.EmpresaNombre
+                                        </td>
                                         <td><span class="text-primary fw-semibold">@(fila.TecnologiaAsIs ?? "No configurada")</span></td>
                                         @foreach (var col in matriz.ColumnasDrivers)
                                         {
@@ -535,7 +614,7 @@
                                                 contenteditable="true"
                                                 data-driver-key="@col"
                                                 title="Haga clic para editar driver: @col">
-                                                @cant.ToString("N2")
+                                                @FormatSmart(cant)
                                             </td>
                                         }
                                     </tr>
@@ -545,10 +624,15 @@
                             {
                                 @foreach (var alc in Model.AlcanceReport)
                                 {
-                                    <tr>
-                                        <td class="fw-bold text-dark">@alc.EmpresaNombre</td>
+                                    <tr class="report-draggable-row" data-empresa-id="@alc.EmpresaId">
+                                        <td class="fw-bold text-dark text-nowrap">
+                                            <span class="company-drag-handle text-secondary cursor-grab me-1" title="Arrastrar para ordenar" style="cursor: grab; user-select: none;">
+                                                <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                            </span>
+                                            @alc.EmpresaNombre
+                                        </td>
                                         <td><span class="text-primary fw-semibold">@(alc.TecnologiaAsIs ?? "No configurada")</span></td>
-                                        <td class="text-center text-muted fst-italic">0.00 (Sin drivers cargados)</td>
+                                        <td class="text-center text-muted fst-italic">0 (Sin drivers cargados)</td>
                                     </tr>
                                 }
                             }
@@ -561,7 +645,7 @@
                                         @foreach (var col in matriz!.ColumnasDrivers)
                                         {
                                             var tot = matriz.TotalesPorColumna.TryGetValue(col, out var totVal) ? totVal : 0m;
-                                            <td class="text-end text-warning">@tot.ToString("N2")</td>
+                                            <td class="text-end text-warning">@FormatSmart(tot)</td>
                                         }
                                     </tr>
                                 </tfoot>
@@ -578,9 +662,10 @@
                 <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
                     <div>
                         <h2 class="h5 mb-0">Matriz de Cobertura de Capacidades por Subsidiaria</h2>
-                        <small class="text-muted">Mapeo de estado técnico: Activo (A), Funcionalidad futura (F) y No aplica (NA)</small>
+                        <small class="text-muted">Mapeo de estado técnico: Activo (A), Funcionalidad futura (F) y No aplica (NA). Puede ordenar arrastrando mediante el icono <span class="fw-bold">⠿</span>.</small>
                     </div>
-                    <div class="d-flex gap-3 align-items-center">
+                    <div class="d-flex gap-3 align-items-center flex-wrap">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle small d-none order-saved-feedback-reports">✓ Orden sincronizado con Convocatoria</span>
                         @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.AdoptionExport))
                         {
                             <a asp-action="ExportEvaluationExcel" asp-route-id="@Model.ProcesoId" asp-route-section="capacidades"
@@ -600,6 +685,28 @@
                         </span>
                     </div>
                 </div>
+                @if (Model.CapacidadesMatrixReport.ColumnasCapacidades.Count == 0)
+                {
+                    <div class="alert alert-info d-flex align-items-start gap-3 m-4" role="alert">
+                        <div>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-info-circle-fill text-info mt-1" viewBox="0 0 16 16">
+                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.399l-.254-.048.332-1.12h1.84zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h6 class="alert-heading fw-bold mb-1">No se han registrado capacidades técnicas para este Building Block</h6>
+                            <p class="mb-1 small">
+                                La matriz de cobertura de capacidades se generará automáticamente cuando se registren capacidades
+                                en la Tabla Maestra del Building Block <strong>@Model.BuildingBlockNombre</strong>.
+                            </p>
+                            <p class="mb-0 small text-muted">
+                                Navegue a <strong>Administración → Mapa del Catálogo → Tablas Maestras → Building Block</strong> para configurar las capacidades.
+                            </p>
+                        </div>
+                    </div>
+                }
+                else
+                {
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover align-middle mb-0 text-center" style="font-size:0.8rem;">
                         <thead class="table-light text-muted" style="font-size:0.75rem;">
@@ -615,12 +722,17 @@
                                 <th scope="col" class="text-start" style="min-width:200px;">Comentario Subsidiaria</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="tbodyCapacidadesReport">
                         @foreach (var row in Model.CapacidadesMatrixReport.Filas)
                         {
-                            <tr data-empresa-id="@row.EmpresaId">
-                                <td class="text-start fw-bold text-dark text-nowrap">@row.EmpresaNombre</td>
-                                <td class="text-start text-primary small">@(row.TecnologiaAsIs ?? "WAF Local")</td>
+                            <tr class="report-draggable-row" data-empresa-id="@row.EmpresaId">
+                                <td class="text-start fw-bold text-dark text-nowrap">
+                                    <span class="company-drag-handle text-secondary cursor-grab me-1" title="Arrastrar para ordenar" style="cursor: grab; user-select: none;">
+                                        <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                                    </span>
+                                    @row.EmpresaNombre
+                                </td>
+                                <td class="text-start text-primary small">@(row.TecnologiaAsIs ?? "No configurada")</td>
                                 @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
                                 {
                                     var cell = row.Capacidades.TryGetValue(col, out var c) ? c : null;
@@ -660,6 +772,7 @@
                         </tbody>
                     </table>
                 </div>
+                }
             </div>
         </div>
 
@@ -697,12 +810,12 @@
                                 <th scope="col" class="text-end">Costo Total Proyectado</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="tbodyCostosReport">
                         @if (Model.CostosAsIsReport != null && Model.CostosAsIsReport.Filas.Count > 0)
                         {
                             foreach (var drv in Model.CostosAsIsReport.Filas)
                             {
-                                <tr>
+                                <tr data-empresa-id="@drv.EmpresaId">
                                     <td class="fw-bold text-dark">@drv.EmpresaNombre</td>
                                     <td><span class="text-primary fw-semibold">@(drv.TecnologiaAsIs ?? "No configurada")</span></td>
                                     <td>
@@ -764,9 +877,15 @@
         // REPORTE 3: EDICIÓN EN LÍNEA DE VOLUMETRÍA
         // ==========================================
         const formatNumber = (num, decimals) => {
-            return Number(num).toLocaleString('en-US', {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals
+            const n = Number(num);
+            if (isNaN(n)) return '0';
+            if (n === 0 || n % 1 === 0) {
+                return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            }
+            const maxDec = (decimals !== undefined && decimals > 0) ? Math.max(decimals, 3) : 4;
+            return n.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: maxDec
             });
         };
 
@@ -794,7 +913,7 @@
                 const totWaf = parseCellNumber(document.querySelector('.tot-waf')?.textContent || '0');
                 const totCombined = document.querySelector('.tot-antibot-waf');
                 if (totCombined) {
-                    totCombined.textContent = formatNumber(totAntibot + totWaf, 1);
+                    totCombined.textContent = formatNumber(totAntibot + totWaf, 3);
                 }
             }
         };
@@ -821,7 +940,7 @@
                 if (newText === originalText) return;
 
                 const val = parseCellNumber(newText);
-                const decimals = parseInt(this.dataset.decimals || '1', 10);
+                const decimals = parseInt(this.dataset.decimals || '3', 10);
                 this.textContent = formatNumber(val, decimals);
 
                 const row = this.closest('tr');
@@ -836,7 +955,7 @@
                     const rowWaf = parseCellNumber(row.querySelector('.col-waf')?.textContent || '0');
                     const combinedCell = row.querySelector('.col-antibot-waf');
                     if (combinedCell) {
-                        combinedCell.textContent = formatNumber(rowAntibot + rowWaf, 1);
+                        combinedCell.textContent = formatNumber(rowAntibot + rowWaf, 3);
                     }
                 }
 
@@ -890,7 +1009,7 @@
                 if (newText === origVal) return;
 
                 const val = parseCellNumber(newText);
-                this.textContent = formatNumber(val, 2);
+                this.textContent = formatNumber(val, 3);
 
                 const row = this.closest('tr');
                 const empresaId = row ? row.dataset.empresaId : null;
@@ -1042,12 +1161,12 @@
                     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 };
 
-                const formatDriverNumber = (val) => {
-                    if (val === null || val === undefined || isNaN(val) || val === 0) return '—';
+                const formatDriverNumber = (val, zeroDisplay = '—') => {
+                    if (val === null || val === undefined || isNaN(val) || val === '') return zeroDisplay;
                     const num = Number(val);
-                    if (num > 0 && num < 0.05) return num.toFixed(3);
+                    if (num === 0) return zeroDisplay;
                     if (num % 1 === 0) return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-                    return num.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
                 };
 
                 const getSelectedDrivers = () => {
@@ -1143,8 +1262,21 @@
                     }
 
                     if (tfootVencimientos) {
-                        if (tdSubAcumLabel) {
-                            tdSubAcumLabel.colSpan = 3 + selectedDrivers.length;
+                        const trTotalMonto = document.getElementById('trTotalMontoContrato');
+                        if (trTotalMonto) {
+                            trTotalMonto.querySelectorAll('.td-driver-monto-placeholder').forEach(el => el.remove());
+                            const firstMontoMilestone = trTotalMonto.querySelector('[data-monto-accum]');
+                            selectedDrivers.forEach(d => {
+                                const td = document.createElement('td');
+                                td.className = 'text-center text-muted td-driver-monto-placeholder';
+                                td.dataset.driverPlaceholder = d;
+                                td.textContent = '—';
+                                if (firstMontoMilestone) {
+                                    trTotalMonto.insertBefore(td, firstMontoMilestone);
+                                } else {
+                                    trTotalMonto.appendChild(td);
+                                }
+                            });
                         }
 
                         tfootVencimientos.querySelectorAll('tr[data-footer-driver]').forEach(el => el.remove());
@@ -1167,7 +1299,7 @@
                                     .filter(c => c.assignedHito === m)
                                     .reduce((sum, c) => sum + (c.drivers[d] || 0), 0);
                                 runSum += sumInHito;
-                                return `<td class="text-center fw-bold bg-dark border-start" data-hito-accum="${escapeHtml(m)}">${formatDriverNumber(runSum)}</td>`;
+                                return `<td class="text-center fw-bold bg-dark border-start" data-hito-accum="${escapeHtml(m)}">${formatDriverNumber(runSum, '0')}</td>`;
                             }).join('');
 
                             const tr = document.createElement('tr');
@@ -1176,6 +1308,7 @@
                                 <td colspan="3" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
                                     ${escapeHtml(d)} ${unit ? `(${escapeHtml(unit)})` : ''} ACUM:
                                 </td>
+                                <td class="text-center text-muted td-monto-col" data-monto-placeholder="true">—</td>
                                 ${driverColsHtml}
                                 ${milestoneCellsHtml}
                             `;
@@ -1186,6 +1319,22 @@
                                 tfootVencimientos.appendChild(tr);
                             }
                         });
+
+                        if (trSubAcum) {
+                            trSubAcum.querySelectorAll('.td-driver-sub-placeholder').forEach(el => el.remove());
+                            const firstSubMilestone = trSubAcum.querySelector('[data-sub-accum]');
+                            selectedDrivers.forEach(d => {
+                                const td = document.createElement('td');
+                                td.className = 'text-center text-muted td-driver-sub-placeholder';
+                                td.dataset.driverPlaceholder = d;
+                                td.textContent = '—';
+                                if (firstSubMilestone) {
+                                    trSubAcum.insertBefore(td, firstSubMilestone);
+                                } else {
+                                    trSubAcum.appendChild(td);
+                                }
+                            });
+                        }
                     }
                 };
 
@@ -1241,10 +1390,326 @@
                 }
             }
         }
+
+        // ====================================================
+        // VISIBILIDAD DE COLUMNA MONTO CONTRATO (CON PERSISTENCIA)
+        // ====================================================
+        const tableVenc = document.getElementById('tableVencimientosProyeccion');
+        const btnToggleMonto = document.getElementById('btnToggleMontoContrato');
+        const badgeMonto = document.getElementById('badgeMontoVisibility');
+
+        const setMontoVisibility = (visible) => {
+            if (!tableVenc || !badgeMonto) return;
+            if (visible) {
+                tableVenc.classList.remove('hide-monto-col');
+                badgeMonto.className = 'badge bg-success text-white';
+                badgeMonto.textContent = 'Visible';
+            } else {
+                tableVenc.classList.add('hide-monto-col');
+                badgeMonto.className = 'badge bg-secondary text-white';
+                badgeMonto.textContent = 'Oculto';
+            }
+        };
+
+        if (btnToggleMonto) {
+            const savedVisibility = localStorage.getItem('vencimiento_monto_visible');
+            if (savedVisibility === 'false') {
+                setMontoVisibility(false);
+            } else {
+                setMontoVisibility(true);
+            }
+
+            btnToggleMonto.addEventListener('click', () => {
+                const isCurrentlyHidden = tableVenc && tableVenc.classList.contains('hide-monto-col');
+                const makeVisible = isCurrentlyHidden;
+                setMontoVisibility(makeVisible);
+                localStorage.setItem('vencimiento_monto_visible', makeVisible ? 'true' : 'false');
+            });
+        }
+
+        // ====================================================
+        // SINCRONIZACIÓN Y REORDENAMIENTO DE EMPRESAS (DRAG & DROP BIDIRECCIONAL)
+        // ====================================================
+        const reportTbodySelectors = [
+            '#tbodyAlcanceReport',
+            '#tbodyVolumetriaWaapReport',
+            '#tbodyVolumetriaGenericReport',
+            '#tbodyCapacidadesReport'
+        ];
+
+        const syncAllTablesOrder = (newOrder) => {
+            if (!Array.isArray(newOrder) || newOrder.length === 0) return;
+
+            // 1. Sincronizar tablas con filas directas (Alcance, Volumetría, Capacidades)
+            reportTbodySelectors.forEach(sel => {
+                const tb = document.querySelector(sel);
+                if (!tb) return;
+                const rowsMap = new Map();
+                Array.from(tb.querySelectorAll('tr[data-empresa-id]')).forEach(r => rowsMap.set(r.dataset.empresaId, r));
+                newOrder.forEach(id => {
+                    const r = rowsMap.get(id.toString());
+                    if (r) tb.appendChild(r);
+                });
+            });
+
+            // 2. Actualizar numeración secuencial de Alcance
+            const alcanceBadges = document.querySelectorAll('#tbodyAlcanceReport .row-seq-badge');
+            alcanceBadges.forEach((badge, idx) => {
+                badge.textContent = idx + 1;
+            });
+
+            // 3. Sincronizar tabla de Costos AS-IS (múltiples filas por empresa agrupadas)
+            const tbodyCostos = document.getElementById('tbodyCostosReport');
+            if (tbodyCostos) {
+                const rows = Array.from(tbodyCostos.querySelectorAll('tr[data-empresa-id]'));
+                const grouped = new Map();
+                rows.forEach(r => {
+                    const empId = r.dataset.empresaId;
+                    if (!grouped.has(empId)) grouped.set(empId, []);
+                    grouped.get(empId).push(r);
+                });
+                newOrder.forEach(id => {
+                    const list = grouped.get(id.toString());
+                    if (list) {
+                        list.forEach(r => tbodyCostos.appendChild(r));
+                    }
+                });
+            }
+
+            // 4. Sincronizar tabla de Vencimientos: desempatar dentro del mismo hito temporal
+            const tbodyVenc = document.getElementById('tbodyVencimientosReport');
+            if (tbodyVenc) {
+                const rows = Array.from(tbodyVenc.querySelectorAll('tr[data-empresa-id]'));
+                const orderIndexMap = new Map(newOrder.map((id, idx) => [id.toString(), idx]));
+
+                const byHito = new Map();
+                const hitoOrder = [];
+                rows.forEach(r => {
+                    const hito = r.dataset.assignedHito || 'PAYG';
+                    if (!byHito.has(hito)) {
+                        byHito.set(hito, []);
+                        hitoOrder.push(hito);
+                    }
+                    byHito.get(hito).push(r);
+                });
+
+                byHito.forEach(groupRows => {
+                    groupRows.sort((a, b) => {
+                        const idxA = orderIndexMap.has(a.dataset.empresaId) ? orderIndexMap.get(a.dataset.empresaId) : 999999;
+                        const idxB = orderIndexMap.has(b.dataset.empresaId) ? orderIndexMap.get(b.dataset.empresaId) : 999999;
+                        return idxA - idxB;
+                    });
+                });
+
+                let seq = 1;
+                hitoOrder.forEach(hito => {
+                    const group = byHito.get(hito) || [];
+                    group.forEach(r => {
+                        const seqCell = r.querySelector('.td-venc-seq');
+                        if (seqCell) seqCell.textContent = seq++;
+                        tbodyVenc.appendChild(r);
+                    });
+                });
+            }
+        };
+
+        let persistOrderTimer = null;
+        const persistCompanyOrder = (order) => {
+            clearTimeout(persistOrderTimer);
+            persistOrderTimer = setTimeout(async () => {
+                try {
+                    const token = getVerificationToken();
+                    const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/update-company-order`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({ orderedCompanyIds: order })
+                    });
+                    if (res.ok) {
+                        document.querySelectorAll('.order-saved-feedback-reports').forEach(el => {
+                            el.textContent = '✓ Orden sincronizado con Convocatoria';
+                            el.classList.remove('d-none');
+                            setTimeout(() => el.classList.add('d-none'), 3000);
+                        });
+                        const btnReset = document.getElementById('btnResetCompanyOrderReports');
+                        if (btnReset) btnReset.classList.remove('d-none');
+
+                        try {
+                            localStorage.setItem(`adoption_process_${procesoId}_order`, JSON.stringify(order));
+                        } catch (e) {}
+                    }
+                } catch (err) {
+                    console.error('Error al persistir orden de empresas desde reportería:', err);
+                }
+            }, 300);
+        };
+
+        const initTableDragAndDrop = (tbodyEl) => {
+            if (!tbodyEl) return;
+
+            let draggedRow = null;
+
+            const bindRow = (row) => {
+                const handle = row.querySelector('.company-drag-handle');
+                if (handle) {
+                    handle.addEventListener('mouseenter', () => {
+                        row.setAttribute('draggable', 'true');
+                    });
+                    handle.addEventListener('mouseleave', () => {
+                        if (!row.classList.contains('dragging')) {
+                            row.setAttribute('draggable', 'false');
+                        }
+                    });
+                }
+
+                row.addEventListener('dragstart', (e) => {
+                    draggedRow = row;
+                    row.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', row.dataset.empresaId || '');
+                });
+
+                row.addEventListener('dragend', () => {
+                    if (draggedRow) {
+                        draggedRow.classList.remove('dragging');
+                        draggedRow.setAttribute('draggable', 'false');
+                        draggedRow = null;
+                    }
+                    tbodyEl.querySelectorAll('.report-draggable-row').forEach(r => {
+                        r.classList.remove('drag-over-top', 'drag-over-bottom');
+                    });
+                });
+
+                row.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (!draggedRow || draggedRow === row) return;
+                    e.dataTransfer.dropEffect = 'move';
+
+                    const rect = row.getBoundingClientRect();
+                    const offset = e.clientY - rect.top;
+                    if (offset < rect.height / 2) {
+                        row.classList.add('drag-over-top');
+                        row.classList.remove('drag-over-bottom');
+                    } else {
+                        row.classList.add('drag-over-bottom');
+                        row.classList.remove('drag-over-top');
+                    }
+                });
+
+                row.addEventListener('dragleave', () => {
+                    row.classList.remove('drag-over-top', 'drag-over-bottom');
+                });
+
+                row.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    row.classList.remove('drag-over-top', 'drag-over-bottom');
+                    if (!draggedRow || draggedRow === row) return;
+
+                    const rect = row.getBoundingClientRect();
+                    const offset = e.clientY - rect.top;
+                    if (offset < rect.height / 2) {
+                        tbodyEl.insertBefore(draggedRow, row);
+                    } else {
+                        tbodyEl.insertBefore(draggedRow, row.nextSibling);
+                    }
+
+                    const newOrder = Array.from(tbodyEl.querySelectorAll('.report-draggable-row'))
+                        .map(r => parseInt(r.dataset.empresaId, 10))
+                        .filter(id => !isNaN(id) && id > 0);
+
+                    syncAllTablesOrder(newOrder);
+                    persistCompanyOrder(newOrder);
+                });
+            };
+
+            tbodyEl.querySelectorAll('.report-draggable-row').forEach(bindRow);
+        };
+
+        reportTbodySelectors.forEach(sel => {
+            const tb = document.querySelector(sel);
+            if (tb) initTableDragAndDrop(tb);
+        });
+
+        // Botón Restablecer Orden Alfabético desde Reportería
+        const btnResetCompanyOrder = document.getElementById('btnResetCompanyOrderReports');
+        if (btnResetCompanyOrder) {
+            btnResetCompanyOrder.addEventListener('click', async () => {
+                const tbodyAlcance = document.getElementById('tbodyAlcanceReport');
+                if (!tbodyAlcance) return;
+
+                const rows = Array.from(tbodyAlcance.querySelectorAll('.report-draggable-row'));
+                rows.sort((a, b) => {
+                    const nameA = a.querySelector('.text-dark')?.textContent.trim() || '';
+                    const nameB = b.querySelector('.text-dark')?.textContent.trim() || '';
+                    return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                });
+
+                const alphaOrder = rows.map(r => parseInt(r.dataset.empresaId, 10)).filter(id => !isNaN(id) && id > 0);
+                syncAllTablesOrder(alphaOrder);
+
+                try {
+                    const token = getVerificationToken();
+                    await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/update-company-order`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({ orderedCompanyIds: alphaOrder })
+                    });
+                    btnResetCompanyOrder.classList.add('d-none');
+                    document.querySelectorAll('.order-saved-feedback-reports').forEach(el => {
+                        el.textContent = '✓ Orden alfabético restablecido';
+                        el.classList.remove('d-none');
+                        setTimeout(() => el.classList.add('d-none'), 3000);
+                    });
+                } catch (e) {
+                    console.error('Error al restablecer orden:', e);
+                }
+            });
+        }
     });
 </script>
 
 <style>
+    /* Drag & Drop de Empresas en Reportes */
+    .report-draggable-row.dragging {
+        opacity: 0.45;
+        background-color: #f0f7ff !important;
+    }
+    .report-draggable-row.drag-over-top td {
+        border-top: 3px solid #0d6efd !important;
+    }
+    .report-draggable-row.drag-over-bottom td {
+        border-bottom: 3px solid #0d6efd !important;
+    }
+    .company-drag-handle {
+        cursor: grab;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        border-radius: 4px;
+        vertical-align: middle;
+        color: #6c757d;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .company-drag-handle:hover {
+        background-color: rgba(13, 110, 253, 0.15);
+        color: #0d6efd;
+    }
+    .company-drag-handle:active {
+        cursor: grabbing;
+    }
+
+    /* Ocultar columna Monto Contrato en reporte de vencimientos */
+    #tableVencimientosProyeccion.hide-monto-col .th-monto-col,
+    #tableVencimientosProyeccion.hide-monto-col .td-monto-col {
+        display: none !important;
+    }
+
     .editable-vol-cell, .editable-matrix-driver-cell, .editable-report-comment-cell {
         cursor: cell;
         transition: background-color 0.2s ease, outline 0.15s ease;

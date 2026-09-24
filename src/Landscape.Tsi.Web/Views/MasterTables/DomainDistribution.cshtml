@@ -265,7 +265,7 @@
                     <td class="text-end fw-semibold text-primary">⚙️ ${b.funcCount} func.</td>
                     <td class="text-end fw-semibold text-success">🏢 ${b.empCount} emp.</td>
                     <td class="text-center">
-                        <a href="/Administration/MasterTables/building-block/${b.Id}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.75rem;">
+                        <a href="/Administration/MasterTables/building-block/${b.Id || b.id}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:0.75rem;" title="Ver ficha del Building Block">
                             Ficha BB →
                         </a>
                     </td>

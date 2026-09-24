@@ -8,4 +8,5 @@ public sealed record DominioRecord(
     string? HomologacionDimensionSegunCiber,
     string? HomologacionDimensionSegunLineamiento,
     string? SubDominioCvt,
-    string? Ejemplos);
+    string? Ejemplos,
+    int BuildingBlockCount = 0);

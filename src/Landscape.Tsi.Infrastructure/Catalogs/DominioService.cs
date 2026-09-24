@@ -11,16 +11,18 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Landscape.Tsi.Infrastructure.Catalogs;
 
-public sealed class DominioService(IdentityDbContext dbContext, IAuditTrailService? auditTrail = null) : IDominioService
+public sealed class DominioService(IdentityDbContext dbContext, CatalogDbContext? catalogDbContext = null, IAuditTrailService? auditTrail = null) : IDominioService
 {
     public async Task<PagedResult<DominioRecord>> ListAsync(
         string? search,
         int page,
         int pageSize,
+        string? sort = null,
+        string? dir = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
-        pageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        pageSize = pageSize > 0 ? Math.Min(pageSize, 100000) : 10;
         var query = dbContext.Domains.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -38,37 +40,73 @@ public sealed class DominioService(IdentityDbContext dbContext, IAuditTrailServi
         var totalCount = await query.CountAsync(cancellationToken);
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
         page = Math.Min(page, totalPages);
-        var items = await query
-            .OrderBy(item => item.Dominio)
-            .ThenBy(item => item.Id)
+
+        var domainEntities = await query.ToListAsync(cancellationToken);
+
+        Dictionary<int, int> bbCounts = new();
+        if (catalogDbContext != null)
+        {
+            bbCounts = await catalogDbContext.BuildingBlocks.AsNoTracking()
+                .Where(b => b.IdDominio.HasValue)
+                .GroupBy(b => b.IdDominio!.Value)
+                .Select(g => new { DomainId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.DomainId, g => g.Count, cancellationToken);
+        }
+
+        var records = domainEntities.Select(item => new DominioRecord(
+            item.Id,
+            item.Dominio,
+            item.DescripcionDominio,
+            item.Referencias,
+            item.HomologacionDimensionSegunCiber,
+            item.HomologacionDimensionSegunLineamiento,
+            item.SubDominioCvt,
+            item.Ejemplos,
+            bbCounts.TryGetValue(item.Id, out var count) ? count : 0));
+
+        var isDesc = string.Equals(dir, "desc", StringComparison.OrdinalIgnoreCase);
+        records = (sort?.ToLowerInvariant()) switch
+        {
+            "descripcion" => isDesc ? records.OrderByDescending(r => r.DescripcionDominio).ThenBy(r => r.Dominio)
+                                    : records.OrderBy(r => r.DescripcionDominio).ThenBy(r => r.Dominio),
+            "buildingblocks" or "buildingblock" or "count" => isDesc ? records.OrderByDescending(r => r.BuildingBlockCount).ThenBy(r => r.Dominio)
+                                                                     : records.OrderBy(r => r.BuildingBlockCount).ThenBy(r => r.Dominio),
+            _ => isDesc ? records.OrderByDescending(r => r.Dominio).ThenBy(r => r.Id)
+                        : records.OrderBy(r => r.Dominio).ThenBy(r => r.Id)
+        };
+
+        var pagedItems = records
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new DominioRecord(
-                item.Id,
-                item.Dominio,
-                item.DescripcionDominio,
-                item.Referencias,
-                item.HomologacionDimensionSegunCiber,
-                item.HomologacionDimensionSegunLineamiento,
-                item.SubDominioCvt,
-                item.Ejemplos))
-            .ToListAsync(cancellationToken);
-        return new PagedResult<DominioRecord>(items, page, pageSize, totalCount);
+            .ToList();
+
+        return new PagedResult<DominioRecord>(pagedItems, page, pageSize, totalCount);
     }
 
-    public Task<DominioRecord?> GetAsync(int id, CancellationToken cancellationToken = default) =>
-        dbContext.Domains.AsNoTracking()
-            .Where(item => item.Id == id)
-            .Select(item => new DominioRecord(
-                item.Id,
-                item.Dominio,
-                item.DescripcionDominio,
-                item.Referencias,
-                item.HomologacionDimensionSegunCiber,
-                item.HomologacionDimensionSegunLineamiento,
-                item.SubDominioCvt,
-                item.Ejemplos))
-            .SingleOrDefaultAsync(cancellationToken);
+    public async Task<DominioRecord?> GetAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var item = await dbContext.Domains.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (item is null) return null;
+
+        var count = 0;
+        if (catalogDbContext != null)
+        {
+            count = await catalogDbContext.BuildingBlocks.AsNoTracking()
+                .CountAsync(b => b.IdDominio == id, cancellationToken);
+        }
+
+        return new DominioRecord(
+            item.Id,
+            item.Dominio,
+            item.DescripcionDominio,
+            item.Referencias,
+            item.HomologacionDimensionSegunCiber,
+            item.HomologacionDimensionSegunLineamiento,
+            item.SubDominioCvt,
+            item.Ejemplos,
+            count);
+    }
 
     public async Task<int> CreateAsync(
         DominioCommand command,

@@ -22,6 +22,10 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> SaveDriverAsync(SaveDriverCommand command, CancellationToken cancellationToken = default);
     Task<AdoptionResult> DeleteDriverAsync(int driverId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
 
+    Task<AdoptionResult> SaveProcessDriverAsync(SaveProcessDriverCommand command, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> DeleteProcessDriverAsync(int procesoId, int driverProcesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateCompanyDriverValueAsync(UpdateCompanyDriverValueCommand command, CancellationToken cancellationToken = default);
+
     Task<AdoptionResult> SaveOperationModelAsync(SaveOperationModelCommand command, CancellationToken cancellationToken = default);
 
     Task<BuildingBlockCapabilitiesDto?> GetBuildingBlockCapabilitiesAsync(int buildingBlockId, CancellationToken cancellationToken = default);
@@ -36,4 +40,5 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> UpdateCompanyCapabilityCommentAsync(int procesoId, int empresaId, string? comentario, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> UpdateCompanyDriverVolumeAsync(int procesoId, int empresaId, string driverKey, decimal cantidad, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> SaveVencimientoReportDriversAsync(int procesoId, IEnumerable<string> drivers, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateCompanyOrderAsync(int procesoId, IEnumerable<int> orderedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
 }

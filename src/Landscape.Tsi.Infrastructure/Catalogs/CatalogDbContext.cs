@@ -35,6 +35,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<TContratoTecnologia> TechnologyContracts => Set<TContratoTecnologia>();
     public DbSet<TTecnologiaTSIimplementadaSubsidiaria> ImplementedTechnologies => Set<TTecnologiaTSIimplementadaSubsidiaria>();
     public DbSet<TDriver> Drivers => Set<TDriver>();
+    public DbSet<TDriverProceso> ProcessDrivers => Set<TDriverProceso>();
+    public DbSet<TDriverEmpresa> CompanyDrivers => Set<TDriverEmpresa>();
     public DbSet<TVendor> Vendors => Set<TVendor>();
     public DbSet<TPartner> Partners => Set<TPartner>();
     public DbSet<TContactoPartner> PartnerContacts => Set<TContactoPartner>();
@@ -107,6 +109,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.FechaCreacion).HasColumnName("fechaCreacion").HasColumnType("datetime2(0)");
             entity.Property(x => x.UsuarioCreacion).HasColumnName("usuarioCreacion").HasMaxLength(100);
             entity.Property(x => x.DriversReporteVencimiento).HasColumnName("driversReporteVencimiento").HasMaxLength(1000);
+            entity.Property(x => x.OrdenEmpresas).HasColumnName("ordenEmpresas").HasMaxLength(2000);
 
             entity.HasOne<TBuildingBlock>().WithMany().HasForeignKey(x => x.IdBuildingBlock).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TMEstadoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdEstadoAdopcionTSI).OnDelete(DeleteBehavior.NoAction);
@@ -202,7 +205,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.HasOne<TProcesoAdopcionEmpresa>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionEmpresa).OnDelete(DeleteBehavior.NoAction);
         });
 
-        // Mapeo TDriver
+        // Mapeo TDriver (histórico/compatibilidad)
         b.Entity<TDriver>(entity =>
         {
             entity.ToTable("TDriver", "dbo", t => t.ExcludeFromMigrations());
@@ -216,6 +219,40 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
 
             entity.HasOne<TTecnologiaTSIimplementadaSubsidiaria>().WithMany().HasForeignKey(x => x.IdTecnologiaTSIimplementadaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Mapeo TDriverProceso (Plantilla de drivers del proceso de adopción)
+        b.Entity<TDriverProceso>(entity =>
+        {
+            entity.ToTable("TDriverProceso", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdDriverProceso);
+            entity.Property(x => x.IdDriverProceso).HasColumnName("idDriverProceso").ValueGeneratedOnAdd();
+            entity.Property(x => x.IdProcesoAdopcionTSI).HasColumnName("idProcesoAdopcionTSI");
+            entity.Property(x => x.DescripcionDriver).HasColumnName("descripcionDriver").HasMaxLength(250);
+            entity.Property(x => x.UnidadMedida).HasColumnName("unidadMedida").HasMaxLength(50);
+            entity.Property(x => x.OrdenVisual).HasColumnName("ordenVisual");
+            entity.Property(x => x.FechaCreacion).HasColumnName("fechaCreacion").HasColumnType("datetime2(0)");
+
+            entity.HasOne<TProcesoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionTSI).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Mapeo TDriverEmpresa (Valores operativos y proyectados por subsidiaria)
+        b.Entity<TDriverEmpresa>(entity =>
+        {
+            entity.ToTable("TDriverEmpresa", "dbo", t => t.ExcludeFromMigrations());
+            entity.HasKey(x => x.IdDriverEmpresa);
+            entity.Property(x => x.IdDriverEmpresa).HasColumnName("idDriverEmpresa").ValueGeneratedOnAdd();
+            entity.Property(x => x.IdProcesoAdopcionEmpresa).HasColumnName("idProcesoAdopcionEmpresa");
+            entity.Property(x => x.IdDriverProceso).HasColumnName("idDriverProceso");
+            entity.Property(x => x.Cantidad).HasColumnName("cantidad").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.PrecioUnitario).HasColumnName("precioUnitario").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.CostoTotal).HasColumnName("costoTotal").HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Moneda).HasColumnName("moneda").HasMaxLength(10);
+            entity.Property(x => x.FechaModificacion).HasColumnName("fechaModificacion").HasColumnType("datetime2(0)");
+            entity.Property(x => x.UsuarioModificacion).HasColumnName("usuarioModificacion").HasMaxLength(100);
+
+            entity.HasOne<TProcesoAdopcionEmpresa>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionEmpresa).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.DriverProceso).WithMany().HasForeignKey(x => x.IdDriverProceso).OnDelete(DeleteBehavior.NoAction);
         });
 
         // Mapeo TProcesoEmpresaCapacidad

@@ -53,7 +53,9 @@ public sealed class CatalogDbContextMappingTests
             [typeof(TContactoVendor)] = "TContactoVendor",
             [typeof(TContactoEmpresaSubsidiaria)] = "TContactoEmpresaSubsidiaria",
             [typeof(TMVersionDesplegada)] = "TMVersionDesplegada",
-            [typeof(TProcesoEmpresaCapacidad)] = "TProcesoEmpresaCapacidad"
+            [typeof(TProcesoEmpresaCapacidad)] = "TProcesoEmpresaCapacidad",
+            [typeof(TDriverProceso)] = "TDriverProceso",
+            [typeof(TDriverEmpresa)] = "TDriverEmpresa"
         };
 
         Assert.Equal(expected.Count, context.Model.GetEntityTypes().Count());

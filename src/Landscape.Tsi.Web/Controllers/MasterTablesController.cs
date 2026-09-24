@@ -123,13 +123,17 @@ public sealed class MasterTablesController(
         string? search,
         int page = 1,
         int pageSize = 10,
+        string? sort = null,
+        string? dir = null,
         CancellationToken cancellationToken = default)
     {
         EnsureDomainIsEnabled();
         return View(new DominioPageViewModel
         {
             Search = search,
-            Result = await dominioService.ListAsync(search, page, pageSize, cancellationToken)
+            SortColumn = sort,
+            SortDirection = dir,
+            Result = await dominioService.ListAsync(search, page, pageSize, sort, dir, cancellationToken)
         });
     }
 
@@ -308,17 +312,52 @@ public sealed class MasterTablesController(
         {
             return RedirectToAction(nameof(Domain), new { search, page, pageSize });
         }
-        if (parentId.HasValue && definition.Code != "building-block")
+        CatalogColumnDefinition? parentForeignKeyColumn = null;
+        if (parentId.HasValue)
         {
-            return NotFound();
+            if (definition.Code == "building-block")
+            {
+                parentForeignKeyColumn = definition.Columns.FirstOrDefault(column => column.ReferenceCatalogCode == "dominio");
+            }
+            else if (definition.Code == "capacidad-seguridad")
+            {
+                parentForeignKeyColumn = definition.Columns.FirstOrDefault(column => column.ReferenceCatalogCode == "building-block");
+            }
+
+            if (parentForeignKeyColumn is null)
+            {
+                return NotFound();
+            }
         }
 
-        var result = parentId.HasValue
-            ? await catalogService.ListRelatedAsync(definition, definition.Columns.Single(column => column.ReferenceCatalogCode == "dominio"), parentId.Value, search, page, pageSize, cancellationToken)
+        var result = parentId.HasValue && parentForeignKeyColumn is not null
+            ? await catalogService.ListRelatedAsync(definition, parentForeignKeyColumn, parentId.Value, search, page, pageSize, cancellationToken)
             : await catalogService.ListAsync(definition, search, page, pageSize, cancellationToken, sortColumn, sortDirection);
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive && result.Items.Count > 0)
+        {
+            result = new CatalogPageResult(
+                result.Items.Select(row =>
+                {
+                    var display = new Dictionary<string, string?>(row.DisplayValues);
+                    foreach (var col in definition.Columns)
+                    {
+                        if (CatalogDisplayPrivacy.IsSensitive(definition, col.Code) && row.Values.TryGetValue(col.Code, out var rawVal))
+                        {
+                            display[col.Code] = rawVal?.ToString();
+                        }
+                    }
+                    return new CatalogRow(row.Id, row.Values, display);
+                }).ToList(),
+                result.Page,
+                result.PageSize,
+                result.TotalCount);
+        }
 
         IReadOnlyDictionary<int, int>? vendorTechCounts = null;
         IReadOnlyDictionary<int, int>? contactCounts = null;
+        IReadOnlyDictionary<int, int>? capabilityCounts = null;
         if (definition.Code == "vendor" && result.Items.Count > 0)
         {
             var ids = result.Items.Select(x => x.Id).ToList();
@@ -335,6 +374,11 @@ public sealed class MasterTablesController(
             var ids = result.Items.Select(x => x.Id).ToList();
             contactCounts = await catalogService.GetCompanyContactCountsAsync(ids, cancellationToken);
         }
+        else if (definition.Code == "building-block" && result.Items.Count > 0)
+        {
+            var ids = result.Items.Select(x => x.Id).ToList();
+            capabilityCounts = await catalogService.GetBuildingBlockCapabilityCountsAsync(ids, cancellationToken);
+        }
 
         return View(new CatalogPageViewModel
         {
@@ -345,7 +389,8 @@ public sealed class MasterTablesController(
             SortDirection = sortDirection,
             Options = await catalogService.GetOptionsAsync(definition, cancellationToken),
             VendorTechnologyCounts = vendorTechCounts,
-            ContactCounts = contactCounts
+            ContactCounts = contactCounts,
+            CapabilityCounts = capabilityCounts
         });
     }
 
@@ -354,6 +399,8 @@ public sealed class MasterTablesController(
     public async Task<IActionResult> ExportToExcel(
         string catalogRoute,
         string? search,
+        string? sortColumn = null,
+        string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         var definition = MasterCatalogRegistry.GetByRoute(catalogRoute);
@@ -363,7 +410,7 @@ public sealed class MasterTablesController(
         }
 
         // Obtener la totalidad de registros que coincidan con la búsqueda (hasta 100,000)
-        var result = await catalogService.ListAsync(definition, search, 1, 100000, cancellationToken);
+        var result = await catalogService.ListAsync(definition, search, 1, 100000, cancellationToken, sortColumn, sortDirection);
 
         var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
 
@@ -391,6 +438,39 @@ public sealed class MasterTablesController(
         var fileBytes = workbook.Build();
         var safeFileName = $"{definition.Route}_{DateTime.UtcNow:yyyyMMdd_HHmm}.xlsx";
         return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", safeFileName);
+    }
+
+    [HttpGet("building-block/{id:int}/capacidades")]
+    public async Task<IActionResult> GetBuildingBlockCapabilities(int id, CancellationToken cancellationToken)
+    {
+        var bb = await DbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (bb is null) return NotFound();
+
+        var bbName = bb.Nombre ?? $"Building Block #{id}";
+
+        var caps = await DbContext.Capabilities.AsNoTracking()
+            .Where(c => c.IdBuildingBlock == id)
+            .OrderBy(c => c.OrdenVisualizacion ?? int.MaxValue)
+            .ThenBy(c => c.Nombre)
+            .ToListAsync(cancellationToken);
+
+        var capStates = await DbContext.CapabilityStates.AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.Nombre ?? "—", cancellationToken);
+
+        return Json(new
+        {
+            buildingBlockId = id,
+            buildingBlockName = bbName,
+            totalCount = caps.Count,
+            items = caps.Select(c => new
+            {
+                id = c.Id,
+                nombre = c.Nombre ?? "—",
+                descripcion = c.Descripcion ?? "—",
+                estado = c.IdEstado.HasValue && capStates.TryGetValue(c.IdEstado.Value, out var sn) ? sn : "—",
+                detailsUrl = Url.Action(nameof(CatalogDetails), new { catalogRoute = "capacidad-seguridad", id = c.Id })
+            })
+        });
     }
 
     [HttpGet("building-block/{id:int}/export-grid")]
@@ -562,6 +642,7 @@ public sealed class MasterTablesController(
             entityName = vendorName,
             entityType = "vendor",
             totalCount = contacts.Count,
+            canViewSensitive,
             items = contacts.Select(c => new
             {
                 id = c.Id,
@@ -622,10 +703,26 @@ public sealed class MasterTablesController(
 
         contact.NombreContactoVendor = name;
         contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
-        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
-        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
         contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
         contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive)
+        {
+            contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+            contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(model?.Email) && !CatalogDisplayPrivacy.IsMasked(model.Email))
+            {
+                contact.Email = model.Email.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(model?.Telefono) && !CatalogDisplayPrivacy.IsMasked(model.Telefono))
+            {
+                contact.Telefono = model.Telefono.Trim();
+            }
+        }
 
         await DbContext.SaveChangesAsync(cancellationToken);
 
@@ -681,6 +778,7 @@ public sealed class MasterTablesController(
             entityName = partnerName,
             entityType = "partner",
             totalCount = contacts.Count,
+            canViewSensitive,
             items = contacts.Select(c => new
             {
                 id = c.Id,
@@ -744,10 +842,26 @@ public sealed class MasterTablesController(
 
         contact.NombreContactoPartner = name;
         contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
-        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
-        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
         contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
         contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive)
+        {
+            contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+            contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(model?.Email) && !CatalogDisplayPrivacy.IsMasked(model.Email))
+            {
+                contact.Email = model.Email.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(model?.Telefono) && !CatalogDisplayPrivacy.IsMasked(model.Telefono))
+            {
+                contact.Telefono = model.Telefono.Trim();
+            }
+        }
 
         await DbContext.SaveChangesAsync(cancellationToken);
 
@@ -812,6 +926,7 @@ public sealed class MasterTablesController(
             entityName = companyName,
             entityType = "empresa-subsidiaria",
             totalCount = contacts.Count,
+            canViewSensitive,
             items = contacts.Select(c => new
             {
                 id = c.Id,
@@ -874,10 +989,26 @@ public sealed class MasterTablesController(
 
         contact.NombreContactoEmpresaSubsidiaria = name;
         contact.Rol = string.IsNullOrWhiteSpace(model?.Rol) ? null : model.Rol.Trim();
-        contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
-        contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
         contact.Otro = string.IsNullOrWhiteSpace(model?.Otro) ? null : model.Otro.Trim();
         contact.Notas = string.IsNullOrWhiteSpace(model?.Notas) ? null : model.Notas.Trim();
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive)
+        {
+            contact.Email = string.IsNullOrWhiteSpace(model?.Email) ? null : model.Email.Trim();
+            contact.Telefono = string.IsNullOrWhiteSpace(model?.Telefono) ? null : model.Telefono.Trim();
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(model?.Email) && !CatalogDisplayPrivacy.IsMasked(model.Email))
+            {
+                contact.Email = model.Email.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(model?.Telefono) && !CatalogDisplayPrivacy.IsMasked(model.Telefono))
+            {
+                contact.Telefono = model.Telefono.Trim();
+            }
+        }
 
         await DbContext.SaveChangesAsync(cancellationToken);
 
@@ -940,6 +1071,7 @@ public sealed class MasterTablesController(
     }
 
     [HttpGet("{catalogRoute}/details/{id:int}")]
+    [HttpGet("{catalogRoute}/{id:int}")]
     public async Task<IActionResult> CatalogDetails(
         string catalogRoute,
         int id,
@@ -967,6 +1099,20 @@ public sealed class MasterTablesController(
         }
         var record = await catalogService.GetAsync(definition, id, cancellationToken);
         if (record is null) return NotFound();
+
+        var canViewSensitive = User.HasClaim(CustomClaimTypes.Permission, Permissions.SensitiveDataView);
+        if (canViewSensitive)
+        {
+            var display = new Dictionary<string, string?>(record.DisplayValues);
+            foreach (var col in definition.Columns)
+            {
+                if (CatalogDisplayPrivacy.IsSensitive(definition, col.Code) && record.Values.TryGetValue(col.Code, out var rawVal))
+                {
+                    display[col.Code] = rawVal?.ToString();
+                }
+            }
+            record = new CatalogRow(record.Id, record.Values, display);
+        }
         var related = definition.Code == "building-block"
             ? await buildingBlockRelatedService.GetAsync(
                 id, capabilitySearch, functionalitySearch, technologySearch,

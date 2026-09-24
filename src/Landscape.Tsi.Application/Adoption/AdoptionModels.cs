@@ -33,7 +33,44 @@ public sealed record AdoptionProcessDetailDto(
     StandardTechnologyDto? EstandarPrincipalVigente,
     IReadOnlyList<StandardTechnologyDto> EstandaresAlternativos,
     IReadOnlyList<StandardTechnologyDto> EstandaresHistoricos,
-    IReadOnlyList<CompanyAdoptionRowDto> EmpresasParticipantes);
+    IReadOnlyList<CompanyAdoptionRowDto> EmpresasParticipantes,
+    string? OrdenEmpresas = null,
+    IReadOnlyList<ProcessDriverTemplateDto>? DriversProceso = null);
+
+public sealed record ProcessDriverTemplateDto(
+    int Id,
+    int ProcesoId,
+    string Descripcion,
+    string UnidadMedida,
+    int OrdenVisual);
+
+public sealed record CompanyDriverValueDto(
+    int Id,
+    int ProcesoEmpresaId,
+    int DriverProcesoId,
+    string Descripcion,
+    string UnidadMedida,
+    decimal Cantidad,
+    decimal PrecioUnitario,
+    decimal CostoTotal,
+    string Moneda);
+
+public sealed record SaveProcessDriverCommand(
+    int ProcesoId,
+    string Descripcion,
+    string UnidadMedida,
+    Guid ActorUserId,
+    string CorrelationId,
+    int? DriverProcesoId = null);
+
+public sealed record UpdateCompanyDriverValueCommand(
+    int ProcesoEmpresaId,
+    int DriverProcesoId,
+    decimal Cantidad,
+    decimal PrecioUnitario,
+    string Moneda,
+    Guid ActorUserId,
+    string CorrelationId);
 
 public sealed record CompanyCapabilityItemDto(
     int Id,
@@ -56,7 +93,8 @@ public sealed record CompanyAdoptionRowDto(
     IReadOnlyList<ImplementedTechnologyDto> TecnologiasImplementadas,
     string EstadoAlineamiento,
     IReadOnlyList<CompanyCapabilityItemDto>? Capacidades = null,
-    string? ComentarioCapacidades = null);
+    string? ComentarioCapacidades = null,
+    IReadOnlyList<CompanyDriverValueDto>? DriversEmpresa = null);
 
 public sealed record StandardTechnologyDto(
     int Id,

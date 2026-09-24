@@ -206,19 +206,113 @@
         </div>
     </div>
 
-    <!-- SECCIÓN 2: SUBSIDIARIAS Y REALIDAD DE ADOPCIÓN -->
+    <!-- SECCIÓN 2: PLANTILLA CORPORATIVA DE DRIVERS DE DIMENSIONAMIENTO -->
+    <div class="card mb-4 shadow-sm border-primary-subtle">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h2 class="h5 mb-0 text-primary d-flex align-items-center gap-2">
+                    <span>📐 2. Drivers de Dimensionamiento y Proyección (Nivel Proceso)</span>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">@((p.DriversProceso?.Count ?? 0)) definidos</span>
+                </h2>
+                <small class="text-muted">
+                    Definición de drivers aplicables a nivel de solicitud/proceso. Al crear o modificar un driver aquí, se homologa y clona automáticamente a todas las empresas convocadas.
+                </small>
+            </div>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modal-save-process-driver" id="btnNewProcessDriver">
+                    <span>+ Definir Driver del Proceso</span>
+                </button>
+            }
+        </div>
+        <div class="card-body">
+            @if ((p.DriversProceso?.Count ?? 0) == 0)
+            {
+                <div class="text-center py-4 text-muted">
+                    <p class="mb-2">No se han definido drivers a nivel de proceso aún.</p>
+                    @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                    {
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modal-save-process-driver">
+                            + Registrar Primer Driver
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;" class="text-center">#</th>
+                                <th>Descripción del Driver</th>
+                                <th style="width: 200px;">Unidad de Medida</th>
+                                <th style="width: 170px;" class="text-center">Empresas Asignadas</th>
+                                <th style="width: 180px;" class="text-end">Costo Total Consolidado</th>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                {
+                                    <th style="width: 120px;" class="text-center">Acciones</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @for (int di = 0; di < (p.DriversProceso?.Count ?? 0); di++)
+                        {
+                            var drv = p.DriversProceso![di];
+                            var assignedCompanies = p.EmpresasParticipantes.Count(e => (e.DriversEmpresa ?? []).Any(d => d.DriverProcesoId == drv.Id && d.Cantidad > 0));
+                            var totalCostDrv = p.EmpresasParticipantes.SelectMany(e => e.DriversEmpresa ?? []).Where(d => d.DriverProcesoId == drv.Id).Sum(d => d.CostoTotal);
+                            <tr>
+                                <td class="text-center text-muted fw-bold">@(di + 1)</td>
+                                <td class="fw-semibold text-dark">@drv.Descripcion</td>
+                                <td><span class="badge bg-secondary-subtle text-dark border">@(drv.UnidadMedida ?? "—")</span></td>
+                                <td class="text-center">
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                        @assignedCompanies / @p.EmpresasParticipantes.Count empresas
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold text-success">
+                                    @(totalCostDrv > 0 ? $"$ {totalCostDrv:N2}" : "—")
+                                </td>
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                {
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-xs btn-outline-primary btn-edit-process-driver py-0 px-2 me-1"
+                                                data-driver-id="@drv.Id"
+                                                data-desc="@drv.Descripcion"
+                                                data-unidad="@(drv.UnidadMedida ?? "")"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modal-save-process-driver"
+                                                title="Editar definición del driver">
+                                            Editar
+                                        </button>
+                                        <form method="post" asp-action="DeleteProcessDriver" asp-route-id="@p.Id" asp-route-driverProcesoId="@drv.Id" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar el driver \'@drv.Descripcion\'? Se eliminará de todas las subsidiarias vinculadas.');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" title="Eliminar driver del proceso">✕</button>
+                                        </form>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- SECCIÓN 3: SUBSIDIARIAS Y REALIDAD DE ADOPCIÓN -->
     <div class="card mb-4 shadow-sm">
         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h2 class="h5 mb-0">2. Convocatoria a Empresas Subsidiarias y Adopción Real</h2>
+                <h2 class="h5 mb-0">3. Convocatoria a Empresas Subsidiarias y Adopción Real</h2>
                 <small class="text-muted">Puede ordenar las empresas arrastrándolas con el ratón mediante el icono <span class="fw-bold">⠿</span>.</small>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnResetCompanyOrder" title="Restablecer orden predeterminado">
+                <button type="button" class="btn btn-sm btn-outline-secondary @(!string.IsNullOrWhiteSpace(p.OrdenEmpresas) ? "" : "d-none")" id="btnResetCompanyOrder" title="Restablecer orden predeterminado">
                     <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     <span class="small">Restablecer Orden</span>
                 </button>
-                <span id="orderSavedFeedback" class="badge bg-success-subtle text-success border border-success-subtle small d-none">✓ Orden guardado</span>
+                <span id="orderSavedFeedback" class="badge bg-success-subtle text-success border border-success-subtle small d-none">✓ Orden guardado en servidor</span>
                 @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
                 {
                     <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-convene-company">+ Convocar Subsidiaria</button>
@@ -245,7 +339,7 @@
                             _ => "bg-light text-dark"
                         };
 
-                        <div class="accordion-item mb-2 border rounded company-draggable-item" data-proceso-emp-id="@emp.ProcesoEmpresaId">
+                        <div class="accordion-item mb-2 border rounded company-draggable-item" data-proceso-emp-id="@emp.ProcesoEmpresaId" data-empresa-id="@emp.EmpresaId">
                             <div class="d-flex align-items-center justify-content-between p-1 pe-2 bg-light border-bottom rounded-top flex-wrap gap-2">
                                 <div class="d-flex align-items-center flex-grow-1 min-w-0">
                                     <span class="company-drag-handle px-2 py-2 text-secondary cursor-grab" title="Arrastrar para reordenar" style="cursor: grab; user-select: none;">
@@ -363,7 +457,6 @@
                                                             </form>
                                                             <button type="button" class="btn btn-sm btn-outline-secondary btn-op-model me-1" data-impl-id="@tech.Id" data-tipo-id="@tech.ModeloOperacion?.TipoOperacionId" data-mod-id="@tech.ModeloOperacion?.ModalidadLaboralId" data-bs-toggle="modal" data-bs-target="#modal-operation-model">Modelo Operación</button>
                                                             <button type="button" class="btn btn-sm btn-outline-primary btn-add-contract me-1" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-contract">+ Contrato</button>
-                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-add-driver me-1" data-impl-id="@tech.Id" data-bs-toggle="modal" data-bs-target="#modal-save-driver">+ Driver</button>
                                                             <button type="button" class="btn btn-sm btn-outline-primary btn-add-tech-service" 
                                                                     data-impl-id="@tech.Id" 
                                                                     data-empresa-id="@emp.EmpresaId" 
@@ -565,67 +658,7 @@
                                                     }
                                                 </div>
 
-                                                <!-- Drivers de Costo (1:N) -->
-                                                <div>
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <strong class="small text-muted">Drivers de Costo y Proyección:</strong>
-                                                        @if (tech.Drivers.Count > 0)
-                                                        {
-                                                            <span class="small fw-bold text-success">Total: @($"{tech.Drivers[0].Moneda} {tech.Drivers.Sum(d => d.CostoTotal):N2}")</span>
-                                                        }
-                                                    </div>
-                                                    @if (tech.Drivers.Count == 0)
-                                                    {
-                                                        <p class="small text-muted mb-0">Sin drivers de costo registrados.</p>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="table-responsive mt-1">
-                                                            <table class="table table-sm table-bordered mb-0 small">
-                                                                <thead class="table-light">
-                                                                    <tr>
-                                                                        <th>Descripción Driver</th>
-                                                                        <th>Unidad</th>
-                                                                        <th>Cantidad</th>
-                                                                        <th>Precio Unitario</th>
-                                                                        <th>Costo Total</th>
-                                                                        <th>Acción</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                @foreach (var drv in tech.Drivers)
-                                                                {
-                                                                    <tr>
-                                                                        <td>@drv.Descripcion</td>
-                                                                        <td>@(drv.UnidadMedida ?? "—")</td>
-                                                                        <td>@(drv.Cantidad.HasValue ? drv.Cantidad.Value.ToString("N2") : "—")</td>
-                                                                        <td>@(drv.PrecioUnitario.HasValue ? $"{drv.Moneda} {drv.PrecioUnitario.Value:N2}" : "—")</td>
-                                                                        <td><strong>@($"{drv.Moneda} {drv.CostoTotal:N2}")</strong></td>
-                                                                        <td>
-                                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
-                                                                            {
-                                                                                <button type="button" class="btn btn-xs btn-outline-primary btn-edit-driver me-1 py-0 px-1"
-                                                                                        data-driver-id="@drv.Id"
-                                                                                        data-impl-id="@tech.Id"
-                                                                                        data-desc="@drv.Descripcion"
-                                                                                        data-unidad="@(drv.UnidadMedida ?? "")"
-                                                                                        data-moneda="@drv.Moneda"
-                                                                                        data-cant="@(drv.Cantidad?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
-                                                                                        data-precio="@(drv.PrecioUnitario?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
-                                                                                        data-bs-toggle="modal" data-bs-target="#modal-save-driver">Editar</button>
-                                                                                <form method="post" asp-action="DeleteDriver" asp-route-id="@p.Id" asp-route-driverId="@drv.Id" class="d-inline" onsubmit="return confirm('¿Eliminar este driver?');">
-                                                                                    @Html.AntiForgeryToken()
-                                                                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">Eliminar</button>
-                                                                                </form>
-                                                                            }
-                                                                        </td>
-                                                                    </tr>
-                                                                }
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    }
-                                                </div>
+                                                <!-- Drivers desacoplados a nivel de Proceso y Subsidiaria -->
 
                                                 <!-- Servicios y Tarifarios de TI Vinculados (1:N) -->
                                                 @{
@@ -867,6 +900,102 @@
                                             </div>
                                         }
                                     }
+
+                                    <!-- DRIVERS DE COSTO Y CONSUMO POR EMPRESA (DESACOPLADOS DE TECNOLOGÍA) -->
+                                    <div class="mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                            <div>
+                                                <h5 class="h6 mb-0 text-dark fw-bold d-flex align-items-center gap-2">
+                                                    <span>📊 Drivers de Dimensionamiento y Costo para @emp.EmpresaNombre</span>
+                                                    @if ((emp.DriversEmpresa?.Count ?? 0) > 0)
+                                                    {
+                                                        var totalCompanyDrivers = (emp.DriversEmpresa ?? []).Sum(d => d.CostoTotal);
+                                                        var monedaCompany = emp.DriversEmpresa?.FirstOrDefault()?.Moneda ?? "USD";
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                            Total: @monedaCompany @totalCompanyDrivers.ToString("N2")
+                                                        </span>
+                                                    }
+                                                </h5>
+                                                <small class="text-muted">
+                                                    Valores de consumo (Cantidad, Precio Unitario, Costo Total) según los drivers homologados a nivel de solicitud/proceso.
+                                                </small>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-secondary-subtle text-dark border">@((emp.DriversEmpresa?.Count ?? 0)) drivers homologados</span>
+                                            </div>
+                                        </div>
+
+                                        @if ((emp.DriversEmpresa?.Count ?? 0) == 0)
+                                        {
+                                            <div class="alert alert-light border small text-muted mb-3 py-2">
+                                                No hay drivers asignados a esta empresa. Los drivers se gestionan desde la sección "2. Drivers de Dimensionamiento y Proyección (Nivel Proceso)".
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive bg-white rounded border mb-3">
+                                                <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.875rem;">
+                                                    <thead class="table-light text-muted" style="font-size:0.78rem;">
+                                                        <tr>
+                                                            <th style="width: 40px;" class="text-center">#</th>
+                                                            <th>Descripción del Driver</th>
+                                                            <th style="width: 140px;">Unidad</th>
+                                                            <th style="width: 140px;" class="text-end">Cantidad</th>
+                                                            <th style="width: 150px;" class="text-end">Precio Unitario</th>
+                                                            <th style="width: 160px;" class="text-end">Costo Total</th>
+                                                            <th style="width: 90px;" class="text-center">Moneda</th>
+                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                            {
+                                                                <th style="width: 100px;" class="text-center">Acción</th>
+                                                            }
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @for (int cdi = 0; cdi < (emp.DriversEmpresa?.Count ?? 0); cdi++)
+                                                    {
+                                                        var cDrv = emp.DriversEmpresa![cdi];
+                                                        <tr id="row-company-driver-@cDrv.Id" data-driver-proceso-id="@cDrv.DriverProcesoId" data-proceso-empresa-id="@emp.ProcesoEmpresaId">
+                                                            <td class="text-center text-muted small">@(cdi + 1)</td>
+                                                            <td class="fw-semibold text-dark">@cDrv.Descripcion</td>
+                                                            <td><span class="badge bg-secondary-subtle text-dark border">@(cDrv.UnidadMedida ?? "—")</span></td>
+                                                            <td class="text-end font-monospace">
+                                                                <span class="display-val-cant">@cDrv.Cantidad.ToString("N2")</span>
+                                                            </td>
+                                                            <td class="text-end font-monospace">
+                                                                <span class="display-val-precio">@cDrv.PrecioUnitario.ToString("N2")</span>
+                                                            </td>
+                                                            <td class="text-end fw-bold text-success font-monospace">
+                                                                <span class="display-val-total">@($"{cDrv.Moneda} {cDrv.CostoTotal:N2}")</span>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <span class="badge bg-light text-dark border">@cDrv.Moneda</span>
+                                                            </td>
+                                                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                                            {
+                                                                <td class="text-center">
+                                                                    <button type="button" class="btn btn-xs btn-outline-primary btn-edit-company-driver py-0 px-2"
+                                                                            data-id="@cDrv.Id"
+                                                                            data-driver-proceso-id="@cDrv.DriverProcesoId"
+                                                                            data-proceso-empresa-id="@emp.ProcesoEmpresaId"
+                                                                            data-empresa-nombre="@emp.EmpresaNombre"
+                                                                            data-desc="@cDrv.Descripcion"
+                                                                            data-unidad="@(cDrv.UnidadMedida ?? "")"
+                                                                            data-cant="@cDrv.Cantidad.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                            data-precio="@cDrv.PrecioUnitario.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                                            data-moneda="@cDrv.Moneda"
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#modal-edit-company-driver">
+                                                                        Editar
+                                                                    </button>
+                                                                </td>
+                                                            }
+                                                        </tr>
+                                                    }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    </div>
 
                                     <!-- CAPACIDADES DEL BUILDING BLOCK POR EMPRESA -->
                                     <div class="mt-4 pt-3 border-top">
@@ -1818,57 +1947,97 @@
     </div>
 </div>
 
-<!-- MODAL: GUARDAR DRIVER -->
-<div class="modal fade" id="modal-save-driver" tabindex="-1" aria-labelledby="modalDriverTitle" aria-hidden="true">
+<!-- MODAL: DEFINIR / EDITAR DRIVER DEL PROCESO (PLANTILLA) -->
+<div class="modal fade" id="modal-save-process-driver" tabindex="-1" aria-labelledby="modalProcessDriverTitle" aria-hidden="true">
     <div class="modal-dialog">
-        <form method="post" asp-action="SaveDriver" asp-route-id="@p.Id" class="modal-content">
+        <form method="post" asp-action="SaveProcessDriver" asp-route-id="@p.Id" class="modal-content">
             @Html.AntiForgeryToken()
-            <input type="hidden" id="driverId" name="driverId" value="" />
-            <input type="hidden" id="driverImplId" name="tecnologiaImplementadaId" value="" />
+            <input type="hidden" id="processDriverId" name="driverProcesoId" value="" />
             <div class="modal-header">
-                <h5 class="modal-title" id="modalDriverTitle">Agregar Driver de Costo</h5>
+                <h5 class="modal-title" id="modalProcessDriverTitle">Definir Driver del Proceso</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info py-2 small mb-3">
+                    <strong>ℹ️ Plantilla Corporativa:</strong> Este driver aplicará a todas las subsidiarias que participen en esta evaluación. Al guardarlo, se replicará a cada empresa con cantidad y precio inicial en 0.
+                </div>
                 <div class="mb-3">
-                    <label for="drvDesc" class="form-label">Descripción del Driver *</label>
-                    <input id="drvDesc" name="descripcion" class="form-control" placeholder="Ej: Licencias de Usuario E5" required />
+                    <label for="procDrvDesc" class="form-label">Descripción del Driver *</label>
+                    <input id="procDrvDesc" name="descripcion" class="form-control" placeholder="Ej: Licencias de Usuario E5, Agentes de Servidor, TB de Almacenamiento..." required />
                 </div>
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label for="drvUnidad" class="form-label">Unidad de Medida</label>
-                        <input id="drvUnidad" name="unidadMedida" class="form-control" placeholder="Usuarios, Servidores, etc." />
-                    </div>
-                    <div class="col-md-6">
-                        <label for="drvMoneda" class="form-label">Moneda</label>
-                        <select id="drvMoneda" name="moneda" class="form-select">
-                            <option value="USD">USD</option>
-                            <option value="PEN">PEN</option>
-                            <option value="EUR">EUR</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label for="drvCant" class="form-label">Cantidad</label>
-                        <input id="drvCant" name="cantidad" type="number" step="0.01" class="form-control drv-calc" placeholder="0" />
-                    </div>
-                    <div class="col-md-6">
-                        <label for="drvPrecio" class="form-label">Precio Unitario</label>
-                        <input id="drvPrecio" name="precioUnitario" type="number" step="0.01" class="form-control drv-calc" placeholder="0.00" />
-                    </div>
-                </div>
-                <div class="alert alert-secondary py-2 small mb-0">
-                    Costo Total Proyectado: <strong id="drvTotalCalc">$0.00</strong>
+                <div class="mb-3">
+                    <label for="procDrvUnidad" class="form-label">Unidad de Medida</label>
+                    <input id="procDrvUnidad" name="unidadMedida" class="form-control" placeholder="Ej: Usuarios, Servidores, Dispositivos, TB..." />
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar Driver</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitProcessDriver">Guardar Driver</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- MODAL: EDITAR VALORES DE DRIVER POR EMPRESA -->
+<div class="modal fade" id="modal-edit-company-driver" tabindex="-1" aria-labelledby="modalCompanyDriverTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalCompanyDriverTitle">Consumo de Driver por Empresa</h5>
+                    <small class="text-muted" id="modalCompanyDriverSubtitle"></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formEditCompanyDriver">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="editProcesoEmpresaId" value="" />
+                <input type="hidden" id="editDriverProcesoId" value="" />
+                <input type="hidden" id="editCompanyDriverRowId" value="" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">Concepto / Driver</label>
+                        <div class="fw-bold fs-6 p-2 bg-light rounded border" id="editCompanyDriverDesc">—</div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label for="editCompanyDriverUnidad" class="form-label small">Unidad</label>
+                            <input type="text" id="editCompanyDriverUnidad" class="form-control form-control-sm bg-light" readonly />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCompanyDriverMoneda" class="form-label small">Moneda</label>
+                            <select id="editCompanyDriverMoneda" class="form-select form-select-sm">
+                                <option value="USD">USD ($)</option>
+                                <option value="PEN">PEN (S/)</option>
+                                <option value="EUR">EUR (€)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editCompanyDriverCant" class="form-label small">Cantidad *</label>
+                            <input type="number" step="any" min="0" id="editCompanyDriverCant" class="form-control form-control-sm company-drv-calc" required />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label for="editCompanyDriverPrecio" class="form-label small">Precio Unitario *</label>
+                            <input type="number" step="any" min="0" id="editCompanyDriverPrecio" class="form-control form-control-sm company-drv-calc" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Costo Total Calculado</label>
+                            <div class="form-control form-control-sm fw-bold text-success bg-light" id="editCompanyDriverTotalPreview">$0.00</div>
+                        </div>
+                    </div>
+                    <div id="companyDriverFeedback" class="alert d-none py-2 small mb-0"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary" id="btnSaveCompanyDriver">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 
 <!-- MODAL: MODELO DE OPERACIÓN -->
 <div class="modal fade" id="modal-operation-model" tabindex="-1" aria-labelledby="modalOpModelTitle" aria-hidden="true">
@@ -2764,44 +2933,138 @@
             });
         });
 
-        // Modal Guardar Driver
-        document.querySelectorAll('.btn-add-driver').forEach(function(btn) {
+        // Modal Definir / Editar Driver del Proceso (Plantilla)
+        document.getElementById('btnNewProcessDriver')?.addEventListener('click', function() {
+            document.getElementById('processDriverId').value = '';
+            document.getElementById('modalProcessDriverTitle').innerText = 'Definir Driver del Proceso';
+            document.getElementById('procDrvDesc').value = '';
+            document.getElementById('procDrvUnidad').value = '';
+        });
+
+        document.querySelectorAll('.btn-edit-process-driver').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                document.getElementById('driverId').value = '';
-                document.getElementById('driverImplId').value = this.dataset.implId || '';
-                document.getElementById('modalDriverTitle').innerText = 'Agregar Driver de Costo';
-                document.getElementById('drvDesc').value = '';
-                document.getElementById('drvUnidad').value = '';
-                document.getElementById('drvMoneda').value = 'USD';
-                document.getElementById('drvCant').value = '';
-                document.getElementById('drvPrecio').value = '';
-                updateDriverTotal();
+                document.getElementById('processDriverId').value = this.dataset.driverId || '';
+                document.getElementById('modalProcessDriverTitle').innerText = 'Editar Driver del Proceso';
+                document.getElementById('procDrvDesc').value = this.dataset.desc || '';
+                document.getElementById('procDrvUnidad').value = this.dataset.unidad || '';
             });
         });
 
-        document.querySelectorAll('.btn-edit-driver').forEach(function(btn) {
+        // Modal Editar Driver por Empresa
+        document.querySelectorAll('.btn-edit-company-driver').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                document.getElementById('driverId').value = this.dataset.driverId || '';
-                document.getElementById('driverImplId').value = this.dataset.implId || '';
-                document.getElementById('modalDriverTitle').innerText = 'Editar Driver de Costo';
-                document.getElementById('drvDesc').value = this.dataset.desc || '';
-                document.getElementById('drvUnidad').value = this.dataset.unidad || '';
-                document.getElementById('drvMoneda').value = this.dataset.moneda || 'USD';
-                document.getElementById('drvCant').value = this.dataset.cant || '';
-                document.getElementById('drvPrecio').value = this.dataset.precio || '';
-                updateDriverTotal();
+                const id = this.dataset.id;
+                const driverProcesoId = this.dataset.driverProcesoId;
+                const procesoEmpresaId = this.dataset.procesoEmpresaId;
+                const empresaNombre = this.dataset.empresaNombre;
+                const desc = this.dataset.desc;
+                const unidad = this.dataset.unidad;
+                const cant = this.dataset.cant;
+                const precio = this.dataset.precio;
+                const moneda = this.dataset.moneda || 'USD';
+
+                document.getElementById('editCompanyDriverRowId').value = id;
+                document.getElementById('editDriverProcesoId').value = driverProcesoId;
+                document.getElementById('editProcesoEmpresaId').value = procesoEmpresaId;
+                document.getElementById('modalCompanyDriverSubtitle').innerText = empresaNombre;
+                document.getElementById('editCompanyDriverDesc').innerText = desc;
+                document.getElementById('editCompanyDriverUnidad').value = unidad || '—';
+                document.getElementById('editCompanyDriverMoneda').value = moneda;
+                document.getElementById('editCompanyDriverCant').value = cant;
+                document.getElementById('editCompanyDriverPrecio').value = precio;
+
+                const fb = document.getElementById('companyDriverFeedback');
+                if (fb) { fb.className = 'alert d-none py-2 small mb-0'; fb.innerText = ''; }
+
+                recalcCompanyDriverTotal();
             });
         });
 
-        // Cálculo dinámico de costo en driver
-        function updateDriverTotal() {
-            const cant = parseFloat(document.getElementById('drvCant').value) || 0;
-            const precio = parseFloat(document.getElementById('drvPrecio').value) || 0;
+        function recalcCompanyDriverTotal() {
+            const cant = parseFloat(document.getElementById('editCompanyDriverCant').value) || 0;
+            const precio = parseFloat(document.getElementById('editCompanyDriverPrecio').value) || 0;
+            const moneda = document.getElementById('editCompanyDriverMoneda').value || 'USD';
             const total = cant * precio;
-            document.getElementById('drvTotalCalc').innerText = '$' + total.toFixed(2);
+            const symbol = moneda === 'PEN' ? 'S/' : (moneda === 'EUR' ? '€' : '$');
+            document.getElementById('editCompanyDriverTotalPreview').innerText = symbol + ' ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
-        document.querySelectorAll('.drv-calc').forEach(function(input) {
-            input.addEventListener('input', updateDriverTotal);
+
+        document.querySelectorAll('.company-drv-calc').forEach(function(inp) {
+            inp.addEventListener('input', recalcCompanyDriverTotal);
+        });
+        document.getElementById('editCompanyDriverMoneda')?.addEventListener('change', recalcCompanyDriverTotal);
+
+        document.getElementById('formEditCompanyDriver')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btnSubmit = document.getElementById('btnSaveCompanyDriver');
+            const feedback = document.getElementById('companyDriverFeedback');
+            btnSubmit.disabled = true;
+
+            try {
+                const procesoEmpresaId = document.getElementById('editProcesoEmpresaId').value;
+                const driverProcesoId = parseInt(document.getElementById('editDriverProcesoId').value, 10);
+                const cant = parseFloat(document.getElementById('editCompanyDriverCant').value) || 0;
+                const precio = parseFloat(document.getElementById('editCompanyDriverPrecio').value) || 0;
+                const moneda = document.getElementById('editCompanyDriverMoneda').value || 'USD';
+                const rowId = document.getElementById('editCompanyDriverRowId').value;
+
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                const url = `@Url.Content("~/Administration/AdoptionProcess/")@p.Id/empresa/${procesoEmpresaId}/driver-value`;
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({
+                        driverProcesoId: driverProcesoId,
+                        cantidad: cant,
+                        precioUnitario: precio,
+                        moneda: moneda
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    feedback.className = 'alert alert-success py-2 small mb-0';
+                    feedback.innerText = '✓ Driver actualizado correctamente.';
+                    feedback.classList.remove('d-none');
+
+                    const row = document.getElementById(`row-company-driver-${rowId}`);
+                    if (row) {
+                        const spanCant = row.querySelector('.display-val-cant');
+                        const spanPrecio = row.querySelector('.display-val-precio');
+                        const spanTotal = row.querySelector('.display-val-total');
+                        if (spanCant) spanCant.innerText = cant.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        if (spanPrecio) spanPrecio.innerText = precio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        if (spanTotal) spanTotal.innerText = data.formattedTotal || `${moneda} ${(cant * precio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                        const btnEdit = row.querySelector('.btn-edit-company-driver');
+                        if (btnEdit) {
+                            btnEdit.dataset.cant = cant;
+                            btnEdit.dataset.precio = precio;
+                            btnEdit.dataset.moneda = moneda;
+                        }
+                    }
+
+                    setTimeout(function() {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('modal-edit-company-driver'));
+                        if (modal) modal.hide();
+                        location.reload();
+                    }, 500);
+                } else {
+                    feedback.className = 'alert alert-danger py-2 small mb-0';
+                    feedback.innerText = data.message || 'Error al actualizar el driver.';
+                    feedback.classList.remove('d-none');
+                    btnSubmit.disabled = false;
+                }
+            } catch (err) {
+                feedback.className = 'alert alert-danger py-2 small mb-0';
+                feedback.innerText = 'Error de conexión: ' + err.message;
+                feedback.classList.remove('d-none');
+                btnSubmit.disabled = false;
+            }
         });
 
         // Modal Modelo de Operación
@@ -3062,25 +3325,65 @@
 
             initDragAndDrop();
 
+            let saveOrderTimer = null;
             function saveCurrentOrder() {
                 const currentItems = Array.from(accordionEmpresas.querySelectorAll('.company-draggable-item'));
-                const ids = currentItems.map(it => it.dataset.procesoEmpId).filter(Boolean);
+                const empresaIds = currentItems.map(it => parseInt(it.dataset.empresaId, 10)).filter(id => !isNaN(id) && id > 0);
+                const procesoEmpIds = currentItems.map(it => it.dataset.procesoEmpId).filter(Boolean);
+
                 try {
-                    localStorage.setItem(storageKey, JSON.stringify(ids));
+                    localStorage.setItem(storageKey, JSON.stringify(procesoEmpIds));
                     if (btnResetOrder) btnResetOrder.classList.remove('d-none');
-                    if (orderSavedFeedback) {
-                        orderSavedFeedback.classList.remove('d-none');
-                        setTimeout(() => orderSavedFeedback.classList.add('d-none'), 2500);
-                    }
                 } catch (e) {
-                    console.warn('Error guardando orden de empresas:', e);
+                    console.warn('Error guardando orden en localStorage:', e);
                 }
+
+                clearTimeout(saveOrderTimer);
+                saveOrderTimer = setTimeout(async () => {
+                    try {
+                        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                        const res = await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/update-company-order`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify({ orderedCompanyIds: empresaIds })
+                        });
+
+                        if (res.ok) {
+                            if (orderSavedFeedback) {
+                                orderSavedFeedback.textContent = '✓ Orden guardado en servidor';
+                                orderSavedFeedback.classList.remove('d-none');
+                                setTimeout(() => orderSavedFeedback.classList.add('d-none'), 2500);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error al persistir orden en servidor:', err);
+                    }
+                }, 300);
             }
 
             if (btnResetOrder) {
-                btnResetOrder.addEventListener('click', () => {
+                btnResetOrder.addEventListener('click', async () => {
                     try {
                         localStorage.removeItem(storageKey);
+                        const items = Array.from(accordionEmpresas.querySelectorAll('.company-draggable-item'));
+                        items.sort((a, b) => {
+                            const nameA = a.querySelector('.company-accordion-btn .fw-bold')?.textContent.trim() || '';
+                            const nameB = b.querySelector('.company-accordion-btn .fw-bold')?.textContent.trim() || '';
+                            return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                        });
+                        const alphaIds = items.map(it => parseInt(it.dataset.empresaId, 10)).filter(id => !isNaN(id) && id > 0);
+                        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                        await fetch(`@Url.Content("~/Administration/AdoptionProcess/")${procesoId}/update-company-order`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify({ orderedCompanyIds: alphaIds })
+                        });
                         location.reload();
                     } catch (e) {
                         location.reload();
@@ -3192,6 +3495,7 @@
             const fieldNotas = document.getElementById('focal-field-notas');
 
             const btnRemoveFocal = document.getElementById('btnRemoveFocalAssignment');
+            let focalCanViewSensitive = true;
 
             function showFocalAlert(message, type = 'success') {
                 if (!focalAlertEl) return;
@@ -3216,8 +3520,16 @@
                 if (fieldId) fieldId.value = '';
                 if (fieldNombre) fieldNombre.value = '';
                 if (fieldRol) fieldRol.value = '';
-                if (fieldEmail) fieldEmail.value = '';
-                if (fieldTelefono) fieldTelefono.value = '';
+                if (fieldEmail) {
+                    fieldEmail.value = '';
+                    fieldEmail.disabled = false;
+                    fieldEmail.placeholder = 'ejemplo@empresa.com';
+                }
+                if (fieldTelefono) {
+                    fieldTelefono.value = '';
+                    fieldTelefono.disabled = false;
+                    fieldTelefono.placeholder = '+51 999 888 777';
+                }
                 if (fieldOtro) fieldOtro.value = '';
                 if (fieldNotas) fieldNotas.value = '';
                 if (formTitleEl) formTitleEl.textContent = 'Registrar Nuevo Contacto';
@@ -3243,6 +3555,34 @@
                 if (fieldTelefono) fieldTelefono.value = (!contact.telefono || contact.telefono === '—') ? '' : contact.telefono;
                 if (fieldOtro) fieldOtro.value = (!contact.otro || contact.otro === '—') ? '' : contact.otro;
                 if (fieldNotas) fieldNotas.value = (!contact.notas || contact.notas === '—') ? '' : contact.notas;
+
+                const isMaskedEmail = contact.email && (contact.email.includes('***') || contact.email.includes('••••'));
+                const isMaskedPhone = contact.telefono && (contact.telefono.includes('•••') || contact.telefono.includes('••••'));
+
+                if (!focalCanViewSensitive || isMaskedEmail) {
+                    if (fieldEmail) {
+                        fieldEmail.disabled = true;
+                        fieldEmail.placeholder = '[Dato protegido por política de privacidad - Solo Administrador]';
+                    }
+                } else {
+                    if (fieldEmail) {
+                        fieldEmail.disabled = false;
+                        fieldEmail.placeholder = 'ejemplo@empresa.com';
+                    }
+                }
+
+                if (!focalCanViewSensitive || isMaskedPhone) {
+                    if (fieldTelefono) {
+                        fieldTelefono.disabled = true;
+                        fieldTelefono.placeholder = '[Dato protegido por política de privacidad - Solo Administrador]';
+                    }
+                } else {
+                    if (fieldTelefono) {
+                        fieldTelefono.disabled = false;
+                        fieldTelefono.placeholder = '+51 999 888 777';
+                    }
+                }
+
                 if (formTitleEl) formTitleEl.textContent = 'Editar Especialista / Contacto';
                 if (formSubmitBtn) formSubmitBtn.textContent = 'Actualizar Contacto';
                 if (formCardEl) formCardEl.style.display = 'block';
@@ -3300,11 +3640,20 @@
 
                     // Email
                     const tdEmail = document.createElement('td');
+                    const isMaskedEmail = c.email && (c.email.includes('***') || c.email.includes('••••'));
                     if (c.email && c.email !== '—') {
-                        const a = document.createElement('a');
-                        a.href = `mailto:${encodeURIComponent(c.email)}`;
-                        a.textContent = c.email;
-                        tdEmail.appendChild(a);
+                        if (isMaskedEmail || !focalCanViewSensitive) {
+                            const span = document.createElement('span');
+                            span.className = 'text-muted d-inline-flex align-items-center gap-1 font-monospace small';
+                            span.title = 'Dato sensible ofuscado por política de privacidad. Solo legible por el Administrador.';
+                            span.innerHTML = `<span style="font-size: 0.85em;">🔒</span> ${escapeHtml(c.email)}`;
+                            tdEmail.appendChild(span);
+                        } else {
+                            const a = document.createElement('a');
+                            a.href = `mailto:${encodeURIComponent(c.email)}`;
+                            a.textContent = c.email;
+                            tdEmail.appendChild(a);
+                        }
                     } else {
                         tdEmail.textContent = '—';
                     }
@@ -3312,11 +3661,20 @@
 
                     // Telefono
                     const tdTel = document.createElement('td');
+                    const isMaskedPhone = c.telefono && (c.telefono.includes('•••') || c.telefono.includes('••••'));
                     if (c.telefono && c.telefono !== '—') {
-                        const a = document.createElement('a');
-                        a.href = `tel:${encodeURIComponent(c.telefono.replace(/\s+/g, ''))}`;
-                        a.textContent = c.telefono;
-                        tdTel.appendChild(a);
+                        if (isMaskedPhone || !focalCanViewSensitive) {
+                            const span = document.createElement('span');
+                            span.className = 'text-muted d-inline-flex align-items-center gap-1 font-monospace small';
+                            span.title = 'Dato sensible ofuscado por política de privacidad. Solo legible por el Administrador.';
+                            span.innerHTML = `<span style="font-size: 0.85em;">🔒</span> ${escapeHtml(c.telefono)}`;
+                            tdTel.appendChild(span);
+                        } else {
+                            const a = document.createElement('a');
+                            a.href = `tel:${encodeURIComponent(c.telefono.replace(/\s+/g, ''))}`;
+                            a.textContent = c.telefono;
+                            tdTel.appendChild(a);
+                        }
                     } else {
                         tdTel.textContent = '—';
                     }
@@ -3413,6 +3771,7 @@
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const data = await response.json();
+                    focalCanViewSensitive = data.canViewSensitive !== false;
                     focalContactsList = data.items || [];
                     const total = data.totalCount ?? focalContactsList.length;
 
