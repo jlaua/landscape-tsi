@@ -1,0 +1,295 @@
+@model Landscape.Tsi.Web.Models.CreateImplementationViewModel
+@{
+    ViewData["Title"] = "Nueva Solicitud de Implementación - Procesos de Adopción TSI";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Implementations">Implementaciones</a></li>
+        <li aria-current="page">Nueva Solicitud</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="create-impl-title">
+    <div class="mb-4">
+        <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · FASE 3</p>
+        <h1 id="create-impl-title" class="h2 mb-1">Nueva Solicitud de Implementación</h1>
+        <p class="supporting-text mb-0">
+            Registro del despliegue de una tecnología estándar corporativa decretada, vigencia del contrato marco y convocatoria de empresas subsidiarias con su especialista técnico y cronograma de abordaje.
+        </p>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Atención: </strong> @error
+        </div>
+    }
+
+    <form asp-action="SaveImplementation" method="post" id="formCreateImplementation">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <!-- SECCIÓN 1: DATOS PRINCIPALES Y CONTRATO CORPORATIVO -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light py-3">
+                <h2 class="h5 mb-0 text-dark">📋 1. Datos Principales y Vigencia del Nuevo Contrato</h2>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label asp-for="Codigo" class="form-label fw-semibold">Código de Solicitud *</label>
+                        <input asp-for="Codigo" class="form-control font-monospace fw-bold" required />
+                        <span asp-validation-for="Codigo" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label asp-for="Nombre" class="form-label fw-semibold">Nombre de la Solicitud de Implementación *</label>
+                        <input asp-for="Nombre" class="form-control" placeholder="Ej: Implementación Corporativa de WAAP Cloudflare 2026" required />
+                        <span asp-validation-for="Nombre" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="ProcesoEvaluacionOrigenId" class="form-label fw-semibold">Evaluación TSI de Origen (Opcional)</label>
+                        <select asp-for="ProcesoEvaluacionOrigenId" class="form-select" id="selectEvaluacionOrigen">
+                            <option value="">-- Sin evaluación previa (Directo de Catálogo) --</option>
+                            @foreach (var ev in Model.EvaluacionesPrevias)
+                            {
+                                <option value="@ev.Id" selected="@(Model.ProcesoEvaluacionOrigenId == ev.Id ? "selected" : null)">@ev.Label</option>
+                            }
+                        </select>
+                        <small class="text-muted">Si proviene de una evaluación, se precargan estándar y empresas convocadas.</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FamiliaId" class="form-label fw-semibold">Familia Tecnológica</label>
+                        <select asp-for="FamiliaId" class="form-select" id="selectFamilia">
+                            <option value="">-- Seleccionar Familia --</option>
+                            @foreach (var f in Model.Familias)
+                            {
+                                <option value="@f.Id" selected="@(Model.FamiliaId == f.Id ? "selected" : null)">@f.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Estándar Decretada *</label>
+                        <select asp-for="TecnologiaEstandarId" class="form-select fw-semibold" id="selectTecnologiaEstandar" required>
+                            <option value="">-- Seleccionar Tecnología Estándar --</option>
+                            @if (Model.EstandaresDecretados.Count > 0)
+                            {
+                                <optgroup label="⭐ Estándares Decretados en Evaluaciones TSI">
+                                    @foreach (var std in Model.EstandaresDecretados)
+                                    {
+                                        <option value="@std.TecnologiaId" selected="@(Model.TecnologiaEstandarId == std.TecnologiaId ? "selected" : null)">
+                                            @std.TecnologiaNombre (@std.RolEstandar) [BB #@std.BuildingBlockId]
+                                        </option>
+                                    }
+                                </optgroup>
+                            }
+                            <optgroup label="📦 Todas las Tecnologías del Catálogo TSI">
+                                @foreach (var t in Model.TecnologiasDisponibles)
+                                {
+                                    <option value="@t.Id" selected="@(Model.TecnologiaEstandarId == t.Id ? "selected" : null)">@t.Label</option>
+                                }
+                            </optgroup>
+                        </select>
+                        <span asp-validation-for="TecnologiaEstandarId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="BuildingBlockId" class="form-label fw-semibold">Building Block Asociado</label>
+                        <select asp-for="BuildingBlockId" class="form-select" id="selectBuildingBlock">
+                            <option value="">-- Opcional / General TSI --</option>
+                            @foreach (var b in Model.BuildingBlocks)
+                            {
+                                <option value="@b.Id" selected="@(Model.BuildingBlockId == b.Id ? "selected" : null)">@b.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Datos del Nuevo Contrato -->
+                    <div class="col-md-4">
+                        <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Marco Corporativo</label>
+                        <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="Ej: CTR-CORP-2026-WAAP-001" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaInicioVigenciaContrato" class="form-label fw-semibold">Inicio Vigencia del Nuevo Contrato *</label>
+                        <input asp-for="FechaInicioVigenciaContrato" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaFinVigenciaContrato" class="form-label fw-semibold">Fin Vigencia del Nuevo Contrato *</label>
+                        <input asp-for="FechaFinVigenciaContrato" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="LiderCorporativo" class="form-label fw-semibold">Líder Corporativo TSI</label>
+                        <input asp-for="LiderCorporativo" class="form-control" placeholder="Ej: Especialista de Ciberseguridad / TSI" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaInicio" class="form-label fw-semibold">Fecha Inicio de Solicitud</label>
+                        <input asp-for="FechaInicio" type="date" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaEstimadaCierre" class="form-label fw-semibold">Fecha Estimada de Cierre</label>
+                        <input asp-for="FechaEstimadaCierre" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Objetivo" class="form-label fw-semibold">Objetivo de la Implementación</label>
+                        <textarea asp-for="Objetivo" class="form-control" rows="2" placeholder="Propósito de la adopción corporativa de esta tecnología..."></textarea>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Alcance" class="form-label fw-semibold">Alcance</label>
+                        <textarea asp-for="Alcance" class="form-control" rows="2" placeholder="Subsidiarias objetivo, aplicaciones críticas o perímetros cubiertos..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: CONVOCATORIA DE EMPRESAS Y SEGUIMIENTO TÉCNICO -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                <div>
+                    <h2 class="h5 mb-0 text-dark">🏢 2. Convocatoria de Empresas y Parámetros de Abordaje</h2>
+                    <small class="text-muted">Define las subsidiarias participantes, fecha de inicio en la tecnología, especialista técnico a cargo y arquitectura.</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAllSubs">Seleccionar Todas</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDeselectAllSubs">Limpiar Selección</button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0" id="tableSubsidiaries">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 40px;" class="text-center">Convocar</th>
+                                <th scope="col">Empresa Subsidiaria</th>
+                                <th scope="col" style="width: 90px;" class="text-center">Aplica</th>
+                                <th scope="col" style="width: 170px;">Fecha Abordaje / Inicio</th>
+                                <th scope="col">Especialista Técnico</th>
+                                <th scope="col">URL de Arquitectura</th>
+                                <th scope="col" style="width: 140px;">Estado Inicial</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @for (var i = 0; i < Model.Subsidiaries.Count; i++)
+                        {
+                            var sub = Model.Subsidiaries[i];
+                            <tr data-empresa-row="@sub.EmpresaId">
+                                <td class="text-center">
+                                    <input type="hidden" name="Subsidiaries[@i].EmpresaId" value="@sub.EmpresaId" />
+                                    <input type="hidden" name="Subsidiaries[@i].EmpresaNombre" value="@sub.EmpresaNombre" />
+                                    <input type="hidden" name="Subsidiaries[@i].Pais" value="@sub.Pais" />
+                                    <input type="checkbox" name="Subsidiaries[@i].Selected" value="true" class="form-check-input chk-sub-convene" @(sub.Selected ? "checked" : "") />
+                                </td>
+                                <td>
+                                    <strong class="text-dark">@sub.EmpresaNombre</strong>
+                                    <div class="text-muted small">@sub.Pais · @sub.Rubro</div>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" name="Subsidiaries[@i].Aplica" value="true" class="form-check-input chk-sub-aplica" @(sub.Aplica ? "checked" : "") title="Marca si la empresa debe implementar la tecnología" />
+                                </td>
+                                <td>
+                                    <input type="date" name="Subsidiaries[@i].FechaInicioAdopcion" value="@(sub.FechaInicioAdopcion?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm input-sub-fecha" title="Fecha en la que la subsidiaria se subió o se subirá a la tecnología" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Subsidiaries[@i].EspecialistaTecnico" value="@sub.EspecialistaTecnico" class="form-control form-control-sm" placeholder="Ingeniero / Especialista..." list="datalist_esp_@sub.EmpresaId" />
+                                    @if (sub.EspecialistasDisponibles.Count > 0)
+                                    {
+                                        <datalist id="datalist_esp_@sub.EmpresaId">
+                                            @foreach (var esp in sub.EspecialistasDisponibles)
+                                            {
+                                                <option value="@esp.Label"></option>
+                                            }
+                                        </datalist>
+                                    }
+                                </td>
+                                <td>
+                                    <input type="url" name="Subsidiaries[@i].UrlArquitectura" value="@sub.UrlArquitectura" class="form-control form-control-sm" placeholder="https://confluence / repo / wiki..." />
+                                </td>
+                                <td>
+                                    <select name="Subsidiaries[@i].EstadoImplementacion" class="form-select form-select-sm select-sub-estado">
+                                        <option value="PENDIENTE" selected="@(sub.EstadoImplementacion == "PENDIENTE" ? "selected" : null)">⏳ Pendiente</option>
+                                        <option value="EN_DESPLIEGUE" selected="@(sub.EstadoImplementacion == "EN_DESPLIEGUE" ? "selected" : null)">🚀 En Despliegue</option>
+                                        <option value="IMPLEMENTADO" selected="@(sub.EstadoImplementacion == "IMPLEMENTADO" ? "selected" : null)">✅ Implementado</option>
+                                        <option value="NO_APLICA" selected="@(sub.EstadoImplementacion == "NO_APLICA" ? "selected" : null)">⚪ No Aplica</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCIONES FINALES -->
+        <div class="d-flex justify-content-end gap-3 mb-5">
+            <a asp-action="Implementations" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                💾 Registrar Solicitud de Implementación
+            </button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Seleccionar / Deseleccionar todas las empresas
+            const btnAll = document.getElementById('btnSelectAllSubs');
+            const btnNone = document.getElementById('btnDeselectAllSubs');
+            const chkConvenes = document.querySelectorAll('.chk-sub-convene');
+
+            if (btnAll) {
+                btnAll.addEventListener('click', () => {
+                    chkConvenes.forEach(c => c.checked = true);
+                });
+            }
+            if (btnNone) {
+                btnNone.addEventListener('click', () => {
+                    chkConvenes.forEach(c => c.checked = false);
+                });
+            }
+
+            // Si se cambia la evaluación de origen, recargar página con el parámetro
+            const selEval = document.getElementById('selectEvaluacionOrigen');
+            if (selEval) {
+                selEval.addEventListener('change', function () {
+                    const evalId = this.value;
+                    const url = new URL(window.location.href);
+                    if (evalId) {
+                        url.searchParams.set('evaluacionId', evalId);
+                    } else {
+                        url.searchParams.delete('evaluacionId');
+                    }
+                    window.location.href = url.toString();
+                });
+            }
+
+            // Sincronizar estado cuando se desmarca 'Aplica'
+            document.querySelectorAll('.chk-sub-aplica').forEach(chk => {
+                chk.addEventListener('change', function () {
+                    const row = this.closest('tr');
+                    const selEstado = row.querySelector('.select-sub-estado');
+                    if (selEstado) {
+                        if (!this.checked) {
+                            selEstado.value = 'NO_APLICA';
+                        } else if (selEstado.value === 'NO_APLICA') {
+                            selEstado.value = 'PENDIENTE';
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+}

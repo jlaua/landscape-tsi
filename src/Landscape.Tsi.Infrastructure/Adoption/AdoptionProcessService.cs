@@ -10,13 +10,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Landscape.Tsi.Infrastructure.Adoption;
 
-public sealed class AdoptionProcessService(
+public sealed partial class AdoptionProcessService(
     CatalogDbContext dbContext,
     IAuditTrailService auditTrail) : IAdoptionProcessService
 {
     public async Task<IReadOnlyList<AdoptionProcessSummaryDto>> ListProcessesAsync(CancellationToken cancellationToken = default)
     {
-        var processes = await dbContext.AdoptionProcesses.AsNoTracking().ToListAsync(cancellationToken);
+        var processes = await dbContext.AdoptionProcesses.AsNoTracking()
+            .Where(p => p.TipoProceso != "IMPLEMENTACION")
+            .ToListAsync(cancellationToken);
         var buildingBlocks = await dbContext.BuildingBlocks.AsNoTracking().ToDictionaryAsync(b => b.Id, b => b.Nombre ?? string.Empty, cancellationToken);
         var states = await dbContext.TechnologyAdoptionStates.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Nombre ?? string.Empty, cancellationToken);
         var companyProcesses = await dbContext.AdoptionProcessCompanies.AsNoTracking().ToListAsync(cancellationToken);
@@ -1209,6 +1211,23 @@ public sealed class AdoptionProcessService(
         var allAvailableDriverNames = new List<string>();
         var driverUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        if (processDrivers.Count > 0)
+        {
+            foreach (var dp in processDrivers)
+            {
+                var dName = dp.DescripcionDriver.Trim();
+                if (!allAvailableDriverNames.Contains(dName, StringComparer.OrdinalIgnoreCase))
+                {
+                    allAvailableDriverNames.Add(dName);
+                }
+                if (!string.IsNullOrWhiteSpace(dp.UnidadMedida) && !driverUnits.ContainsKey(dName))
+                {
+                    driverUnits[dName] = dp.UnidadMedida.Trim();
+                }
+            }
+        }
+
+
         var orderedCompanyIds = ParseOrderedCompanyIds(proceso.OrdenEmpresas);
 
         // Si no hay empresas convocadas registradas, recopilar a partir de las empresas generales o asociadas
@@ -1351,80 +1370,16 @@ public sealed class AdoptionProcessService(
                 }
 
                 compDrivers = drivers.Where(d => d.IdTecnologiaTSIimplementadaSubsidiaria == primaryImpl.IdTecnologiaTSIimplementadaSubsidiaria).ToList();
-
-                foreach (var d in compDrivers)
-                {
-                    var desc = (d.DescripcionDriver ?? string.Empty).Trim().ToLowerInvariant();
-                    var cant = d.Cantidad ?? 0m;
-
-                    if (desc.StartsWith("throughput"))
-                    {
-                        thgVal = cant;
-                    }
-                    else if (desc.StartsWith("ancho de banda"))
-                    {
-                        anchoBanda = cant;
-                    }
-                    else if (string.Equals(desc, "dominio", StringComparison.OrdinalIgnoreCase))
-                    {
-                        dominios = (int)cant;
-                    }
-                    else if (desc.Contains("sub dominio"))
-                    {
-                        subDominios = (int)cant;
-                    }
-                    else if (desc.Contains("api security") && desc.Contains("aplicaciones"))
-                    {
-                        appsApiSec = (int)cant;
-                    }
-                    else if (desc.Contains("aplicaciones") || desc.Contains("fqdn"))
-                    {
-                        appsVal = (int)cant;
-                    }
-                    else if (desc.Contains("api protection"))
-                    {
-                        apiProtReq = cant;
-                    }
-                    else if (desc.Contains("antibot") && desc.Contains("waf"))
-                    {
-                        // total antibot + waf
-                    }
-                    else if (desc.Contains("antibot"))
-                    {
-                        reqAntibot = cant;
-                    }
-                    else if (desc.Contains("waf"))
-                    {
-                        reqWafVal = cant;
-                    }
-                    else if (desc.Contains("transfer"))
-                    {
-                        dataTransferTb = cant;
-                    }
-                    else if (desc.StartsWith("request size"))
-                    {
-                        reqSizeVal = cant > 0 ? cant.ToString("N0") : (d.Cantidad.HasValue ? "0" : null);
-                    }
-                    else if (desc.StartsWith("response size"))
-                    {
-                        respSizeVal = cant > 0 ? cant.ToString("N0") : (d.Cantidad.HasValue ? "0" : null);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(reqSizeVal) || !string.IsNullOrWhiteSpace(respSizeVal))
-                {
-                    reqRespSize = $"{reqSizeVal ?? "—"} / {respSizeVal ?? "—"}";
-                }
             }
 
             if (string.IsNullOrWhiteSpace(techNombre))
             {
-                techNombre = "No configurada";
+                techNombre = "Sin tecnología registrada";
             }
 
             if (string.IsNullOrWhiteSpace(tipoContrato))
             {
-                tipoContrato = "Contrato";
+                tipoContrato = primaryImpl is null ? "—" : "Contrato";
             }
             if (tipoContrato.Equals("PAYG", StringComparison.OrdinalIgnoreCase))
             {
@@ -1433,17 +1388,17 @@ public sealed class AdoptionProcessService(
 
             if (string.IsNullOrWhiteSpace(tipoOperacion))
             {
-                tipoOperacion = "Autogestionado";
+                tipoOperacion = primaryImpl is null ? "—" : "Autogestionado";
             }
 
             if (string.IsNullOrWhiteSpace(vendor))
             {
-                vendor = "-";
+                vendor = primaryImpl is null ? "—" : "-";
             }
 
             if (string.IsNullOrWhiteSpace(partner))
             {
-                partner = "Directo";
+                partner = primaryImpl is null ? "—" : "Directo";
             }
 
             // Si el proceso cuenta con drivers en el nuevo modelo (TDriverProceso y TDriverEmpresa), utilizarlos prioritariamente
@@ -1451,29 +1406,83 @@ public sealed class AdoptionProcessService(
                 ? companyDrivers.Where(cd => cd.IdProcesoAdopcionEmpresa == matchingConvocada.IdProcesoAdopcionEmpresa).ToList()
                 : [];
 
-            if (procEmpDriverValues.Count > 0)
+            if (processDrivers.Count > 0)
             {
-                foreach (var cd in procEmpDriverValues)
+                foreach (var dp in processDrivers)
                 {
-                    var dp = processDrivers.FirstOrDefault(p => p.IdDriverProceso == cd.IdDriverProceso);
-                    var desc = dp?.DescripcionDriver ?? "Driver de Consumo";
-                    var unid = dp?.UnidadMedida ?? "Unidades";
-                    var cant = cd.Cantidad ?? 0m;
-                    var precio = cd.PrecioUnitario ?? 0m;
-                    var total = cd.CostoTotal ?? (cant * precio);
-                    var moneda = string.IsNullOrWhiteSpace(cd.Moneda) ? "USD" : cd.Moneda;
+                    var cd = procEmpDriverValues.FirstOrDefault(p => p.IdDriverProceso == dp.IdDriverProceso);
+                    var cant = cd?.Cantidad ?? 0m;
+                    var precio = cd?.PrecioUnitario ?? 0m;
+                    var total = cd?.CostoTotal ?? (cant * precio);
+                    var moneda = string.IsNullOrWhiteSpace(cd?.Moneda) ? "USD" : cd.Moneda;
+                    var desc = (dp.DescripcionDriver ?? string.Empty).Trim().ToLowerInvariant();
 
                     genericDrivers.Add(new CompanyDriverItemDto(
-                        cd.IdDriverEmpresa,
+                        cd?.IdDriverEmpresa ?? dp.IdDriverProceso,
                         empId,
                         empNombre,
                         techNombre,
-                        desc,
-                        unid,
+                        dp.DescripcionDriver ?? "Driver de Consumo",
+                        dp.UnidadMedida ?? "Unidades",
                         cant,
                         precio,
                         moneda,
                         total));
+
+                    // Mapeo automático de métricas de volumetría a partir de los drivers formales del proceso
+                    if (desc.StartsWith("throughput"))
+                    {
+                        thgVal = cant;
+                    }
+                    else if (desc.StartsWith("ancho de banda"))
+                    {
+                        anchoBanda = cant;
+                    }
+                    else if (desc.Equals("dominio") || desc.StartsWith("dominio (") || desc.StartsWith("dominio "))
+                    {
+                        dominios = (int)cant;
+                    }
+                    else if (desc.Contains("subdominio") || desc.Contains("sub dominio"))
+                    {
+                        subDominios = (int)cant;
+                    }
+                    else if ((desc.Contains("api security") || desc.Contains("api sec")) && (desc.Contains("aplicaciones") || desc.Contains("fqdn")))
+                    {
+                        appsApiSec = (int)cant;
+                    }
+                    else if (desc.Contains("aplicaciones") || desc.Contains("fqdn"))
+                    {
+                        appsVal = (int)cant;
+                    }
+                    else if (desc.Contains("api protection") || desc.Contains("api security request"))
+                    {
+                        apiProtReq = cant;
+                    }
+                    else if (desc.Contains("antibot") && !desc.Contains("waf"))
+                    {
+                        reqAntibot = cant;
+                    }
+                    else if (desc.Contains("waf") && !desc.Contains("antibot"))
+                    {
+                        reqWafVal = cant;
+                    }
+                    else if (desc.Contains("transfer"))
+                    {
+                        dataTransferTb = cant;
+                    }
+                    else if (desc.StartsWith("request size") || desc.StartsWith("req size"))
+                    {
+                        reqSizeVal = cant > 0 ? cant.ToString("N0") : (cd?.Cantidad.HasValue == true ? "0" : null);
+                    }
+                    else if (desc.StartsWith("response size") || desc.StartsWith("resp size"))
+                    {
+                        respSizeVal = cant > 0 ? cant.ToString("N0") : (cd?.Cantidad.HasValue == true ? "0" : null);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(reqSizeVal) || !string.IsNullOrWhiteSpace(respSizeVal))
+                {
+                    reqRespSize = $"{reqSizeVal ?? "—"} / {respSizeVal ?? "—"}";
                 }
             }
             else if (compDrivers.Count > 0)
@@ -1483,6 +1492,8 @@ public sealed class AdoptionProcessService(
                     var cant = d.Cantidad ?? 0m;
                     var precio = d.PrecioUnitario ?? 0m;
                     var moneda = string.IsNullOrWhiteSpace(d.Moneda) ? "USD" : d.Moneda;
+                    var desc = (d.DescripcionDriver ?? string.Empty).Trim().ToLowerInvariant();
+
                     genericDrivers.Add(new CompanyDriverItemDto(
                         d.IdDriver,
                         empId,
@@ -1494,6 +1505,60 @@ public sealed class AdoptionProcessService(
                         precio,
                         moneda,
                         cant * precio));
+
+                    if (desc.StartsWith("throughput"))
+                    {
+                        thgVal = cant;
+                    }
+                    else if (desc.StartsWith("ancho de banda"))
+                    {
+                        anchoBanda = cant;
+                    }
+                    else if (desc.Equals("dominio") || desc.StartsWith("dominio (") || desc.StartsWith("dominio "))
+                    {
+                        dominios = (int)cant;
+                    }
+                    else if (desc.Contains("subdominio") || desc.Contains("sub dominio"))
+                    {
+                        subDominios = (int)cant;
+                    }
+                    else if ((desc.Contains("api security") || desc.Contains("api sec")) && (desc.Contains("aplicaciones") || desc.Contains("fqdn")))
+                    {
+                        appsApiSec = (int)cant;
+                    }
+                    else if (desc.Contains("aplicaciones") || desc.Contains("fqdn"))
+                    {
+                        appsVal = (int)cant;
+                    }
+                    else if (desc.Contains("api protection") || desc.Contains("api security request"))
+                    {
+                        apiProtReq = cant;
+                    }
+                    else if (desc.Contains("antibot") && !desc.Contains("waf"))
+                    {
+                        reqAntibot = cant;
+                    }
+                    else if (desc.Contains("waf") && !desc.Contains("antibot"))
+                    {
+                        reqWafVal = cant;
+                    }
+                    else if (desc.Contains("transfer"))
+                    {
+                        dataTransferTb = cant;
+                    }
+                    else if (desc.StartsWith("request size") || desc.StartsWith("req size"))
+                    {
+                        reqSizeVal = cant > 0 ? cant.ToString("N0") : (d.Cantidad.HasValue ? "0" : null);
+                    }
+                    else if (desc.StartsWith("response size") || desc.StartsWith("resp size"))
+                    {
+                        respSizeVal = cant > 0 ? cant.ToString("N0") : (d.Cantidad.HasValue ? "0" : null);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(reqSizeVal) || !string.IsNullOrWhiteSpace(respSizeVal))
+                {
+                    reqRespSize = $"{reqSizeVal ?? "—"} / {respSizeVal ?? "—"}";
                 }
             }
             else
@@ -1511,34 +1576,28 @@ public sealed class AdoptionProcessService(
                     0m));
             }
 
-            var compDriversCount = procEmpDriverValues.Count > 0 
-                ? procEmpDriverValues.Count 
+            var compDriversCount = processDrivers.Count > 0 
+                ? processDrivers.Count 
                 : compDrivers.Count;
-            var compDriversCost = procEmpDriverValues.Count > 0
+            var compDriversCost = processDrivers.Count > 0
                 ? procEmpDriverValues.Sum(cd => cd.CostoTotal ?? ((cd.Cantidad ?? 0m) * (cd.PrecioUnitario ?? 0m)))
                 : compDrivers.Sum(d => (d.Cantidad ?? 0m) * (d.PrecioUnitario ?? 0m));
 
-            // Estimación de volumetría para demo/ejercicio ÚNICAMENTE cuando el building block es de tipo WAAP y no hay drivers reales cargados
-            if (esWaap && compDrivers.Count == 0)
-            {
-                thgVal = (empId * 145m) % 1200m + 80m;
-                appsVal = (empId * 12) % 95 + 10;
-                reqWafVal = (empId * 85m) % 750m + 50m;
-                anchoBanda = Math.Round(thgVal / 120m, 3);
-                dominios = appsVal + 4;
-                appsApiSec = Math.Max(2, appsVal / 3);
-                apiProtReq = Math.Round(reqWafVal * 0.45m, 3);
-                reqAntibot = Math.Round(reqWafVal * 0.35m, 3);
-                dataTransferTb = Math.Round(thgVal * 1.8m, 3);
-                reqRespSize = "15 KB / 45 KB";
-            }
-            else if (!esWaap && compDrivers.Count == 0)
-            {
-                reqRespSize = "—";
-            }
-
             var compDriverValues = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-            if (compDrivers.Count > 0)
+            if (processDrivers.Count > 0)
+            {
+                foreach (var dp in processDrivers)
+                {
+                    var key = dp.DescripcionDriver.Trim();
+                    var empDrv = procEmpDriverValues.FirstOrDefault(cd => cd.IdDriverProceso == dp.IdDriverProceso);
+                    compDriverValues[key] = empDrv?.Cantidad ?? 0m;
+                    if (!string.IsNullOrWhiteSpace(dp.UnidadMedida) && !driverUnits.ContainsKey(key))
+                    {
+                        driverUnits[key] = dp.UnidadMedida.Trim();
+                    }
+                }
+            }
+            else if (compDrivers.Count > 0)
             {
                 foreach (var d in compDrivers)
                 {
@@ -1559,11 +1618,11 @@ public sealed class AdoptionProcessService(
                 }
             }
 
-            if (esWaap)
+            if (esWaap && processDrivers.Count == 0 && compDrivers.Count == 0)
             {
-                if (!compDriverValues.ContainsKey("Throughput (mensual)")) compDriverValues["Throughput (mensual)"] = thgVal;
-                if (!compDriverValues.ContainsKey("Cantidad de aplicaciones (FQDN)")) compDriverValues["Cantidad de aplicaciones (FQDN)"] = appsVal;
-                if (!compDriverValues.ContainsKey("Millones Request WAF (mensual)")) compDriverValues["Millones Request WAF (mensual)"] = reqWafVal;
+                if (!compDriverValues.ContainsKey("Throughput (mensual)")) compDriverValues["Throughput (mensual)"] = 0m;
+                if (!compDriverValues.ContainsKey("Cantidad de aplicaciones (FQDN)")) compDriverValues["Cantidad de aplicaciones (FQDN)"] = 0m;
+                if (!compDriverValues.ContainsKey("Millones Request WAF (mensual)")) compDriverValues["Millones Request WAF (mensual)"] = 0m;
 
                 if (!driverUnits.ContainsKey("Throughput (mensual)")) driverUnits["Throughput (mensual)"] = "Gbps";
                 if (!driverUnits.ContainsKey("Cantidad de aplicaciones (FQDN)")) driverUnits["Cantidad de aplicaciones (FQDN)"] = "FQDN";
@@ -1742,7 +1801,7 @@ public sealed class AdoptionProcessService(
             subsAcumulado[h.PeriodoLabel] = runSubs;
         }
 
-        if (esWaap)
+        if (esWaap && processDrivers.Count == 0)
         {
             var defaultWaapDrivers = new[] { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" };
             foreach (var d in defaultWaapDrivers.Reverse())
@@ -1777,13 +1836,13 @@ public sealed class AdoptionProcessService(
 
         if (driversSeleccionados.Count == 0)
         {
-            if (esWaap)
+            if (esWaap && processDrivers.Count == 0)
             {
                 driversSeleccionados = ["Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)"];
             }
             else if (allAvailableDriverNames.Count > 0)
             {
-                driversSeleccionados = allAvailableDriverNames.Take(3).ToList();
+                driversSeleccionados = allAvailableDriverNames.Take(4).ToList();
             }
         }
 
@@ -1803,11 +1862,15 @@ public sealed class AdoptionProcessService(
             driverUnits);
 
         // REPORTE 3: VOLUMETRÍA POR EMPRESA (con columnas dinámicas y totales)
-        var totalInversionDrivers = genericDrivers.Where(g => g.DriverId > 0).Sum(g => g.CostoTotal);
-        var totalCantidadDrivers = genericDrivers.Count(g => g.DriverId > 0);
+        var totalInversionDrivers = processDrivers.Count > 0
+            ? companyDrivers.Sum(cd => cd.CostoTotal ?? ((cd.Cantidad ?? 0m) * (cd.PrecioUnitario ?? 0m)))
+            : genericDrivers.Where(g => g.DriverId > 0).Sum(g => g.CostoTotal);
+        var totalCantidadDrivers = processDrivers.Count > 0
+            ? processDrivers.Count
+            : genericDrivers.Count(g => g.DriverId > 0);
 
         // Construcción de la matriz de columnas dinámicas por Driver real: "[Descripción] / [Unidad]"
-        var activeDriverItems = genericDrivers.Where(g => g.DriverId > 0 && !string.IsNullOrWhiteSpace(g.DescripcionDriver)).ToList();
+        var activeDriverItems = genericDrivers.Where(g => !string.IsNullOrWhiteSpace(g.DescripcionDriver) && (processDrivers.Count > 0 || g.DriverId > 0)).ToList();
         
         List<string> distinctColHeaders;
         if (processDrivers.Count > 0)
@@ -2385,34 +2448,11 @@ public sealed class AdoptionProcessService(
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
-        if (implTech is null)
-        {
-            var defaultTechId = await dbContext.StandardTechnologyHistories
-                .Where(s => s.IdBuildingBlock == proceso.IdBuildingBlock && s.RolEstandar == "PRINCIPAL" && s.EstadoVigencia == "ACTIVO_VIGENTE")
-                .Select(s => s.IdTecnologiaTSI)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (defaultTechId == 0)
-            {
-                defaultTechId = await dbContext.Technologies.Select(t => t.Id).FirstOrDefaultAsync(cancellationToken);
-            }
-
-            implTech = new TTecnologiaTSIimplementadaSubsidiaria
-            {
-                IdEmpresaSubsidiaria = empresaId,
-                IdTecnologiaTSI = defaultTechId,
-                IdBuildingBlock = proceso.IdBuildingBlock,
-                IdProcesoAdopcionEmpresa = procEmp?.IdProcesoAdopcionEmpresa,
-                EsTecnologiaPrimaria = true,
-                VersionDesplegada = "AS-IS"
-            };
-            dbContext.ImplementedTechnologies.Add(implTech);
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        var compDrivers = await dbContext.Drivers
-            .Where(d => d.IdTecnologiaTSIimplementadaSubsidiaria == implTech.IdTecnologiaTSIimplementadaSubsidiaria)
-            .ToListAsync(cancellationToken);
+        var compDrivers = implTech is not null
+            ? await dbContext.Drivers
+                .Where(d => d.IdTecnologiaTSIimplementadaSubsidiaria == implTech.IdTecnologiaTSIimplementadaSubsidiaria)
+                .ToListAsync(cancellationToken)
+            : new List<TDriver>();
 
         TDriver? targetDriver = null;
         string targetDesc = "";
@@ -2533,63 +2573,67 @@ public sealed class AdoptionProcessService(
                 break;
         }
 
-        if (targetDriver is null)
+        if (implTech is not null)
         {
-            targetDriver = new TDriver
+            if (targetDriver is null)
             {
-                IdTecnologiaTSIimplementadaSubsidiaria = implTech.IdTecnologiaTSIimplementadaSubsidiaria,
-                DescripcionDriver = targetDesc,
-                UnidadMedida = targetUnit,
-                Cantidad = cantidad,
-                PrecioUnitario = 0m,
-                Moneda = "USD"
-            };
-            dbContext.Drivers.Add(targetDriver);
-        }
-        else
-        {
-            targetDriver.Cantidad = cantidad;
-        }
-
-        // Si se actualizó antibot o waf, mantener actualizado también el driver combinado si existe
-        if (isAntibotOrWaf)
-        {
-            var combinedDriver = compDrivers.FirstOrDefault(d => {
-                var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
-                return s.Contains("antibot") && s.Contains("waf");
-            });
-
-            if (combinedDriver != null)
-            {
-                decimal currentAntibot = 0m;
-                decimal currentWaf = 0m;
-
-                if (driverKey.Trim().ToLowerInvariant() == "antibot")
+                targetDriver = new TDriver
                 {
-                    currentAntibot = cantidad;
-                    var wafDrv = compDrivers.FirstOrDefault(d => {
-                        var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
-                        return s.Contains("waf") && !s.Contains("antibot");
-                    });
-                    currentWaf = wafDrv?.Cantidad ?? 0m;
-                }
-                else
-                {
-                    currentWaf = cantidad;
-                    var abDrv = compDrivers.FirstOrDefault(d => {
-                        var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
-                        return s.Contains("antibot") && !s.Contains("waf");
-                    });
-                    currentAntibot = abDrv?.Cantidad ?? 0m;
-                }
-
-                combinedDriver.Cantidad = currentAntibot + currentWaf;
+                    IdTecnologiaTSIimplementadaSubsidiaria = implTech.IdTecnologiaTSIimplementadaSubsidiaria,
+                    DescripcionDriver = targetDesc,
+                    UnidadMedida = targetUnit,
+                    Cantidad = cantidad,
+                    PrecioUnitario = 0m,
+                    Moneda = "USD"
+                };
+                dbContext.Drivers.Add(targetDriver);
             }
-        }
+            else
+            {
+                targetDriver.Cantidad = cantidad;
+            }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            // Si se actualizó antibot o waf, mantener actualizado también el driver combinado si existe
+            if (isAntibotOrWaf)
+            {
+                var combinedDriver = compDrivers.FirstOrDefault(d => {
+                    var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
+                    return s.Contains("antibot") && s.Contains("waf");
+                });
+
+                if (combinedDriver != null)
+                {
+                    decimal currentAntibot = 0m;
+                    decimal currentWaf = 0m;
+
+                    if (driverKey.Trim().ToLowerInvariant() == "antibot")
+                    {
+                        currentAntibot = cantidad;
+                        var wafDrv = compDrivers.FirstOrDefault(d => {
+                            var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
+                            return s.Contains("waf") && !s.Contains("antibot");
+                        });
+                        currentWaf = wafDrv?.Cantidad ?? 0m;
+                    }
+                    else
+                    {
+                        currentWaf = cantidad;
+                        var abDrv = compDrivers.FirstOrDefault(d => {
+                            var s = (d.DescripcionDriver ?? "").Trim().ToLowerInvariant();
+                            return s.Contains("antibot") && !s.Contains("waf");
+                        });
+                        currentAntibot = abDrv?.Cantidad ?? 0m;
+                    }
+
+                    combinedDriver.Cantidad = currentAntibot + currentWaf;
+                }
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         // Sincronizar en el nuevo modelo TDriverEmpresa si la empresa está convocada
+        TDriverEmpresa? de = null;
         if (procEmp is not null && !string.IsNullOrWhiteSpace(targetDesc))
         {
             var cleanDesc = targetDesc.Trim();
@@ -2612,9 +2656,14 @@ public sealed class AdoptionProcessService(
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            var de = await dbContext.CompanyDrivers.FirstOrDefaultAsync(cd => 
+            de = await dbContext.CompanyDrivers.FirstOrDefaultAsync(cd => 
                 cd.IdProcesoAdopcionEmpresa == procEmp.IdProcesoAdopcionEmpresa && 
                 cd.IdDriverProceso == dp.IdDriverProceso, cancellationToken);
+
+            var unitPrice = targetDriver?.PrecioUnitario ?? de?.PrecioUnitario ?? 0m;
+            var moneda = !string.IsNullOrWhiteSpace(targetDriver?.Moneda)
+                ? targetDriver.Moneda
+                : (!string.IsNullOrWhiteSpace(de?.Moneda) ? de.Moneda : "USD");
 
             if (de is null)
             {
@@ -2623,9 +2672,9 @@ public sealed class AdoptionProcessService(
                     IdProcesoAdopcionEmpresa = procEmp.IdProcesoAdopcionEmpresa,
                     IdDriverProceso = dp.IdDriverProceso,
                     Cantidad = cantidad,
-                    PrecioUnitario = targetDriver.PrecioUnitario ?? 0m,
-                    CostoTotal = cantidad * (targetDriver.PrecioUnitario ?? 0m),
-                    Moneda = string.IsNullOrWhiteSpace(targetDriver.Moneda) ? "USD" : targetDriver.Moneda,
+                    PrecioUnitario = unitPrice,
+                    CostoTotal = cantidad * unitPrice,
+                    Moneda = moneda,
                     FechaModificacion = DateTime.UtcNow,
                     UsuarioModificacion = "REPORTERIA"
                 };
@@ -2641,7 +2690,7 @@ public sealed class AdoptionProcessService(
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return new AdoptionResult(true, "Driver de volumetría actualizado exitosamente.", targetDriver.IdDriver);
+        return new AdoptionResult(true, "Driver de volumetría actualizado exitosamente.", targetDriver?.IdDriver ?? de?.IdDriverEmpresa ?? 0);
     }
 
     public async Task<AdoptionResult> SaveVencimientoReportDriversAsync(
@@ -2807,6 +2856,8 @@ public sealed class AdoptionProcessService(
             return new AdoptionResult(false, "El driver del proceso no existe.");
         }
 
+        var deletedDesc = template.DescripcionDriver?.Trim() ?? string.Empty;
+
         // Eliminar valores por empresa correspondientes
         var companyDriverRows = await dbContext.CompanyDrivers
             .Where(cd => cd.IdDriverProceso == driverProcesoId)
@@ -2814,6 +2865,59 @@ public sealed class AdoptionProcessService(
 
         dbContext.CompanyDrivers.RemoveRange(companyDriverRows);
         dbContext.ProcessDrivers.Remove(template);
+
+        // Limpiar en DriversReporteVencimiento de TProcesoAdopcionTSI si estaba seleccionado
+        var proceso = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId, cancellationToken);
+        if (proceso != null && !string.IsNullOrWhiteSpace(proceso.DriversReporteVencimiento) && !string.IsNullOrWhiteSpace(deletedDesc))
+        {
+            try
+            {
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<string>>(proceso.DriversReporteVencimiento);
+                if (list != null)
+                {
+                    var countBefore = list.Count;
+                    list.RemoveAll(x => string.Equals(x.Trim(), deletedDesc, StringComparison.OrdinalIgnoreCase));
+                    if (list.Count != countBefore)
+                    {
+                        proceso.DriversReporteVencimiento = System.Text.Json.JsonSerializer.Serialize(list);
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        // Limpiar en la tabla legacy TDriver para las empresas de este proceso si existiera un registro homólogo
+        if (!string.IsNullOrWhiteSpace(deletedDesc))
+        {
+            var procEmpIds = await dbContext.AdoptionProcessCompanies
+                .Where(c => c.IdProcesoAdopcionTSI == procesoId)
+                .Select(c => c.IdProcesoAdopcionEmpresa)
+                .ToListAsync(cancellationToken);
+
+            var techIds = await dbContext.ImplementedTechnologies
+                .Where(it => procEmpIds.Contains(it.IdProcesoAdopcionEmpresa ?? 0))
+                .Select(it => it.IdTecnologiaTSIimplementadaSubsidiaria)
+                .ToListAsync(cancellationToken);
+
+            if (techIds.Count > 0)
+            {
+                var legacyRows = await dbContext.Drivers
+                    .Where(d => techIds.Contains(d.IdTecnologiaTSIimplementadaSubsidiaria) &&
+                                d.DescripcionDriver != null &&
+                                (d.DescripcionDriver.ToLower() == deletedDesc.ToLower() ||
+                                 d.DescripcionDriver.ToLower().StartsWith(deletedDesc.ToLower())))
+                    .ToListAsync(cancellationToken);
+
+                if (legacyRows.Count > 0)
+                {
+                    dbContext.Drivers.RemoveRange(legacyRows);
+                }
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditTrail.RecordRelationAsync("DELETE_PROCESS_DRIVER", "proceso-adopcion-driver", "TDriverProceso",

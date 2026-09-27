@@ -1,0 +1,797 @@
+@model Landscape.Tsi.Web.Models.ImplementationDetailsViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    var p = Model.Process;
+    ViewData["Title"] = $"{p.Codigo} - Detalle de Implementación";
+    var totalConvocadas = p.Empresas.Count;
+    var totalNoAplica = p.Empresas.Count(e => !e.Aplica || e.EstadoImplementacion == "NO_APLICA");
+    var totalAlineadas = p.Empresas.Count(e => e.Aplica && (e.EstadoImplementacion == "IMPLEMENTADO" || e.EstadoImplementacion == "ALINEADO"));
+    var totalEnDespliegue = p.Empresas.Count(e => e.Aplica && e.EstadoImplementacion == "EN_DESPLIEGUE");
+    var totalPendientes = p.Empresas.Count(e => e.Aplica && (e.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(e.EstadoImplementacion)));
+    var totalAplicables = totalConvocadas - totalNoAplica;
+    var pctAdopcion = totalAplicables > 0 ? Math.Round((double)totalAlineadas / totalAplicables * 100.0, 1) : 0.0;
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Implementations">Implementaciones</a></li>
+        <li aria-current="page">@p.Codigo</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="impl-details-title">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                <span class="badge bg-primary text-white font-monospace px-2 py-1">@p.Codigo</span>
+                <span class="badge @(p.EstadoAdopcionNombre.Contains("CANCEL") ? "bg-danger" : p.EstadoAdopcionNombre.Contains("IMPL") ? "bg-success" : "bg-info text-dark")">
+                    @p.EstadoAdopcionNombre
+                </span>
+                <span class="badge bg-secondary-subtle text-secondary border">Familia: @p.FamiliaNombre</span>
+                @if (p.TecnologiaEstandarId.HasValue && !string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) && p.TecnologiaEstandarNombre != "Por definir" && p.TecnologiaEstandarNombre != "No asignada")
+                {
+                    <span class="badge bg-success-subtle text-success border border-success fw-bold">
+                        ⭐ Estándar: @p.TecnologiaEstandarNombre
+                    </span>
+                }
+                else
+                {
+                    <span class="badge bg-warning-subtle text-dark border border-warning fw-bold">
+                        ⚠️ Estándar: Por definir
+                    </span>
+                }
+            </div>
+            <h1 id="impl-details-title" class="h2 mb-1">@p.Nombre</h1>
+            <p class="supporting-text mb-0">
+                Tecnología Estándar TSI: 
+                @if (p.TecnologiaEstandarId.HasValue && !string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) && p.TecnologiaEstandarNombre != "Por definir" && p.TecnologiaEstandarNombre != "No asignada")
+                {
+                    <strong class="text-primary fs-6">⭐ @p.TecnologiaEstandarNombre</strong>
+                }
+                else
+                {
+                    <span class="badge bg-warning-subtle text-dark border border-warning fs-6">Por definir</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(p.VendorNombre))
+                {
+                    <span class="text-muted ms-2">· Fabricante / Vendor: @p.VendorNombre</span>
+                }
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-info text-dark fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" asp-action="ImplementationReports" asp-route-id="@p.Id">
+                <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span>📊 Reportes & Cronograma</span>
+            </a>
+            <a class="btn btn-outline-secondary" asp-action="Implementations">Volver al Listado</a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="app-alert app-alert-success mb-3" role="status">
+            <strong>Éxito: </strong> @success
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Atención: </strong> @error
+        </div>
+    }
+
+    <!-- KPI Summary Grid -->
+    <div class="kpi-grid mb-4" aria-label="Indicadores Clave de Adopción de la Solicitud">
+        <div class="kpi-card">
+            <span>Subsidiarias Convocadas</span>
+            <strong class="text-dark">@totalConvocadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Alineadas / En Producción</span>
+            <strong class="text-success">@totalAlineadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>En Despliegue</span>
+            <strong class="text-warning">@totalEnDespliegue</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Pendientes</span>
+            <strong class="text-muted">@totalPendientes</strong>
+        </div>
+        <div class="kpi-card">
+            <span>No Aplica</span>
+            <strong class="text-secondary">@totalNoAplica</strong>
+        </div>
+        <div class="kpi-card">
+            <span>% Adopción Corporativa</span>
+            <strong class="text-primary">@pctAdopcion%</strong>
+        </div>
+    </div>
+
+    <!-- Barra de Progreso de Adopción -->
+    <div class="card p-3 shadow-sm border-0 mb-4 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-bold text-dark">Nivel Global de Adopción de la Tecnología Estándar:</span>
+            <span class="small fw-bold text-primary">@pctAdopcion% (@totalAlineadas de @totalAplicables subsidiarias aplicables)</span>
+        </div>
+        <div class="progress" style="height: 12px;">
+            <div class="progress-bar bg-success" role="progressbar" style="width: @pctAdopcion%" aria-valuenow="@pctAdopcion" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+    </div>
+
+    <!-- Ficha Técnica del Proceso y Contrato Corporativo -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light py-3">
+            <h2 class="h5 mb-0 text-dark">📝 Parámetros del Proceso y Contrato Corporativo</h2>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Líder Corporativo TSI</span>
+                    <strong>@(p.LiderCorporativo ?? "No asignado")</strong>
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Fecha Inicio / Cierre Estimado</span>
+                    <strong>@p.FechaInicio.ToString("dd/MM/yyyy") @(p.FechaEstimadaCierre.HasValue ? $"→ {p.FechaEstimadaCierre.Value:dd/MM/yyyy}" : "")</strong>
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Vigencia del Nuevo Contrato</span>
+                    @if (p.FechaInicioVigenciaContrato.HasValue && p.FechaFinVigenciaContrato.HasValue)
+                    {
+                        <strong class="text-success">📅 @p.FechaInicioVigenciaContrato.Value.ToString("dd/MM/yyyy") → @p.FechaFinVigenciaContrato.Value.ToString("dd/MM/yyyy")</strong>
+                    }
+                    else
+                    {
+                        <span class="text-muted">No especificada</span>
+                    }
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">N° Contrato Marco Corporativo</span>
+                    <strong>@(p.NumeroContratoCorporativo ?? "—")</strong>
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Tecnología Estándar Decretada</span>
+                    @if (p.TecnologiaEstandarId.HasValue && !string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) && p.TecnologiaEstandarNombre != "Por definir" && p.TecnologiaEstandarNombre != "No asignada")
+                    {
+                        <strong class="text-success d-inline-flex align-items-center gap-1">
+                            <span>⭐</span> @p.TecnologiaEstandarNombre
+                        </strong>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning-subtle text-dark border border-warning">Por definir</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(p.ProcesoEvaluacionOrigenNombre))
+                {
+                    <div class="col-12">
+                        <span class="text-muted small d-block">Evaluación TSI de Origen</span>
+                        <a asp-action="Details" asp-route-id="@p.ProcesoEvaluacionOrigenId" class="badge bg-light text-primary border text-decoration-none">
+                            🔍 @p.ProcesoEvaluacionOrigenNombre
+                        </a>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(p.Objetivo))
+                {
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Objetivo</span>
+                        <p class="small mb-0 text-dark">@p.Objetivo</p>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(p.Alcance))
+                {
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Alcance</span>
+                        <p class="small mb-0 text-dark">@p.Alcance</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Subsidiarias y Avance Técnico -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+            <div>
+                <h2 class="h5 mb-0 text-dark">🏢 Subsidiarias Participantes y Abordaje Técnico</h2>
+                <small class="text-muted">Seguimiento de la fecha de inicio/abordaje, especialista técnico responsable y documentación de arquitectura.</small>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Empresa Subsidiaria</th>
+                            <th scope="col">País</th>
+                            <th scope="col">Tecnología AS-IS</th>
+                            <th scope="col">Estado Implementación</th>
+                            <th scope="col">Fecha Abordaje / Inicio</th>
+                            <th scope="col">Especialista Técnico</th>
+                            <th scope="col">Arquitectura Implementada</th>
+                            <th scope="col" class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var emp in p.Empresas)
+                    {
+                        var asIs = !string.IsNullOrWhiteSpace(emp.TecnologiaAsIs)
+                            ? emp.TecnologiaAsIs
+                            : (emp.EstadoImplementacion == "IMPLEMENTADO" || emp.EstadoImplementacion == "ALINEADO"
+                                ? (p.TecnologiaEstandarNombre != "Por definir" ? p.TecnologiaEstandarNombre : "Por definir")
+                                : "Sin registrar");
+                        var isEstandar = !string.IsNullOrWhiteSpace(asIs) &&
+                                         p.TecnologiaEstandarId.HasValue &&
+                                         !string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) &&
+                                         p.TecnologiaEstandarNombre != "Por definir" &&
+                                         (asIs.Equals(p.TecnologiaEstandarNombre, StringComparison.OrdinalIgnoreCase) || asIs.Contains(p.TecnologiaEstandarNombre, StringComparison.OrdinalIgnoreCase));
+                        <tr>
+                            <td>
+                                <strong class="text-dark">@emp.EmpresaNombre</strong>
+                                @if (!emp.Aplica)
+                                {
+                                    <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">NO APLICA</span>
+                                    @if (!string.IsNullOrWhiteSpace(emp.JustificacionNoAplica))
+                                    {
+                                        <div class="text-muted small fst-italic">Motivo: @emp.JustificacionNoAplica</div>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-secondary border">@(emp.Pais ?? "—")</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    @if (!emp.Aplica || emp.EstadoImplementacion == "NO_APLICA")
+                                    {
+                                        <span class="badge rounded-pill bg-secondary" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Gris: No aplica"></span>
+                                        <span class="text-muted small">No aplica</span>
+                                    }
+                                    else if (emp.EstadoImplementacion == "IMPLEMENTADO" || emp.EstadoImplementacion == "ALINEADO")
+                                    {
+                                        <span class="badge rounded-pill bg-success" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Verde: Alineado al estándar"></span>
+                                        <div>
+                                            <span class="fw-semibold text-success">@asIs</span>
+                                            @if (isEstandar)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:0.68rem;" title="Tecnología Estándar Corporativa">⭐ Estándar</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-secondary border ms-1" style="font-size:0.68rem;" title="Tecnología adoptada por la subsidiaria">Propia</span>
+                                            }
+                                        </div>
+                                    }
+                                    else if (emp.EstadoImplementacion == "EN_DESPLIEGUE")
+                                    {
+                                        <span class="badge rounded-pill bg-warning text-dark" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Amarillo: En despliegue o migración"></span>
+                                        <div>
+                                            <span class="fw-semibold text-dark">@(asIs == "Sin registrar" ? "En migración al estándar" : asIs)</span>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.68rem;">En despliegue</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge rounded-pill bg-danger" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Rojo: No alineado al estándar / Pendiente"></span>
+                                        <div>
+                                            @if (asIs == "Sin registrar" || string.IsNullOrWhiteSpace(asIs))
+                                            {
+                                                <span class="text-danger small fw-semibold">Por definir / Sin registrar</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="fw-semibold text-danger">@asIs</span>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size:0.68rem;" title="No alineado aún al estándar corporativo">No alineado</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @if (!emp.Aplica || emp.EstadoImplementacion == "NO_APLICA")
+                                {
+                                    <span class="badge bg-secondary text-white">No Aplica</span>
+                                }
+                                else if (emp.EstadoImplementacion == "IMPLEMENTADO" || emp.EstadoImplementacion == "ALINEADO")
+                                {
+                                    <span class="badge bg-success text-white">✅ Implementado</span>
+                                }
+                                else if (emp.EstadoImplementacion == "EN_DESPLIEGUE")
+                                {
+                                    <span class="badge bg-warning text-dark">🚀 En Despliegue</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border">⏳ Pendiente</span>
+                                }
+                            </td>
+                            <td>
+                                @if (emp.FechaInicioAdopcion.HasValue)
+                                {
+                                    <span class="fw-semibold text-dark text-nowrap">📅 @emp.FechaInicioAdopcion.Value.ToString("dd/MM/yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Por definir</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(emp.EspecialistaTecnico))
+                                {
+                                    @if (emp.EspecialistaTecnico.Contains("Partner", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="small fw-semibold text-primary" title="Especialista de Partner Adjudicado / Proveedor">🤝 @emp.EspecialistaTecnico</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="small fw-semibold text-dark" title="Especialista de la Empresa Subsidiaria">👤 @emp.EspecialistaTecnico</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Sin asignar</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1">
+                                    @if (!string.IsNullOrWhiteSpace(emp.UrlArquitectura))
+                                    {
+                                        <a href="@emp.UrlArquitectura" target="_blank" rel="noopener noreferrer" class="badge bg-info-subtle text-dark border border-info text-decoration-none d-inline-flex align-items-center gap-1">
+                                            <span>🔗 Ver Repositorio / Wiki</span>
+                                        </a>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(emp.RutaArchivoArquitectura))
+                                    {
+                                        <a asp-action="DownloadArchitectureFile" asp-route-procesoEmpresaId="@emp.ProcesoEmpresaId" class="badge bg-success-subtle text-success border border-success text-decoration-none d-inline-flex align-items-center gap-1" title="Descargar archivo">
+                                            <span>📥 @(emp.NombreArchivoArquitectura ?? "Diagrama de Arquitectura")</span>
+                                        </a>
+                                    }
+                                    @if (string.IsNullOrWhiteSpace(emp.UrlArquitectura) && string.IsNullOrWhiteSpace(emp.RutaArchivoArquitectura))
+                                    {
+                                        <span class="text-muted small">Sin registro</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit-company-progress"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalEditCompanyProgress"
+                                            data-id="@emp.ProcesoEmpresaId"
+                                            data-empresa-id="@emp.EmpresaId"
+                                            data-name="@emp.EmpresaNombre"
+                                            data-aplica="@emp.Aplica.ToString().ToLower()"
+                                            data-justifica="@emp.JustificacionNoAplica"
+                                            data-fecha="@(emp.FechaInicioAdopcion?.ToString("yyyy-MM-dd"))"
+                                            data-especialista="@emp.EspecialistaTecnico"
+                                            data-contacto-id="@(emp.IdContactoEspecialista?.ToString() ?? "")"
+                                            data-url="@emp.UrlArquitectura"
+                                            data-estado="@emp.EstadoImplementacion"
+                                            data-archivo="@emp.NombreArchivoArquitectura"
+                                            data-tecnologiaasis="@(emp.TecnologiaAsIs ?? (isEstandar ? p.TecnologiaEstandarNombre : ""))">
+                                        ✏️ Actualizar Avance
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MODAL: ACTUALIZAR AVANCE DE SUBSIDIARIA -->
+<div class="modal fade" id="modalEditCompanyProgress" tabindex="-1" aria-labelledby="modalEditCompanyProgressLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <form asp-action="UpdateImplementationCompany" method="post" enctype="multipart/form-data" id="formUpdateCompany">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ProcesoId" value="@p.Id" />
+                <input type="hidden" name="ProcesoEmpresaId" id="modalProcesoEmpresaId" />
+
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title" id="modalEditCompanyProgressLabel">
+                        Actualizar Avance Técnico · <span id="modalEmpresaNombre" class="text-primary fw-bold"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch pt-2">
+                                <input type="checkbox" name="Aplica" value="true" class="form-check-input" id="modalAplica" checked />
+                                <label class="form-check-label fw-semibold" for="modalAplica">Aplica para esta tecnología</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6" id="groupJustificacion" style="display:none;">
+                            <label for="modalJustificacion" class="form-label small fw-semibold">Justificación No Aplica</label>
+                            <input type="text" name="JustificacionNoAplica" id="modalJustificacion" class="form-control form-control-sm" placeholder="Motivo técnico o de negocio..." />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="modalTecnologiaAsIsSelect" class="form-label fw-semibold">
+                                Tecnología AS-IS (Implementada / En uso por la empresa)
+                            </label>
+                            <select id="modalTecnologiaAsIsSelect" class="form-select">
+                                <option value="">-- Seleccionar o especificar tecnología AS-IS --</option>
+                                @if (!string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) && !p.TecnologiaEstandarNombre.Equals("Por definir", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@p.TecnologiaEstandarNombre">⭐ @p.TecnologiaEstandarNombre (Estándar Decretado TSI)</option>
+                                }
+                                @if (Model.TecnologiasDisponibles != null && Model.TecnologiasDisponibles.Count > 0)
+                                {
+                                    <optgroup label="Tecnologías del Catálogo / Familia">
+                                        @foreach (var tech in Model.TecnologiasDisponibles)
+                                        {
+                                            if (!string.Equals(tech.Label, p.TecnologiaEstandarNombre, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <option value="@tech.Label">@tech.Label</option>
+                                            }
+                                        }
+                                    </optgroup>
+                                }
+                                <option value="__CUSTOM__">➕ Otra tecnología (especificar por su cuenta)...</option>
+                            </select>
+                            <div id="groupCustomTecnologia" class="mt-2" style="display:none;">
+                                <input type="text" id="modalTecnologiaAsIsCustom" class="form-control" placeholder="Especifique el nombre de la tecnología que implementó la empresa..." />
+                            </div>
+                            <input type="hidden" name="TecnologiaAsIs" id="modalTecnologiaAsIs" />
+                            <div class="form-text">
+                                Puede ser la <strong>Tecnología Estándar decretada</strong> o la tecnología que la empresa implementó por su cuenta.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="modalEstado" class="form-label fw-semibold">Estado de Implementación *</label>
+                            <select name="EstadoImplementacion" id="modalEstado" class="form-select" required>
+                                <option value="PENDIENTE">⏳ Pendiente</option>
+                                <option value="EN_DESPLIEGUE">🚀 En Despliegue (Migración / Pruebas)</option>
+                                <option value="IMPLEMENTADO">✅ Implementado (En Producción)</option>
+                                <option value="NO_APLICA">⚪ No Aplica</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="modalFecha" class="form-label fw-semibold">Fecha de Abordaje / Inicio en Tecnología</label>
+                            <input type="date" name="FechaInicioAdopcion" id="modalFecha" class="form-control" />
+                            <small class="text-muted">Fecha en la que la empresa inició o completó su implementación.</small>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="modalEspecialistaSelect" class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span>Especialista Técnico a Cargo</span>
+                                <small class="text-muted fw-normal">Subsidiaria o Partner Adjudicado</small>
+                            </label>
+                            <select id="modalEspecialistaSelect" class="form-select">
+                                <option value="">-- Seleccionar Especialista Técnico --</option>
+                                <optgroup id="optgroupSubsidiarySpecialists" label="🏢 Especialistas de la Empresa">
+                                </optgroup>
+                                <optgroup id="optgroupPartnerSpecialists" label="🤝 Especialistas del Partner Adjudicado / Proveedor">
+                                </optgroup>
+                                <option value="__CUSTOM__">➕ Otro especialista (ingresar manualmente)...</option>
+                            </select>
+                            <div id="groupCustomEspecialista" class="mt-2" style="display:none;">
+                                <input type="text" id="modalEspecialistaCustom" class="form-control" placeholder="Especifique el nombre completo del especialista responsable..." />
+                            </div>
+                            <input type="hidden" name="EspecialistaTecnico" id="modalEspecialista" />
+                            <input type="hidden" name="IdContactoEspecialista" id="modalIdContactoEspecialista" />
+                            <div class="form-text">
+                                Puede seleccionar el <strong>ingeniero/focal de la subsidiaria</strong>, el <strong>especialista del Partner adjudicado</strong>, o escribir un nombre personalizado.
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="modalUrl" class="form-label fw-semibold">URL de Documentación de Arquitectura</label>
+                            <input type="url" name="UrlArquitectura" id="modalUrl" class="form-control" placeholder="https://confluence / repo / draw.io / wiki..." />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="modalArchivo" class="form-label fw-semibold">Adjuntar Archivo de Arquitectura (HLD / LLD / Diagrama)</label>
+                            <input type="file" name="ArchivoArquitectura" id="modalArchivo" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.drawio,.docx,.xlsx,.zip" />
+                            <div class="form-text">
+                                Formatos permitidos: PDF, PNG, JPG, DRAWIO, DOCX, XLSX, ZIP (Máx. 15 MB).
+                                <span id="currentFileBadge" class="badge bg-light text-dark border ms-2" style="display:none;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary fw-semibold">Guardar Avance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const specialistsCatalog = {
+            companyContacts: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EspecialistasEmpresas)),
+            partnerContacts: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EspecialistasPartners)),
+            processStandardTechId: @(p.TecnologiaEstandarId ?? 0)
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const modalEl = document.getElementById('modalEditCompanyProgress');
+            const chkAplica = document.getElementById('modalAplica');
+            const groupJust = document.getElementById('groupJustificacion');
+            const selEstado = document.getElementById('modalEstado');
+            const selTech = document.getElementById('modalTecnologiaAsIsSelect');
+            const groupCustom = document.getElementById('groupCustomTecnologia');
+            const txtCustom = document.getElementById('modalTecnologiaAsIsCustom');
+            const hidTech = document.getElementById('modalTecnologiaAsIs');
+
+            const selEsp = document.getElementById('modalEspecialistaSelect');
+            const groupCustomEsp = document.getElementById('groupCustomEspecialista');
+            const txtCustomEsp = document.getElementById('modalEspecialistaCustom');
+            const hidEsp = document.getElementById('modalEspecialista');
+            const hidContactId = document.getElementById('modalIdContactoEspecialista');
+            const optgroupCompany = document.getElementById('optgroupSubsidiarySpecialists');
+            const optgroupPartner = document.getElementById('optgroupPartnerSpecialists');
+
+            function syncTechValue() {
+                if (selTech.value === '__CUSTOM__') {
+                    groupCustom.style.display = 'block';
+                    hidTech.value = txtCustom.value.trim();
+                } else {
+                    groupCustom.style.display = 'none';
+                    hidTech.value = selTech.value;
+                }
+            }
+
+            function syncSpecialistValue() {
+                if (!selEsp) return;
+                if (selEsp.value === '__CUSTOM__') {
+                    groupCustomEsp.style.display = 'block';
+                    hidEsp.value = txtCustomEsp.value.trim();
+                    hidContactId.value = '';
+                } else if (selEsp.value) {
+                    groupCustomEsp.style.display = 'none';
+                    const selectedOpt = selEsp.selectedOptions[0];
+                    if (selectedOpt && selectedOpt.dataset && selectedOpt.dataset.type === 'empresa') {
+                        hidContactId.value = selectedOpt.dataset.contactId || '';
+                        hidEsp.value = selectedOpt.dataset.name || selectedOpt.value;
+                    } else {
+                        hidContactId.value = '';
+                        hidEsp.value = selEsp.value;
+                    }
+                } else {
+                    groupCustomEsp.style.display = 'none';
+                    hidEsp.value = '';
+                    hidContactId.value = '';
+                }
+            }
+
+            if (selTech) {
+                selTech.addEventListener('change', function () {
+                    syncTechValue();
+                    if (selTech.value === '__CUSTOM__') {
+                        txtCustom.focus();
+                    }
+                });
+            }
+
+            if (txtCustom) {
+                txtCustom.addEventListener('input', function () {
+                    if (selTech.value === '__CUSTOM__') {
+                        hidTech.value = this.value.trim();
+                    }
+                });
+            }
+
+            if (selEsp) {
+                selEsp.addEventListener('change', function () {
+                    syncSpecialistValue();
+                    if (selEsp.value === '__CUSTOM__') {
+                        txtCustomEsp.focus();
+                    }
+                });
+            }
+
+            if (txtCustomEsp) {
+                txtCustomEsp.addEventListener('input', function () {
+                    if (selEsp.value === '__CUSTOM__') {
+                        hidEsp.value = this.value.trim();
+                        hidContactId.value = '';
+                    }
+                });
+            }
+
+            chkAplica.addEventListener('change', function () {
+                if (!this.checked) {
+                    groupJust.style.display = 'block';
+                    selEstado.value = 'NO_APLICA';
+                } else {
+                    groupJust.style.display = 'none';
+                    if (selEstado.value === 'NO_APLICA') selEstado.value = 'PENDIENTE';
+                }
+            });
+
+            document.querySelectorAll('.btn-edit-company-progress').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.getElementById('modalProcesoEmpresaId').value = this.dataset.id;
+                    document.getElementById('modalEmpresaNombre').textContent = this.dataset.name;
+
+                    const aplica = this.dataset.aplica === 'true';
+                    chkAplica.checked = aplica;
+                    groupJust.style.display = aplica ? 'none' : 'block';
+                    document.getElementById('modalJustificacion').value = this.dataset.justifica || '';
+
+                    document.getElementById('modalFecha').value = this.dataset.fecha || '';
+                    document.getElementById('modalUrl').value = this.dataset.url || '';
+                    selEstado.value = this.dataset.estado || (aplica ? 'PENDIENTE' : 'NO_APLICA');
+
+                    // Poblar y sincronizar Especialistas (Empresa Subsidiaria y Partner)
+                    const empresaId = parseInt(this.dataset.empresaId || '0', 10);
+                    const currentEsp = (this.dataset.especialista || '').trim();
+                    const currentContactId = parseInt(this.dataset.contactoId || '0', 10);
+
+                    if (optgroupCompany && optgroupPartner) {
+                        optgroupCompany.innerHTML = '';
+                        optgroupCompany.label = `🏢 Especialistas de ${this.dataset.name || 'la Empresa'}`;
+
+                        const compContacts = specialistsCatalog.companyContacts.filter(c => c.EmpresaId === empresaId);
+                        if (compContacts.length === 0) {
+                            const emptyOpt = document.createElement('option');
+                            emptyOpt.disabled = true;
+                            emptyOpt.value = '';
+                            emptyOpt.textContent = 'Sin especialistas registrados para esta subsidiaria';
+                            optgroupCompany.appendChild(emptyOpt);
+                        } else {
+                            compContacts.forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value = c.Nombre;
+                                opt.dataset.type = 'empresa';
+                                opt.dataset.contactId = c.Id;
+                                opt.dataset.name = c.Nombre;
+                                const details = [c.Rol, c.Plataformas ? `Plat: ${c.Plataformas}` : null, c.Email ? c.Email : null].filter(Boolean).join(' · ');
+                                opt.textContent = `👤 ${c.Nombre}${details ? ` (${details})` : ''}`;
+                                optgroupCompany.appendChild(opt);
+                            });
+                        }
+
+                        optgroupPartner.innerHTML = '';
+                        if (specialistsCatalog.partnerContacts.length === 0) {
+                            const emptyOpt = document.createElement('option');
+                            emptyOpt.disabled = true;
+                            emptyOpt.value = '';
+                            emptyOpt.textContent = 'Sin especialistas de partner registrados';
+                            optgroupPartner.appendChild(emptyOpt);
+                        } else {
+                            const sortedPartners = [...specialistsCatalog.partnerContacts].sort((a, b) => {
+                                const aIsStd = specialistsCatalog.processStandardTechId > 0 && a.TecnologiaId === specialistsCatalog.processStandardTechId ? 1 : 0;
+                                const bIsStd = specialistsCatalog.processStandardTechId > 0 && b.TecnologiaId === specialistsCatalog.processStandardTechId ? 1 : 0;
+                                if (aIsStd !== bIsStd) return bIsStd - aIsStd;
+                                return (a.PartnerNombre || '').localeCompare(b.PartnerNombre || '');
+                            });
+
+                            sortedPartners.forEach(p => {
+                                const opt = document.createElement('option');
+                                const isStdPartner = specialistsCatalog.processStandardTechId > 0 && p.TecnologiaId === specialistsCatalog.processStandardTechId;
+                                const star = isStdPartner ? '⭐ ' : '';
+                                const badge = isStdPartner ? ' [Partner Adjudicado]' : '';
+                                opt.value = `${p.Nombre} (Partner: ${p.PartnerNombre})`;
+                                opt.dataset.type = 'partner';
+                                opt.dataset.partnerContactId = p.Id;
+                                opt.dataset.name = p.Nombre;
+                                opt.dataset.partner = p.PartnerNombre;
+                                const roleInfo = p.Rol ? ` · ${p.Rol}` : '';
+                                opt.textContent = `🤝 ${star}${p.Nombre} - ${p.PartnerNombre}${badge}${roleInfo}`;
+                                optgroupPartner.appendChild(opt);
+                            });
+                        }
+
+                        let espMatched = false;
+                        if (currentContactId > 0) {
+                            for (let opt of optgroupCompany.querySelectorAll('option')) {
+                                if (opt.dataset && parseInt(opt.dataset.contactId || '0', 10) === currentContactId) {
+                                    selEsp.value = opt.value;
+                                    hidContactId.value = currentContactId;
+                                    hidEsp.value = opt.dataset.name || opt.value;
+                                    espMatched = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!espMatched && currentEsp) {
+                            for (let opt of optgroupCompany.querySelectorAll('option')) {
+                                if (opt.value && opt.value.toLowerCase() === currentEsp.toLowerCase()) {
+                                    selEsp.value = opt.value;
+                                    hidContactId.value = opt.dataset.contactId || '';
+                                    hidEsp.value = opt.dataset.name || opt.value;
+                                    espMatched = true;
+                                    break;
+                                }
+                            }
+                            if (!espMatched) {
+                                for (let opt of optgroupPartner.querySelectorAll('option')) {
+                                    if (opt.value && (opt.value.toLowerCase() === currentEsp.toLowerCase() || (opt.dataset.name && opt.dataset.name.toLowerCase() === currentEsp.toLowerCase()))) {
+                                        selEsp.value = opt.value;
+                                        hidContactId.value = '';
+                                        hidEsp.value = opt.value;
+                                        espMatched = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (espMatched) {
+                            groupCustomEsp.style.display = 'none';
+                            txtCustomEsp.value = '';
+                        } else if (currentEsp.length > 0) {
+                            selEsp.value = '__CUSTOM__';
+                            groupCustomEsp.style.display = 'block';
+                            txtCustomEsp.value = currentEsp;
+                            hidEsp.value = currentEsp;
+                            hidContactId.value = '';
+                        } else {
+                            selEsp.value = '';
+                            groupCustomEsp.style.display = 'none';
+                            txtCustomEsp.value = '';
+                            hidEsp.value = '';
+                            hidContactId.value = '';
+                        }
+                    }
+
+                    // Sincronizar Tecnologia AS-IS
+                    const techVal = (this.dataset.tecnologiaasis || '').trim();
+                    let matched = false;
+                    if (selTech) {
+                        for (let i = 0; i < selTech.options.length; i++) {
+                            const opt = selTech.options[i];
+                            if (opt.value && opt.value !== '__CUSTOM__' && opt.value.toLowerCase() === techVal.toLowerCase()) {
+                                selTech.value = opt.value;
+                                matched = true;
+                                break;
+                            }
+                        }
+
+                        if (matched) {
+                            groupCustom.style.display = 'none';
+                            txtCustom.value = '';
+                            hidTech.value = selTech.value;
+                        } else if (techVal.length > 0) {
+                            selTech.value = '__CUSTOM__';
+                            groupCustom.style.display = 'block';
+                            txtCustom.value = techVal;
+                            hidTech.value = techVal;
+                        } else {
+                            selTech.value = '';
+                            groupCustom.style.display = 'none';
+                            txtCustom.value = '';
+                            hidTech.value = '';
+                        }
+                    }
+
+                    const currFile = this.dataset.archivo;
+                    const badgeFile = document.getElementById('currentFileBadge');
+                    if (currFile) {
+                        badgeFile.textContent = 'Actual: ' + currFile;
+                        badgeFile.style.display = 'inline-block';
+                    } else {
+                        badgeFile.style.display = 'none';
+                    }
+                });
+            });
+
+            const form = document.getElementById('formUpdateCompany');
+            if (form) {
+                form.addEventListener('submit', function () {
+                    syncTechValue();
+                    syncSpecialistValue();
+                });
+            }
+        });
+    </script>
+}

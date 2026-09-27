@@ -1,0 +1,220 @@
+@model Landscape.Tsi.Web.Models.ImplementationsIndexViewModel
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = "Implementaciones - Procesos de Adopción TSI";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li>Procesos de Adopción TSI</li>
+        <li aria-current="page">Implementaciones</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="implementations-title">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · FASE 3</p>
+            <h1 id="implementations-title" class="h2 mb-1">Implementaciones y Adopción Corporativa</h1>
+            <p class="supporting-text mb-0">
+                Gestión de solicitudes de implementación de tecnologías estándar corporativas, vigencia de nuevos contratos, convocatoria de subsidiarias y seguimiento del abordaje técnico.
+            </p>
+        </div>
+        @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+        {
+            <div class="d-flex gap-2">
+                <a class="md-button md-button-filled d-inline-flex align-items-center gap-2" asp-action="CreateImplementation">
+                    <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Nueva Solicitud de Implementación</span>
+                </a>
+            </div>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="app-alert app-alert-success mb-3" role="status">
+            <strong>Éxito: </strong> @success
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Atención: </strong> @error
+        </div>
+    }
+
+    <!-- KPI Summary Cards -->
+    <div class="kpi-grid mb-4" aria-label="Indicadores Clave de Implementaciones">
+        <div class="kpi-card">
+            <span>Solicitudes Activas</span>
+            <strong class="text-primary">@Model.TotalActivas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Totalmente Implementadas</span>
+            <strong class="text-success">@Model.TotalTerminadas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>Canceladas</span>
+            <strong class="text-danger">@Model.TotalCanceladas</strong>
+        </div>
+        <div class="kpi-card">
+            <span>% Adopción Promedio</span>
+            <strong class="text-info">@Model.PorcentajePromedioAdopcion%</strong>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="card p-3 mb-4 shadow-sm border-0 bg-light">
+        <form method="get" asp-action="Implementations" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label for="search" class="form-label small fw-semibold text-muted mb-1">Búsqueda rápida</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white">🔍</span>
+                    <input type="text" id="search" name="search" class="form-control" placeholder="Buscar por código, nombre, tecnología o familia..." value="@Model.Search" />
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label for="familiaId" class="form-label small fw-semibold text-muted mb-1">Familia Tecnológica</label>
+                <select id="familiaId" name="familiaId" class="form-select">
+                    <option value="">Todas las familias</option>
+                    @foreach (var f in Model.Familias)
+                    {
+                        <option value="@f.Id" selected="@(Model.FamiliaId == f.Id ? "selected" : null)">@f.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="estadoId" class="form-label small fw-semibold text-muted mb-1">Estado</label>
+                <select id="estadoId" name="estadoId" class="form-select">
+                    <option value="">Todos los estados</option>
+                    @foreach (var e in Model.EstadosAdopcion)
+                    {
+                        <option value="@e.Id" selected="@(Model.EstadoId == e.Id ? "selected" : null)">@e.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">Filtrar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search) || Model.FamiliaId.HasValue || Model.EstadoId.HasValue)
+                {
+                    <a asp-action="Implementations" class="btn btn-outline-secondary" title="Limpiar filtros">✕</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <!-- Responsive Table -->
+    <div class="responsive-table card shadow-sm border-0" role="region" aria-label="Listado de Implementaciones" tabindex="0">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Solicitud de Implementación</th>
+                    <th scope="col">Familia & Tecnología Estándar</th>
+                    <th scope="col">Vigencia Nuevo Contrato</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Líder TSI</th>
+                    <th scope="col">Grado de Adopción</th>
+                    <th scope="col" class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Processes.Count == 0)
+            {
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        <div class="py-3">
+                            <p class="fs-5 mb-2">No se encontraron solicitudes de implementación registradas.</p>
+                            <p class="text-secondary small mb-3">Registra una nueva solicitud para desplegar un estándar corporativo.</p>
+                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                            {
+                                <a class="md-button md-button-filled" asp-action="CreateImplementation">+ Registrar Solicitud de Implementación</a>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+            @foreach (var p in Model.Processes)
+            {
+                <tr class="@(!p.IsActivo ? "table-light text-muted opacity-75" : "")">
+                    <td data-label="Código">
+                        <code class="fw-bold fs-6">@p.Codigo</code>
+                        @if (!p.IsActivo)
+                        {
+                            <span class="badge bg-danger ms-1" style="font-size:0.65rem;">BAJA</span>
+                        }
+                    </td>
+                    <td data-label="Solicitud">
+                        <a class="fw-semibold text-decoration-none" asp-action="ImplementationDetails" asp-route-id="@p.Id">
+                            @p.Nombre
+                        </a>
+                        @if (!string.IsNullOrWhiteSpace(p.NumeroContratoCorporativo))
+                        {
+                            <div class="text-muted small">Contrato: @p.NumeroContratoCorporativo</div>
+                        }
+                    </td>
+                    <td data-label="Familia & Estándar">
+                        <span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:0.75rem;">@p.FamiliaNombre</span>
+                        @if (!string.IsNullOrWhiteSpace(p.TecnologiaEstandarNombre) && !p.TecnologiaEstandarNombre.Equals("Por definir", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div class="small fw-bold text-dark">
+                                ⭐ @p.TecnologiaEstandarNombre
+                            </div>
+                        }
+                        else
+                        {
+                            <div>
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:0.75rem;">
+                                    ⚠️ Por definir
+                                </span>
+                            </div>
+                        }
+                    </td>
+                    <td data-label="Vigencia Contrato">
+                        @if (p.FechaInicioVigenciaContrato.HasValue && p.FechaFinVigenciaContrato.HasValue)
+                        {
+                            <span class="small d-block text-nowrap">📅 @p.FechaInicioVigenciaContrato.Value.ToString("dd/MM/yyyy")</span>
+                            <span class="small text-muted d-block text-nowrap">→ @p.FechaFinVigenciaContrato.Value.ToString("dd/MM/yyyy")</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted small">Sin vigencia definida</span>
+                        }
+                    </td>
+                    <td data-label="Estado">
+                        <span class="badge @(p.IsCancelada || !p.IsActivo ? "bg-danger text-white" : p.IsTerminada ? "bg-success text-white" : "bg-primary text-white")">
+                            @p.EstadoAdopcion
+                        </span>
+                    </td>
+                    <td data-label="Líder TSI">
+                        <span class="small">@(p.LiderCorporativo ?? "No asignado")</span>
+                    </td>
+                    <td data-label="Grado de Adopción">
+                        <div class="small">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <strong class="text-primary">@p.PorcentajeAdopcion%</strong>
+                                <span class="text-muted" style="font-size:0.75rem;">@p.EmpresasAlineadas / @(p.TotalEmpresas - p.EmpresasNoAplica) impl.</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: @p.PorcentajeAdopcion%" aria-valuenow="@p.PorcentajeAdopcion" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-label="Acciones" class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-info text-dark" asp-action="ImplementationReports" asp-route-id="@p.Id" title="Ver grado de adopción y cronograma de abordaje">
+                            📊 Reportes & Cronograma
+                        </a>
+                        <a class="btn btn-sm btn-outline-primary ms-1" asp-action="ImplementationDetails" asp-route-id="@p.Id" title="Ver detalle de implementación">
+                            Detalle
+                        </a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

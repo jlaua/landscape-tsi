@@ -182,7 +182,14 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="fw-semibold text-primary">@row.TecnologiaAsIs</span>
+                                    @if (string.IsNullOrWhiteSpace(row.TecnologiaAsIs) || row.TecnologiaAsIs == "Sin tecnología registrada" || row.TecnologiaAsIs == "No configurada")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="fw-semibold text-primary">@row.TecnologiaAsIs</span>
+                                    }
                                 </td>
                                 <td>
                                     <span class="badge @(row.TipoContrato == "PAYG" ? "bg-info-subtle text-dark border border-info" : "bg-light text-secondary border")">
@@ -210,9 +217,11 @@
 
         <!-- PESTAÑA B: VENCIMIENTO DE CONTRATOS & PROYECCIÓN ACUMULADA -->
         @{
+            var availableDrivers = Model.VencimientoContratosReport.TodosLosDriversDisponibles?.ToList() ?? new List<string>();
             var activeDrivers = Model.VencimientoContratosReport.DriversSeleccionados?.ToList() ??
-                (Model.EsWaap ? new List<string> { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" } : new List<string>());
-            var availableDrivers = Model.VencimientoContratosReport.TodosLosDriversDisponibles?.ToList() ?? activeDrivers;
+                ((Model.EsWaap && availableDrivers.Count == 0)
+                    ? new List<string> { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" } 
+                    : availableDrivers.Take(4).ToList());
             var driverUnits = Model.VencimientoContratosReport.UnidadesPorDriver ?? new Dictionary<string, string>();
         }
         <div class="tab-pane fade" id="pane-vencimientos" role="tabpanel" aria-labelledby="tab-vencimientos">
@@ -319,7 +328,16 @@
                             <tr data-empresa-id="@row.EmpresaId" data-assigned-hito="@assignedHito">
                                 <td class="text-muted small td-venc-seq">@row.Secuencia</td>
                                 <td class="text-start fw-bold text-dark">@row.EmpresaNombre</td>
-                                <td class="text-start small text-primary">@(row.ProductoActual ?? (Model.EsWaap ? "WAF Local" : "No configurada"))</td>
+                                <td class="text-start small">
+                                    @if (string.IsNullOrWhiteSpace(row.ProductoActual) || row.ProductoActual == "Sin tecnología registrada" || row.ProductoActual == "No configurada")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-primary fw-medium">@row.ProductoActual</span>
+                                    }
+                                </td>
                                 <td class="text-end small text-nowrap fw-semibold td-monto-col">
                                     @if (row.MontoContrato.HasValue && row.MontoContrato.Value > 0)
                                     {
@@ -445,9 +463,9 @@
                     @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
                         procesoId = Model.ProcesoId,
                         milestones = Model.VencimientoContratosReport.PeriodosHito.Select(h => h.PeriodoLabel).ToList(),
-                        defaultDrivers = Model.EsWaap 
+                        defaultDrivers = (Model.EsWaap && availableDrivers.Count == 0)
                             ? new List<string> { "Throughput (mensual)", "Cantidad de aplicaciones (FQDN)", "Millones Request WAF (mensual)" }
-                            : (availableDrivers.Take(3).ToList()),
+                            : (availableDrivers.Take(4).ToList()),
                         driverUnits = driverUnits,
                         companies = Model.VencimientoContratosReport.Filas.Select(f => new {
                             empresaId = f.EmpresaId,
@@ -491,21 +509,112 @@
                         <table class="table table-hover table-striped align-middle mb-0 text-center" style="font-size:0.8rem;">
                             <thead class="table-light text-muted text-uppercase" style="font-size:0.7rem;">
                                 <tr>
-                                    <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
-                                    <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
-                                    <th scope="col" title="Throughput (mensual)">Throughput<br/><small class="text-muted text-lowercase fw-normal">(Gbps/mes)</small></th>
-                                    <th scope="col" title="Ancho de Banda (mensual)">Ancho Banda<br/><small class="text-muted text-lowercase fw-normal">(Gbps/mes)</small></th>
-                                    <th scope="col" title="Dominio">Dominio<br/><small class="text-muted fw-normal">(Dominio)</small></th>
-                                    <th scope="col" title="Sub Dominios">Sub Dominios<br/><small class="text-muted fw-normal">(Sub Dominios)</small></th>
-                                    <th scope="col" title="Cantidad de aplicaciones (FQDN)">Cant. Apps<br/><small class="text-muted fw-normal">FQDN</small></th>
-                                    <th scope="col" title="Cantidad de Aplicaciones FQDN en API Security">Apps FQDN<br/><small class="text-muted fw-normal">API Security</small></th>
-                                    <th scope="col" title="API Protection / API Security Request">API Protection<br/><small class="text-muted text-lowercase fw-normal">Req (M/mes)</small></th>
-                                    <th scope="col" title="Millones de Request (mensual / antibot)">Req Antibot<br/><small class="text-muted text-lowercase fw-normal">(M/mes)</small></th>
-                                    <th scope="col" title="Millones Request WAF (mensual)">Req WAF<br/><small class="text-muted text-lowercase fw-normal">(M/mes)</small></th>
-                                    <th scope="col" title="Millones Request Antibot+WAF (mensual)">Req Total<br/><small class="text-muted fw-normal">Antibot+WAF</small></th>
-                                    <th scope="col" title="Data Transfer (mensual)">Data Transfer<br/><small class="text-muted text-lowercase fw-normal">(TB/mes)</small></th>
-                                    <th scope="col" title="Request Size (mensual)">Request Size<br/><small class="text-muted fw-normal">(KB/GB)</small></th>
-                                    <th scope="col" title="Response Size (mensual)">Response Size<br/><small class="text-muted fw-normal">(KB/GB/TB)</small></th>
+                                    <th scope="col" class="text-start" style="min-width:180px; vertical-align:bottom; padding-bottom:8px;">Empresa</th>
+                                    <th scope="col" class="text-start" style="min-width:160px; vertical-align:bottom; padding-bottom:8px;">Tecnología AS-IS</th>
+                                    <th scope="col" class="th-driver-vertical" title="Throughput (mensual) (Gbps/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Throughput</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: Gbps/mes">Gbps/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Ancho de Banda (mensual) (Gbps/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Ancho Banda</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: Gbps/mes">Gbps/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Dominio (Dominio)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Dominio</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: Dominio">Dominio</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Sub Dominios (Sub Dominios)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Sub Dominios</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: Sub Dominios">Sub Dom</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Cantidad de aplicaciones (FQDN)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Cant. Apps</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: FQDN">FQDN</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Cantidad de Aplicaciones FQDN en API Security">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Apps FQDN</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: API Security">API Sec</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="API Protection / API Security Request (M/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">API Protection</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: M/mes">M/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Millones de Request (mensual / antibot) (M/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Req Antibot</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: M/mes">M/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Millones Request WAF (mensual) (M/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Req WAF</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: M/mes">M/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Millones Request Antibot+WAF (mensual)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Req Total</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: Antibot+WAF">WAF+Bot</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Data Transfer (mensual) (TB/mes)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Data Transfer</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: TB/mes">TB/mes</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Request Size (mensual)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Request Size</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: KB/GB">KB/GB</span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="th-driver-vertical" title="Response Size (mensual)">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">Response Size</span>
+                                            </div>
+                                            <span class="th-driver-unit-badge" title="Unidad: KB/GB/TB">KB/TB</span>
+                                        </div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="tbodyVolumetriaWaapReport">
@@ -576,21 +685,34 @@
                     }
 
                     <div class="table-responsive">
-                        <table class="table table-hover table-striped align-middle mb-0" style="font-size:0.85rem;">
+                        <table class="table table-bordered table-hover table-striped align-middle mb-0" style="font-size:0.85rem;">
                             <thead class="table-light text-muted text-uppercase" style="font-size:0.75rem;">
                                 <tr>
-                                    <th scope="col" style="min-width:180px;">Empresa</th>
-                                    <th scope="col" style="min-width:160px;">Tecnología AS-IS</th>
+                                    <th scope="col" style="min-width:180px; vertical-align:bottom; padding-bottom:8px;">Empresa</th>
+                                    <th scope="col" style="min-width:160px; vertical-align:bottom; padding-bottom:8px;">Tecnología AS-IS</th>
                                     @if (tieneColumnas)
                                     {
                                         @foreach (var col in matriz!.ColumnasDrivers)
                                         {
-                                            <th scope="col" class="text-end text-nowrap">@col</th>
+                                            var lastSlash = col.LastIndexOf(" / ");
+                                            var driverTitle = lastSlash > 0 ? col.Substring(0, lastSlash).Trim() : col;
+                                            var driverUnit = lastSlash > 0 ? col.Substring(lastSlash + 3).Trim() : "";
+                                            <th scope="col" class="th-driver-vertical" title="@col">
+                                                <div class="th-driver-vertical-cell">
+                                                    <div class="th-driver-vertical-container">
+                                                        <span class="th-driver-vertical-text">@driverTitle</span>
+                                                    </div>
+                                                    @if (!string.IsNullOrWhiteSpace(driverUnit))
+                                                    {
+                                                        <span class="th-driver-unit-badge" title="Unidad: @driverUnit">@driverUnit</span>
+                                                    }
+                                                </div>
+                                            </th>
                                         }
                                     }
                                     else
                                     {
-                                        <th scope="col" class="text-center">Drivers Operativos</th>
+                                        <th scope="col" class="text-center" style="vertical-align:bottom; padding-bottom:8px;">Drivers Operativos</th>
                                     }
                                 </tr>
                             </thead>
@@ -606,11 +728,20 @@
                                             </span>
                                             @fila.EmpresaNombre
                                         </td>
-                                        <td><span class="text-primary fw-semibold">@(fila.TecnologiaAsIs ?? "No configurada")</span></td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(fila.TecnologiaAsIs) || fila.TecnologiaAsIs == "Sin tecnología registrada" || fila.TecnologiaAsIs == "No configurada")
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-primary fw-semibold">@fila.TecnologiaAsIs</span>
+                                            }
+                                        </td>
                                         @foreach (var col in matriz.ColumnasDrivers)
                                         {
                                             var cant = fila.ValoresPorColumnaDriver.TryGetValue(col, out var val) ? val : 0m;
-                                            <td class="text-end fw-semibold editable-matrix-driver-cell @(cant > 0 ? "text-dark" : "text-muted")"
+                                            <td class="text-end fw-semibold editable-matrix-driver-cell td-driver-val @(cant > 0 ? "text-dark" : "text-muted")"
                                                 contenteditable="true"
                                                 data-driver-key="@col"
                                                 title="Haga clic para editar driver: @col">
@@ -631,7 +762,16 @@
                                             </span>
                                             @alc.EmpresaNombre
                                         </td>
-                                        <td><span class="text-primary fw-semibold">@(alc.TecnologiaAsIs ?? "No configurada")</span></td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(alc.TecnologiaAsIs) || alc.TecnologiaAsIs == "Sin tecnología registrada" || alc.TecnologiaAsIs == "No configurada")
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-primary fw-semibold">@alc.TecnologiaAsIs</span>
+                                            }
+                                        </td>
                                         <td class="text-center text-muted fst-italic">0 (Sin drivers cargados)</td>
                                     </tr>
                                 }
@@ -645,7 +785,7 @@
                                         @foreach (var col in matriz!.ColumnasDrivers)
                                         {
                                             var tot = matriz.TotalesPorColumna.TryGetValue(col, out var totVal) ? totVal : 0m;
-                                            <td class="text-end text-warning">@FormatSmart(tot)</td>
+                                            <td class="text-end text-warning td-driver-val">@FormatSmart(tot)</td>
                                         }
                                     </tr>
                                 </tfoot>
@@ -711,15 +851,19 @@
                     <table class="table table-bordered table-hover align-middle mb-0 text-center" style="font-size:0.8rem;">
                         <thead class="table-light text-muted" style="font-size:0.75rem;">
                             <tr>
-                                <th scope="col" class="text-start" style="min-width:160px;">Empresa</th>
-                                <th scope="col" class="text-start" style="min-width:140px;">Tecnología AS-IS</th>
+                                <th scope="col" class="text-start" style="min-width:160px; vertical-align:bottom; padding-bottom:8px;">Empresa</th>
+                                <th scope="col" class="text-start" style="min-width:140px; vertical-align:bottom; padding-bottom:8px;">Tecnología AS-IS</th>
                                 @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
                                 {
-                                    <th scope="col" style="min-width:90px;" title="@col">
-                                        <div class="small fw-semibold text-wrap" style="max-width:120px; margin:0 auto;">@col</div>
+                                    <th scope="col" class="th-driver-vertical th-cap-vertical" title="@col">
+                                        <div class="th-driver-vertical-cell">
+                                            <div class="th-driver-vertical-container">
+                                                <span class="th-driver-vertical-text">@col</span>
+                                            </div>
+                                        </div>
                                     </th>
                                 }
-                                <th scope="col" class="text-start" style="min-width:200px;">Comentario Subsidiaria</th>
+                                <th scope="col" class="text-start" style="min-width:200px; vertical-align:bottom; padding-bottom:8px;">Comentario Subsidiaria</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyCapacidadesReport">
@@ -731,8 +875,16 @@
                                         <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
                                     </span>
                                     @row.EmpresaNombre
+                                <td class="text-start small">
+                                    @if (string.IsNullOrWhiteSpace(row.TecnologiaAsIs) || row.TecnologiaAsIs == "Sin tecnología registrada" || row.TecnologiaAsIs == "No configurada")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-primary fw-medium">@row.TecnologiaAsIs</span>
+                                    }
                                 </td>
-                                <td class="text-start text-primary small">@(row.TecnologiaAsIs ?? "No configurada")</td>
                                 @foreach (var col in Model.CapacidadesMatrixReport.ColumnasCapacidades)
                                 {
                                     var cell = row.Capacidades.TryGetValue(col, out var c) ? c : null;
@@ -817,7 +969,16 @@
                             {
                                 <tr data-empresa-id="@drv.EmpresaId">
                                     <td class="fw-bold text-dark">@drv.EmpresaNombre</td>
-                                    <td><span class="text-primary fw-semibold">@(drv.TecnologiaAsIs ?? "No configurada")</span></td>
+                                    <td>
+                                        @if (string.IsNullOrWhiteSpace(drv.TecnologiaAsIs) || drv.TecnologiaAsIs == "Sin tecnología registrada" || drv.TecnologiaAsIs == "No configurada")
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border">Sin tecnología registrada</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-primary fw-semibold">@drv.TecnologiaAsIs</span>
+                                        }
+                                    </td>
                                     <td>
                                         @if (drv.DriverId > 0)
                                         {
@@ -1743,7 +1904,7 @@
     }
 
     /* ==================================================== */
-    /* REPORTE 5: ENCABEZADOS VERTICALES A 90 GRADOS       */
+    /* ENCABEZADOS VERTICALES A 90 GRADOS (DRIVERS & CAPACIDADES) */
     /* ==================================================== */
     .th-driver-vertical {
         vertical-align: bottom !important;
@@ -1755,6 +1916,14 @@
         padding: 6px 2px 4px 2px !important;
         background-color: #f8fafc;
         border-bottom: 2px solid #cbd5e1 !important;
+    }
+    .th-cap-vertical {
+        width: 54px;
+        min-width: 50px;
+        max-width: 68px;
+    }
+    .th-cap-vertical .th-driver-vertical-container {
+        max-height: 145px;
     }
     .th-driver-vertical-cell {
         display: flex;

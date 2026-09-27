@@ -614,6 +614,148 @@ public sealed class MasterTablesController(
         });
     }
 
+    [HttpGet("vendor/{id:int}/technologies/create-options")]
+    public async Task<IActionResult> GetVendorTechnologyCreateOptions(int id, CancellationToken cancellationToken)
+    {
+        var familias = await DbContext.Families.AsNoTracking()
+            .OrderBy(f => f.Nombre)
+            .Select(f => new { id = f.Id, nombre = f.Nombre ?? "—" })
+            .ToListAsync(cancellationToken);
+
+        var versiones = await DbContext.DeploymentVersions.AsNoTracking()
+            .Where(v => v.EsActivo)
+            .OrderBy(v => v.Orden)
+            .Select(v => new { id = v.Id, nombre = v.Nombre ?? "—" })
+            .ToListAsync(cancellationToken);
+
+        var estados = await DbContext.TechnologyAdoptionStates.AsNoTracking()
+            .OrderBy(e => e.Nombre)
+            .Select(e => new { id = e.Id, nombre = e.Nombre ?? "—" })
+            .ToListAsync(cancellationToken);
+
+        var posturas = await DbContext.RoadmapPostures.AsNoTracking()
+            .OrderBy(p => p.Nombre)
+            .Select(p => new { id = p.Id, nombre = p.Nombre ?? "—" })
+            .ToListAsync(cancellationToken);
+
+        return Json(new
+        {
+            familias,
+            versionesDesplegadas = versiones,
+            estadosAdopcion = estados,
+            posturasRoadmap = posturas
+        });
+    }
+
+    [HttpGet("vendor/{id:int}/technologies/available")]
+    public async Task<IActionResult> GetAvailableVendorTechnologies(int id, [FromQuery] string? search, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        var available = await catalogService.GetAvailableTechnologiesForVendorAsync(id, search, cancellationToken);
+        return Json(new
+        {
+            vendorId = id,
+            totalCount = available.Count,
+            items = available.Select(t => new
+            {
+                id = t.Id,
+                nombreCorporativo = t.NombreCorporativo,
+                nombreLocal = t.NombreLocal ?? "—",
+                familia = t.Familia ?? "—",
+                estadoAdopcion = t.EstadoAdopcion ?? "—"
+            })
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/technologies/associate")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> AssociateVendorTechnology(int id, [FromBody] AssociateTechnologyRequest? request, CancellationToken cancellationToken)
+    {
+        if (request is null || request.TecnologiaId <= 0)
+        {
+            return BadRequest(new { message = "Seleccione una tecnología válida." });
+        }
+
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        TryGetActorUserId(out var actorUserId);
+        await catalogService.AssociateTechnologyToVendorAsync(id, request.TecnologiaId, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Tecnología asociada exitosamente al fabricante."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/technologies/{techId:int}/disassociate")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> DisassociateVendorTechnology(int id, int techId, CancellationToken cancellationToken)
+    {
+        var vendorDefinition = MasterCatalogRegistry.GetByCode("vendor");
+        if (vendorDefinition is null) return NotFound();
+
+        var vendor = await catalogService.GetAsync(vendorDefinition, id, cancellationToken);
+        if (vendor is null) return NotFound();
+
+        TryGetActorUserId(out var actorUserId);
+        await catalogService.DisassociateTechnologyFromVendorAsync(id, techId, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Tecnología desasociada del fabricante exitosamente."
+        });
+    }
+
+    [HttpPost("vendor/{id:int}/technologies/create")]
+    [Authorize(Policy = Permissions.CatalogCreate)]
+    public async Task<IActionResult> CreateVendorTechnology(int id, [FromBody] QuickCreateTechnologyDto? request, CancellationToken cancellationToken)
+    {
+        var corpName = request?.NombreCorporativo?.Trim();
+        if (string.IsNullOrWhiteSpace(corpName))
+        {
+            return BadRequest(new { message = "El nombre corporativo de la tecnología es obligatorio." });
+        }
+
+        var techDefinition = MasterCatalogRegistry.GetByCode("tecnologia-tsi");
+        if (techDefinition is null) return NotFound();
+
+        TryGetActorUserId(out var actorUserId);
+
+        var values = new Dictionary<string, string?>
+        {
+            ["nombreCorporativo"] = corpName,
+            ["nombreLocal"] = request?.NombreLocal?.Trim(),
+            ["familia"] = request?.IdFamilia?.ToString(),
+            ["vendor"] = id.ToString(),
+            ["versionDesplegada"] = request?.IdVersionDesplegada?.ToString(),
+            ["grupo"] = request?.Grupo?.Trim(),
+            ["estadoAdopcion"] = request?.IdEstadoAdopcion?.ToString(),
+            ["posturaRoadmap"] = request?.IdPosturaRoadmap?.ToString(),
+            ["licenciamiento"] = request?.Licenciamiento?.Trim(),
+            ["entorno"] = request?.Entorno?.Trim()
+        };
+
+        var newTechId = await catalogService.CreateAsync(techDefinition, values, actorUserId, HttpContext.TraceIdentifier, cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            id = newTechId,
+            message = "Tecnología registrada y asociada exitosamente al fabricante."
+        });
+    }
+
     [HttpGet("vendor/{id:int}/contacts")]
     public async Task<IActionResult> GetVendorContacts(int id, CancellationToken cancellationToken)
     {

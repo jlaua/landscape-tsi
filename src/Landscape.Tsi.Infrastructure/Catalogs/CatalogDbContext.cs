@@ -60,7 +60,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         Map<TFuncionalidad>(b, "TFuncionalidad", "idFuncionalidad", (e, p) => { p(e, x => x.IdCapacidad, "idCapacidad"); p(e, x => x.Nombre, "nombreFuncionalidad"); p(e, x => x.Descripcion, "descripcionFuncionalidad"); p(e, x => x.IdEstado, "idEstadoCoberturaFuncionalidad"); });
         Map<TMEstadoFuncionalidad>(b, "TMEstadoFuncionalidad", "idEstadoCoberturaFuncionalidad", (e, p) => { p(e, x => x.Nombre, "nombreEstadoFuncionalidad"); p(e, x => x.Descripcion, "descripcionEstadoFuncionalidad"); });
         Map<TEstadoFaseAdopcion>(b, "TEstadoFaseAdopcion", "idEstadoFaseAdopcion", (e, p) => { p(e, x => x.Nombre, "nombreFaseAdopcion"); p(e, x => x.Descripcion, "descripcionFaseAdopcion"); });
-        Map<TTecnologiaTSI>(b, "TTecnologiaTSI", "idTecnologiaTSI", (e, p) => { p(e, x => x.NombreCorporativo, "nombreTecnologiaAlternativa1-Corporativo"); p(e, x => x.NombreLocal, "nombreTecnologiaAlternativa2-Local"); p(e, x => x.IdFamilia, "idFamilia"); p(e, x => x.Grupo, "grupoQpertenece"); p(e, x => x.IdEstadoAdopcion, "idEstadoAdopcionTSI"); p(e, x => x.IdPostura, "idPosturaResumenRoadmap"); p(e, x => x.FechaEvaluacion, "fechaCompromisoEvaluacionCorporativo", "datetime2(3)"); p(e, x => x.FechaFinContrato, "fechaFinDeContratoMasCercanaCorporativo", "datetime2(3)"); p(e, x => x.FechaAdjudicacion, "fechaDeAdjudicacionCorporativo", "datetime2(3)"); p(e, x => x.Licenciamiento, "modeloEsquemaLicenciamientoSubscripcion"); p(e, x => x.Entorno, "entornoImplementacion"); p(e, x => x.Referencia, "linkReferencia-Fuente"); p(e, x => x.Responsable, "responsableTecnologiaTSI"); p(e, x => x.UnidadResponsable, "unidadResponsableTecnologiaTSI"); p(e, x => x.CategoriaAsIs, "categoriaAS-IS"); p(e, x => x.Fuente, "flagFuente"); });
+        Map<TTecnologiaTSI>(b, "TTecnologiaTSI", "idTecnologiaTSI", (e, p) => { p(e, x => x.NombreCorporativo, "nombreTecnologiaAlternativa1-Corporativo"); p(e, x => x.NombreLocal, "nombreTecnologiaAlternativa2-Local"); p(e, x => x.IdFamilia, "idFamilia"); p(e, x => x.IdVendor, "idVendor"); p(e, x => x.IdVersionDesplegada, "idVersionDesplegada"); p(e, x => x.Grupo, "grupoQpertenece"); p(e, x => x.IdEstadoAdopcion, "idEstadoAdopcionTSI"); p(e, x => x.IdPostura, "idPosturaResumenRoadmap"); p(e, x => x.FechaEvaluacion, "fechaCompromisoEvaluacionCorporativo", "datetime2(3)"); p(e, x => x.FechaFinContrato, "fechaFinDeContratoMasCercanaCorporativo", "datetime2(3)"); p(e, x => x.FechaAdjudicacion, "fechaDeAdjudicacionCorporativo", "datetime2(3)"); p(e, x => x.Licenciamiento, "modeloEsquemaLicenciamientoSubscripcion"); p(e, x => x.Entorno, "entornoImplementacion"); p(e, x => x.Referencia, "linkReferencia-Fuente"); p(e, x => x.Responsable, "responsableTecnologiaTSI"); p(e, x => x.UnidadResponsable, "unidadResponsableTecnologiaTSI"); p(e, x => x.CategoriaAsIs, "categoriaAS-IS"); p(e, x => x.Fuente, "flagFuente"); });
         Map<TMFamilia>(b, "TMFamilia", "idFamilia", (e, p) => { p(e, x => x.Nombre, "nombreFamilia"); p(e, x => x.Descripcion, "descripcionFamilia"); });
         Map<TCasosDeUso>(b, "TCasosDeUso", "idCasosDeUso", (e, p) => { p(e, x => x.IdTecnologia, "idTecnologiaTSI"); p(e, x => x.Nombre, "casoDeUso"); p(e, x => x.Descripcion, "descripcionCasoDeUso"); p(e, x => x.IdEstandarTecnologia, "idEstandarTecnologia"); });
         Map<TEmpresaSubsidiaria>(b, "TEmpresaSubsidiaria", "idEmpresaSubsidiaria", (e, p) => { p(e, x => x.Nombre, "nombreEmpresa"); p(e, x => x.Alias2, "alias2"); p(e, x => x.Agrupador, "alias3-agrupador"); p(e, x => x.Pais, "Pais"); p(e, x => x.Ciudad, "ciudad"); p(e, x => x.Rubro, "Rubro"); p(e, x => x.ContactoCiso, "contactoCiso"); });
@@ -88,6 +88,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
         b.Entity<TTecnologiaTSI>().HasOne<TMFamilia>().WithMany().HasForeignKey(x => x.IdFamilia).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TTecnologiaTSI>().HasOne<TMEstadoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdEstadoAdopcion).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TTecnologiaTSI>().HasOne<TMPosturaRoadmap>().WithMany().HasForeignKey(x => x.IdPostura).OnDelete(DeleteBehavior.NoAction);
+        b.Entity<TTecnologiaTSI>().HasOne<TVendor>().WithMany().HasForeignKey(x => x.IdVendor).OnDelete(DeleteBehavior.NoAction);
+        b.Entity<TTecnologiaTSI>().HasOne<TMVersionDesplegada>().WithMany().HasForeignKey(x => x.IdVersionDesplegada).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TCasosDeUso>().HasOne<TTecnologiaTSI>().WithMany().HasForeignKey(x => x.IdTecnologia).OnDelete(DeleteBehavior.NoAction);
         b.Entity<TCiso>().HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresa).OnDelete(DeleteBehavior.NoAction);
 
@@ -110,9 +112,19 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.UsuarioCreacion).HasColumnName("usuarioCreacion").HasMaxLength(100);
             entity.Property(x => x.DriversReporteVencimiento).HasColumnName("driversReporteVencimiento").HasMaxLength(1000);
             entity.Property(x => x.OrdenEmpresas).HasColumnName("ordenEmpresas").HasMaxLength(2000);
+            entity.Property(x => x.TipoProceso).HasColumnName("tipoProceso").HasMaxLength(30);
+            entity.Property(x => x.IdFamilia).HasColumnName("idFamilia");
+            entity.Property(x => x.IdTecnologiaEstandar).HasColumnName("idTecnologiaEstandar");
+            entity.Property(x => x.IdProcesoEvaluacionOrigen).HasColumnName("idProcesoEvaluacionOrigen");
+            entity.Property(x => x.FechaInicioVigenciaContrato).HasColumnName("fechaInicioVigenciaContrato").HasColumnType("date");
+            entity.Property(x => x.FechaFinVigenciaContrato).HasColumnName("fechaFinVigenciaContrato").HasColumnType("date");
+            entity.Property(x => x.NumeroContratoCorporativo).HasColumnName("numeroContratoCorporativo").HasMaxLength(100);
 
             entity.HasOne<TBuildingBlock>().WithMany().HasForeignKey(x => x.IdBuildingBlock).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TMEstadoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdEstadoAdopcionTSI).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TMFamilia>().WithMany().HasForeignKey(x => x.IdFamilia).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TTecnologiaTSI>().WithMany().HasForeignKey(x => x.IdTecnologiaEstandar).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TProcesoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdProcesoEvaluacionOrigen).OnDelete(DeleteBehavior.NoAction);
         });
 
         // Mapeo TProcesoAdopcionEmpresa
@@ -128,11 +140,20 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.JustificacionNoAplica).HasColumnName("justificacionNoAplica").HasMaxLength(1000);
             entity.Property(x => x.ComentarioCapacidades).HasColumnName("comentarioCapacidades").HasMaxLength(1000);
             entity.Property(x => x.FechaIncorporacion).HasColumnName("fechaIncorporacion").HasColumnType("date");
+            entity.Property(x => x.FechaInicioAdopcion).HasColumnName("fechaInicioAdopcion").HasColumnType("date");
+            entity.Property(x => x.EspecialistaTecnico).HasColumnName("especialistaTecnico").HasMaxLength(150);
+            entity.Property(x => x.IdContactoEspecialista).HasColumnName("idContactoEspecialista");
+            entity.Property(x => x.UrlArquitectura).HasColumnName("urlArquitectura").HasMaxLength(500);
+            entity.Property(x => x.RutaArchivoArquitectura).HasColumnName("rutaArchivoArquitectura").HasMaxLength(500);
+            entity.Property(x => x.NombreArchivoArquitectura).HasColumnName("nombreArchivoArquitectura").HasMaxLength(255);
+            entity.Property(x => x.EstadoImplementacion).HasColumnName("estadoImplementacion").HasMaxLength(50);
+            entity.Property(x => x.TecnologiaAsIs).HasColumnName("tecnologiaAsIs").HasMaxLength(255);
             entity.Property(x => x.FechaModificacion).HasColumnName("fechaModificacion").HasColumnType("datetime2(0)");
             entity.Property(x => x.UsuarioModificacion).HasColumnName("usuarioModificacion").HasMaxLength(100);
 
             entity.HasOne<TProcesoAdopcionTSI>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionTSI).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TContactoEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdContactoEspecialista).OnDelete(DeleteBehavior.NoAction);
         });
 
         // Mapeo TEstandarTecnologiaHistorico
@@ -198,11 +219,13 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             entity.Property(x => x.EsTecnologiaPrimaria).HasColumnName("esTecnologiaPrimaria");
             entity.Property(x => x.EsInstanciaCorporativa).HasColumnName("esInstanciaCorporativa");
             entity.Property(x => x.VersionDesplegada).HasColumnName("versionDesplegada").HasMaxLength(50);
+            entity.Property(x => x.IdVersionDesplegada).HasColumnName("idVersionDesplegada");
 
             entity.HasOne<TEmpresaSubsidiaria>().WithMany().HasForeignKey(x => x.IdEmpresaSubsidiaria).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TTecnologiaTSI>().WithMany().HasForeignKey(x => x.IdTecnologiaTSI).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TBuildingBlock>().WithMany().HasForeignKey(x => x.IdBuildingBlock).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne<TProcesoAdopcionEmpresa>().WithMany().HasForeignKey(x => x.IdProcesoAdopcionEmpresa).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<TMVersionDesplegada>().WithMany().HasForeignKey(x => x.IdVersionDesplegada).OnDelete(DeleteBehavior.NoAction);
         });
 
         // Mapeo TDriver (histórico/compatibilidad)

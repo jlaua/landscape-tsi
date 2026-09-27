@@ -174,3 +174,11 @@ prevalidación de `db-landscape-tsi-dev-v2` confirmó 1 fila, 1 par distinto y 0
 grupos duplicados. Se propone como deuda técnica un índice `UNIQUE` sobre
 `(idBuildingBlock, idTecnologiaTSI)`; la propuesta SQL está documentada y no
 se aplica automáticamente.
+
+## Relación Vendor – Tecnología TSI y Versión Desplegada
+
+A partir de septiembre 2026:
+- `TTecnologiaTSI` incorpora la relación directa `idVendor` con `dbo.TMVendor` y `idVersionDesplegada` con `dbo.TMVersionDesplegada`.
+- La interfaz de administración de Vendors (`TMVendor`) cuenta con un modal interactivo que permite visualizar tecnologías asociadas, desasociar, buscar y asociar tecnologías existentes, o dar de alta rápida nuevas tecnologías TSI vinculadas automáticamente al Vendor.
+- `TTecnologiaTSIimplementadaSubsidiaria` migra su campo de versión desplegada de texto abierto a una clave foránea `idVersionDesplegada` mapeada al catálogo relacional `dbo.TMVersionDesplegada`.
+

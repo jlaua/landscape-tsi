@@ -601,5 +601,49 @@ public sealed class AdoptionProcessHttpTests
 
         public Task<AdoptionResult> UpdateCompanyOrderAsync(int procesoId, IEnumerable<int> orderedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<IReadOnlyList<ImplementationProcessSummaryDto>> ListImplementationsAsync(CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<ImplementationProcessSummaryDto> list = [
+                new ImplementationProcessSummaryDto(10, "IMPL-TEST-001", "Implementación WAAP 2026", 1, "Web Security", 100, "Cloudflare WAAP", 1, "WAAP BB", DateTime.Today, DateTime.Today.AddYears(1), "CTR-2026-001", 1, "En Despliegue", "Líder TSI", DateTime.Today, DateTime.Today.AddMonths(6), 3, 1, 1, 1, 0, 33.3, true, false, false)
+            ];
+            return Task.FromResult(list);
+        }
+
+        public Task<ImplementationProcessDetailDto?> GetImplementationDetailAsync(int procesoId, CancellationToken cancellationToken = default)
+        {
+            if (procesoId <= 0) return Task.FromResult<ImplementationProcessDetailDto?>(null);
+            var emp = new ImplementationCompanyRowDto(1, 1, "Banco Subsidiaria", "Perú", "Banca", true, null, DateTime.Today, "Especialista Juan", 1, "https://wiki.corp", null, null, "IMPLEMENTADO", DateTime.Today);
+            return Task.FromResult<ImplementationProcessDetailDto?>(new ImplementationProcessDetailDto(
+                procesoId, "IMPL-TEST-001", "Implementación WAAP 2026", 1, "Web Security", 100, "Cloudflare WAAP", "Cloudflare", 1, "WAAP BB", "Seguridad", DateTime.Today, DateTime.Today.AddYears(1), "CTR-2026-001", 1, "En Despliegue", "Objetivo", "Alcance", "Líder TSI", DateTime.Today, DateTime.Today.AddMonths(6), null, null, [emp]));
+        }
+
+        public Task<AdoptionResult> CreateImplementationProcessAsync(CreateImplementationProcessCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", 10));
+
+        public Task<AdoptionResult> UpdateImplementationProcessAsync(UpdateImplementationProcessCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", command.ProcesoId));
+
+        public Task<AdoptionResult> UpdateImplementationCompanyAsync(UpdateImplementationCompanyCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok", command.ProcesoEmpresaId));
+
+        public Task<ImplementationReportsDto?> GetImplementationReportsAsync(int procesoId, CancellationToken cancellationToken = default)
+        {
+            if (procesoId <= 0) return Task.FromResult<ImplementationReportsDto?>(null);
+            var fila = new ImplementationCompanyAlignmentRowDto(1, 1, "Banco Subsidiaria", "Perú", "Banca", true, null, "IMPLEMENTADO", DateTime.Today, "Especialista Juan", "https://wiki.corp", null, false);
+            var periodo = new ImplementationTimelinePeriodDto("2026-09", "Sep 2026", 2026, 9, 1);
+            var filaTimeline = new ImplementationCompanyTimelineRowDto(1, 1, "Banco Subsidiaria", "Perú", "Banca", "IMPLEMENTADO", DateTime.Today, "Especialista Juan", "Sep 2026", new Dictionary<string, bool> { ["2026-09"] = true });
+            return Task.FromResult<ImplementationReportsDto?>(new ImplementationReportsDto(
+                procesoId, "IMPL-TEST-001", "Implementación WAAP 2026", "Web Security", "Cloudflare WAAP", "Cloudflare", DateTime.Today, DateTime.Today.AddYears(1), "CTR-2026-001", "Líder TSI",
+                1, 1, 1, 0, 0, 0, 100.0, [fila], [periodo], [filaTimeline], new Dictionary<string, int> { ["2026-09"] = 1 }, new Dictionary<string, double> { ["2026-09"] = 100.0 }));
+        }
+
+        public Task<IReadOnlyList<StandardTechnologyDto>> GetCorporateStandardsByFamilyAsync(int? familiaId, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<StandardTechnologyDto> list = [
+                new StandardTechnologyDto(1, 1, 100, "Cloudflare WAAP", "Cloudflare", null, null, "PRINCIPAL", "ACTIVO_VIGENTE", DateTime.Today, null, null, null, [])
+            ];
+            return Task.FromResult(list);
+        }
     }
 }

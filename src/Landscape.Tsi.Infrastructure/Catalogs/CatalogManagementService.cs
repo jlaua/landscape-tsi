@@ -299,6 +299,172 @@ ORDER BY COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre cor
         finally { await CloseConnectionAsync(); }
     }
 
+    public async Task<IReadOnlyList<AvailableTechnologyDto>> GetAvailableTechnologiesForVendorAsync(int vendorId, string? search = null, CancellationToken cancellationToken = default)
+    {
+        await OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var sql = @"
+DECLARE @vName NVARCHAR(200);
+SELECT @vName = nombreVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+
+SELECT
+    t.idTecnologiaTSI AS Id,
+    COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo') AS NombreCorporativo,
+    t.[nombreTecnologiaAlternativa2-Local] AS NombreLocal,
+    f.nombreFamilia AS Familia,
+    ea.nombreEstadoAdopcionTSI AS EstadoAdopcion
+FROM [dbo].[TTecnologiaTSI] t
+LEFT JOIN [dbo].[TMFamilia] f ON f.idFamilia = t.idFamilia
+LEFT JOIN [dbo].[TMEstadoAdopcionTSI] ea ON ea.idEstadoAdopcionTSI = t.idEstadoAdopcionTSI
+WHERE t.idTecnologiaTSI NOT IN (
+    SELECT v2.idTecnologiaTSI
+    FROM [dbo].[TVendor] v2
+    WHERE (v2.idVendor = @vendorId OR (v2.nombreVendor = @vName AND @vName IS NOT NULL AND @vName <> ''))
+      AND v2.idTecnologiaTSI IS NOT NULL
+)
+AND (@searchPattern IS NULL OR 
+     t.[nombreTecnologiaAlternativa1-Corporativo] LIKE @searchPattern OR
+     t.[nombreTecnologiaAlternativa2-Local] LIKE @searchPattern OR
+     f.nombreFamilia LIKE @searchPattern)
+ORDER BY COALESCE(t.[nombreTecnologiaAlternativa1-Corporativo], N'Sin nombre corporativo');";
+
+            await using var cmd = CreateCommand(sql);
+            AddParameter(cmd, "@vendorId", vendorId);
+            AddParameter(cmd, "@searchPattern", string.IsNullOrWhiteSpace(search) ? (object)DBNull.Value : $"%{search.Trim()}%");
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            var list = new List<AvailableTechnologyDto>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                list.Add(new AvailableTechnologyDto(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4)
+                ));
+            }
+            return list;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task AssociateTechnologyToVendorAsync(int vendorId, int technologyId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        await OpenConnectionAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var sql = @"
+DECLARE @vName NVARCHAR(200), @vDesc NVARCHAR(MAX);
+SELECT @vName = nombreVendor, @vDesc = descripcionVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+
+IF @vName IS NULL
+BEGIN
+    THROW 51000, 'Vendor no encontrado.', 1;
+END
+
+IF NOT EXISTS (
+    SELECT 1 FROM [dbo].[TVendor] 
+    WHERE (idVendor = @vendorId OR (nombreVendor = @vName AND @vName <> ''))
+      AND idTecnologiaTSI = @technologyId
+)
+BEGIN
+    IF EXISTS (SELECT 1 FROM [dbo].[TVendor] WHERE idVendor = @vendorId AND idTecnologiaTSI IS NULL)
+    BEGIN
+        UPDATE [dbo].[TVendor] SET idTecnologiaTSI = @technologyId WHERE idVendor = @vendorId;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO [dbo].[TVendor] (nombreVendor, descripcionVendor, idTecnologiaTSI)
+        VALUES (@vName, @vDesc, @technologyId);
+    END
+END
+
+UPDATE [dbo].[TTecnologiaTSI]
+SET idVendor = @vendorId
+WHERE idTecnologiaTSI = @technologyId AND (idVendor IS NULL OR idVendor = @vendorId);";
+
+            await using var cmd = CreateCommand(sql);
+            cmd.Transaction = transaction.GetDbTransaction();
+            AddParameter(cmd, "@vendorId", vendorId);
+            AddParameter(cmd, "@technologyId", technologyId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+            await auditTrail.RecordUpdateAsync("vendor", "TVendor", vendorId, $"Vendor #{vendorId}",
+                actorUserId, correlationId, $"Asociación de Tecnología TSI #{technologyId} a Vendor #{vendorId}.", cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
+    public async Task DisassociateTechnologyFromVendorAsync(int vendorId, int technologyId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        await OpenConnectionAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var sql = @"
+DECLARE @vName NVARCHAR(200);
+SELECT @vName = nombreVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+
+IF @vName IS NULL
+BEGIN
+    THROW 51000, 'Vendor no encontrado.', 1;
+END
+
+DECLARE @totalRowsForVendor INT;
+SELECT @totalRowsForVendor = COUNT(*) FROM [dbo].[TVendor] 
+WHERE (idVendor = @vendorId OR (nombreVendor = @vName AND @vName <> ''));
+
+IF @totalRowsForVendor > 1
+BEGIN
+    DELETE FROM [dbo].[TVendor]
+    WHERE (idVendor = @vendorId OR (nombreVendor = @vName AND @vName <> ''))
+      AND idTecnologiaTSI = @technologyId;
+END
+ELSE
+BEGIN
+    UPDATE [dbo].[TVendor]
+    SET idTecnologiaTSI = NULL
+    WHERE (idVendor = @vendorId OR (nombreVendor = @vName AND @vName <> ''))
+      AND idTecnologiaTSI = @technologyId;
+END
+
+UPDATE [dbo].[TTecnologiaTSI]
+SET idVendor = NULL
+WHERE idTecnologiaTSI = @technologyId
+  AND idVendor IN (
+      SELECT v.idVendor FROM [dbo].[TVendor] v 
+      WHERE v.idVendor = @vendorId OR (v.nombreVendor = @vName AND @vName <> '')
+  );";
+
+            await using var cmd = CreateCommand(sql);
+            cmd.Transaction = transaction.GetDbTransaction();
+            AddParameter(cmd, "@vendorId", vendorId);
+            AddParameter(cmd, "@technologyId", technologyId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+            await auditTrail.RecordUpdateAsync("vendor", "TVendor", vendorId, $"Vendor #{vendorId}",
+                actorUserId, correlationId, $"Desasociación de Tecnología TSI #{technologyId} de Vendor #{vendorId}.", cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        finally { await CloseConnectionAsync(); }
+    }
+
     public async Task<IReadOnlyDictionary<int, int>> GetVendorContactCountsAsync(IEnumerable<int> vendorIds, CancellationToken cancellationToken = default)
     {
         var idList = vendorIds.Distinct().ToList();
@@ -616,6 +782,65 @@ GROUP BY b.idBuildingBlock";
             else
             {
                 id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+            }
+
+            if (id.HasValue && string.Equals(definition.Code, "tecnologia-tsi", StringComparison.OrdinalIgnoreCase))
+            {
+                if (normalized.TryGetValue("vendor", out var vObj) && vObj is int vendorId && vendorId > 0)
+                {
+                    var syncVendorSql = @"
+DECLARE @vName NVARCHAR(200), @vDesc NVARCHAR(MAX);
+SELECT @vName = nombreVendor, @vDesc = descripcionVendor FROM [dbo].[TVendor] WHERE idVendor = @vendorId;
+IF @vName IS NOT NULL
+BEGIN
+    IF EXISTS (SELECT 1 FROM [dbo].[TVendor] WHERE idVendor = @vendorId AND idTecnologiaTSI IS NULL)
+    BEGIN
+        UPDATE [dbo].[TVendor] SET idTecnologiaTSI = @techId WHERE idVendor = @vendorId;
+    END
+    ELSE IF NOT EXISTS (
+        SELECT 1 FROM [dbo].[TVendor] 
+        WHERE (idVendor = @vendorId OR (nombreVendor = @vName AND @vName <> '')) 
+          AND idTecnologiaTSI = @techId
+    )
+    BEGIN
+        INSERT INTO [dbo].[TVendor] (nombreVendor, descripcionVendor, idTecnologiaTSI)
+        VALUES (@vName, @vDesc, @techId);
+    END
+END";
+                    await using var syncCmd = CreateCommand(syncVendorSql);
+                    syncCmd.Transaction = transaction.GetDbTransaction();
+                    AddParameter(syncCmd, "@vendorId", vendorId);
+                    AddParameter(syncCmd, "@techId", id.Value);
+                    await syncCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                if (normalized.TryGetValue("versionDesplegada", out var vdObj) && vdObj is int vId && vId > 0)
+                {
+                    var syncVdSql = @"
+UPDATE [dbo].[TTecnologiaTSI]
+SET entornoImplementacion = COALESCE(entornoImplementacion, (SELECT TOP 1 nombreVersionDesplegada FROM [dbo].[TMVersionDesplegada] WHERE idVersionDesplegada = @vId))
+WHERE idTecnologiaTSI = @techId;";
+                    await using var syncVdCmd = CreateCommand(syncVdSql);
+                    syncVdCmd.Transaction = transaction.GetDbTransaction();
+                    AddParameter(syncVdCmd, "@vId", vId);
+                    AddParameter(syncVdCmd, "@techId", id.Value);
+                    await syncVdCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+            else if (id.HasValue && string.Equals(definition.Code, "tecnologia-tsi-implementada", StringComparison.OrdinalIgnoreCase))
+            {
+                if (normalized.TryGetValue("versionDesplegada", out var vdObj) && vdObj is int vId && vId > 0)
+                {
+                    var syncVdSql = @"
+UPDATE [dbo].[TTecnologiaTSIimplementadaSubsidiaria]
+SET versionDesplegada = (SELECT TOP 1 nombreVersionDesplegada FROM [dbo].[TMVersionDesplegada] WHERE idVersionDesplegada = @vId)
+WHERE idTecnologiaTSIimplementadaSubsidiaria = @id;";
+                    await using var syncVdCmd = CreateCommand(syncVdSql);
+                    syncVdCmd.Transaction = transaction.GetDbTransaction();
+                    AddParameter(syncVdCmd, "@vId", vId);
+                    AddParameter(syncVdCmd, "@id", id.Value);
+                    await syncVdCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
             }
 
             var displayName = normalized.TryGetValue(definition.DisplayColumn.Code, out var displayValue)

@@ -54,15 +54,15 @@ La interfaz de evaluación debe permitir seleccionar múltiples empresas subsidi
 - **THEN** el sistema registra `aplica = 0` y exige una justificación técnica obligatoria.
 
 ### Requirement: Diagnóstico AS-IS por Subsidiaria con Contratos y Modelo Operativo
-Para cada empresa participante en la evaluación, el sistema debe permitir documentar si cuenta con una tecnología implementada (`TTecnologiaTSIimplementadaSubsidiaria`), su contrato vigente (`TContratoTecnologia`) con fecha fin de vencimiento, su modelo operativo (`TModeloDeOperacion`) y sus proveedores asociados (Vendor y Partner locales). Los drivers de dimensionamiento se gestionan de forma desacoplada a nivel de proceso y empresa.
+Para cada empresa participante en la evaluación, el sistema debe permitir documentar si cuenta con una tecnología implementada (`TTecnologiaTSIimplementadaSubsidiaria`), su contrato vigente (`TContratoTecnologia`) con fecha fin de vencimiento, su modelo operativo (`TModeloDeOperacion`) y sus proveedores asociados (Vendor y Partner locales). Si una subsidiaria no cuenta con tecnología registrada para el Building Block, el sistema no debe inyectar tecnologías por defecto ni registros automáticos, debe reportar explícitamente el estado "Sin tecnología registrada" y establecer los metadatos de contrato, vendor, partner y operación en guiones ("—"). Los drivers de dimensionamiento se gestionan de forma desacoplada a nivel de proceso y empresa en `TDriverEmpresa`.
 
 #### Scenario: Registro de tecnología implementada con contrato y modelo operativo
 - **WHEN** se registra que una subsidiaria cuenta con tecnología implementada activa
 - **THEN** el sistema almacena los datos de versión desplegada, proveedor local, contrato (número, fecha de fin y monto) y modelo de operación independiente de los drivers de dimensionamiento.
 
 #### Scenario: Subsidiaria sin tecnología actual
-- **WHEN** se declara que la empresa subsidiaria no cuenta con tecnología previa en este Building Block
-- **THEN** el sistema no exige contrato local y califica a la empresa para adopción inmediata del estándar corporativo.
+- **WHEN** la empresa subsidiaria no cuenta con tecnología previa en este Building Block o no ha registrado aún una tecnología local en la evaluación
+- **THEN** el sistema no inyecta tecnologías por defecto ni crea entidades automáticas en TTecnologiaTSIimplementadaSubsidiaria, reporta "Sin tecnología registrada", muestra guiones ("—") en contrato, vendor, partner y tipo de operación, y permite capturar volúmenes de drivers directamente en TDriverEmpresa.
 
 ### Requirement: Plantilla Corporativa de Drivers a Nivel de Proceso
 El sistema MUST permitir definir a nivel de cada solicitud de adopción (`TProcesoAdopcionTSI`) la plantilla de drivers de dimensionamiento y proyección (`TDriverProceso`), especificando su descripción y unidad de medida, con homologación automática para todas las empresas participantes.
@@ -100,3 +100,42 @@ El sistema debe permitir actualizar evaluaciones en curso y dar de baja evaluaci
 - **WHEN** un usuario autorizado ejecuta la acción de dar de baja una evaluación en curso ingresando el motivo
 - **THEN** el sistema actualiza el estado del proceso, desactiva la vigencia y registra el evento inmutable en `IamEventoAuditoriaAutorizacion`.
 
+### Requirement: Solicitudes y Procesos de Implementación
+El sistema MUST permitir la creación y seguimiento de procesos con `tipoProceso = 'IMPLEMENTACION'`, asociando la Familia, Subfamilia, Building Block, la vigencia contractual proyectada (`fechaInicioVigenciaContrato`, `fechaFinVigenciaContrato`), la tecnología estándar decretada (o permitiendo definirla como "Por definir") y la convocatoria formal de empresas subsidiarias.
+
+#### Scenario: Creación de solicitud de implementación
+- **WHEN** un usuario autorizado crea un proceso de tipo implementación
+- **THEN** el sistema registra el proceso con `tipoProceso = 'IMPLEMENTACION'`, asocia las fechas de inicio y fin de vigencia contractual, vincula la tecnología estándar decretada o la registra como nula ("Por definir"), y convoca a las empresas seleccionadas.
+
+#### Scenario: Visualización del resumen de implementación
+- **WHEN** el usuario visualiza el detalle o resumen de un proceso de implementación
+- **THEN** el sistema presenta explícitamente el nombre de la tecnología estándar decretada o el texto informativo "Por definir" en caso de no haberse seleccionado aún una tecnología estándar.
+
+### Requirement: Registro de Avance Técnico y Arquitectura por Subsidiaria
+Para cada empresa subsidiaria convocada en un proceso de implementación, el sistema MUST permitir registrar el especialista técnico responsable (permitiendo seleccionar ya sea un contacto de la empresa subsidiaria o un contacto del partner adjudicado), la fecha de puesta en marcha (`fechaImplementacion`), la tecnología AS-IS implementada por la empresa, y la URL o archivo digital de la arquitectura implementada.
+
+#### Scenario: Selección flexible de especialista técnico (Empresa o Partner)
+- **WHEN** el usuario actualiza el avance técnico de una subsidiaria
+- **THEN** el sistema permite seleccionar opcionalmente como especialista a un contacto de `TEmpresaSubsidiaria` (`idContactoEmpresaSubsidiaria`) o a un contacto de `TPartner` (`idContactoPartner`), validando que al menos uno de ellos esté asignado si se indica responsable técnico.
+
+#### Scenario: Carga y descarga de arquitectura técnica
+- **WHEN** el usuario adjunta un archivo de arquitectura técnica o ingresa una URL de documentación
+- **THEN** el sistema almacena el binario y sus metadatos de tipo/nombre en `TProcesoAdopcionEmpresa` y ofrece un enlace seguro para su descarga o consulta.
+
+#### Scenario: Semáforo visual de estado de alineamiento
+- **WHEN** se visualiza la lista de empresas subsidiarias en el proceso de implementación
+- **THEN** el sistema presenta un semáforo visual con colores normalizados:
+  - Verde: Subsidiaria alineada al estándar TSI (`ALINEADO` o tecnología igual al estándar corporativo).
+  - Amarillo: Subsidiaria en proceso de despliegue o migración (`EN_DESPLIEGUE`, `MIGRACION` u `HOMOLOGADO`).
+  - Rojo: Subsidiaria no alineada (`NO_ALINEADO` o tecnología divergente sin plan de migración).
+
+### Requirement: Reportería Ejecutiva de Implementación con Encabezados a 90 Grados
+El módulo de reportería de implementaciones MUST disponer las cabeceras de drivers (Pestaña 3: Volumetría por Empresa) y de capacidades (Pestaña 4) en orientación vertical rotada a 90 grados, y MUST inicializar los valores de volumetría por defecto en cero cuando una empresa no haya capturado valores formales para sus drivers.
+
+#### Scenario: Visualización de cabeceras en 90 grados en volumetría y capacidades
+- **WHEN** el usuario consulta las pestañas de Volumetría por Empresa o Capacidades en la vista de reportes
+- **THEN** el sistema renderiza los títulos de las columnas con orientación vertical (`writing-mode: vertical-lr; transform: rotate(180deg)`), optimizando la densidad de datos en pantalla.
+
+#### Scenario: Volumetría con valor por defecto cero
+- **WHEN** un proceso cuenta con drivers definidos en la plantilla corporativa pero una empresa convocada no ha ingresado consumos
+- **THEN** el reporte de volumetría muestra un valor por defecto de 0 en lugar de datos residuales o inventados.

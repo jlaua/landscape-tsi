@@ -14,7 +14,7 @@
                 <option value="">Sin seleccionar</option>
                 @foreach (var option in Model.Options.GetValueOrDefault(column.Code) ?? [])
                 {
-                    <option value="@option.Id" selected="@(rawValue == option.Id.ToString())">@option.Label</option>
+                    <option value="@option.Id" selected="@(rawValue == option.Id.ToString() || string.Equals(rawValue, option.Label, StringComparison.OrdinalIgnoreCase))">@option.Label</option>
                 }
             </select>
         }

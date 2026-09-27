@@ -41,4 +41,13 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> UpdateCompanyDriverVolumeAsync(int procesoId, int empresaId, string driverKey, decimal cantidad, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> SaveVencimientoReportDriversAsync(int procesoId, IEnumerable<string> drivers, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<AdoptionResult> UpdateCompanyOrderAsync(int procesoId, IEnumerable<int> orderedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+
+    // Módulo de Implementaciones TSI
+    Task<IReadOnlyList<ImplementationProcessSummaryDto>> ListImplementationsAsync(CancellationToken cancellationToken = default);
+    Task<ImplementationProcessDetailDto?> GetImplementationDetailAsync(int procesoId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> CreateImplementationProcessAsync(CreateImplementationProcessCommand command, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateImplementationProcessAsync(UpdateImplementationProcessCommand command, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> UpdateImplementationCompanyAsync(UpdateImplementationCompanyCommand command, CancellationToken cancellationToken = default);
+    Task<ImplementationReportsDto?> GetImplementationReportsAsync(int procesoId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<StandardTechnologyDto>> GetCorporateStandardsByFamilyAsync(int? familiaId, CancellationToken cancellationToken = default);
 }

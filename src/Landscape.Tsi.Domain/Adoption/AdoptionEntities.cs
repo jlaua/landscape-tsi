@@ -7,6 +7,13 @@ public sealed class TProcesoAdopcionTSI
     public string NombreProceso { get; set; } = string.Empty;
     public int IdBuildingBlock { get; set; }
     public int IdEstadoAdopcionTSI { get; set; }
+    public string TipoProceso { get; set; } = "EVALUACION";
+    public int? IdFamilia { get; set; }
+    public int? IdTecnologiaEstandar { get; set; }
+    public int? IdProcesoEvaluacionOrigen { get; set; }
+    public DateTime? FechaInicioVigenciaContrato { get; set; }
+    public DateTime? FechaFinVigenciaContrato { get; set; }
+    public string? NumeroContratoCorporativo { get; set; }
     public string? Objetivo { get; set; }
     public string? Alcance { get; set; }
     public string? LiderCorporativoTSI { get; set; }
@@ -28,6 +35,14 @@ public sealed class TProcesoAdopcionEmpresa
     public string? JustificacionNoAplica { get; set; }
     public string? ComentarioCapacidades { get; set; }
     public DateTime FechaIncorporacion { get; set; }
+    public DateTime? FechaInicioAdopcion { get; set; }
+    public string? EspecialistaTecnico { get; set; }
+    public int? IdContactoEspecialista { get; set; }
+    public string? UrlArquitectura { get; set; }
+    public string? RutaArchivoArquitectura { get; set; }
+    public string? NombreArchivoArquitectura { get; set; }
+    public string EstadoImplementacion { get; set; } = "PENDIENTE";
+    public string? TecnologiaAsIs { get; set; }
     public DateTime FechaModificacion { get; set; }
     public string UsuarioModificacion { get; set; } = string.Empty;
 }
@@ -79,6 +94,7 @@ public sealed class TTecnologiaTSIimplementadaSubsidiaria
     public bool EsTecnologiaPrimaria { get; set; } = true;
     public bool EsInstanciaCorporativa { get; set; } = false;
     public string? VersionDesplegada { get; set; }
+    public int? IdVersionDesplegada { get; set; }
 }
 
 public sealed class TDriver

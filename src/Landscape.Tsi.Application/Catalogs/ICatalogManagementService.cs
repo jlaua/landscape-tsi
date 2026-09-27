@@ -20,7 +20,21 @@ public interface ICatalogManagementService
         Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
     Task<IReadOnlyDictionary<int, int>> GetBuildingBlockCapabilityCountsAsync(IEnumerable<int> buildingBlockIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
+    Task AssociateTechnologyToVendorAsync(int vendorId, int technologyId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+    Task DisassociateTechnologyFromVendorAsync(int vendorId, int technologyId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+    Task<IReadOnlyList<AvailableTechnologyDto>> GetAvailableTechnologiesForVendorAsync(int vendorId, string? search = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<AvailableTechnologyDto>>([]);
 }
+
+public sealed record AvailableTechnologyDto(
+    int Id,
+    string NombreCorporativo,
+    string? NombreLocal,
+    string? Familia,
+    string? EstadoAdopcion
+);
 
 public sealed record CatalogRelationBucket(int ParentId, string ParentName, int Total);
 

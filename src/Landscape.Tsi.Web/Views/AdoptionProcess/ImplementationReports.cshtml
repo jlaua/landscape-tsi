@@ -1,0 +1,372 @@
+@model Landscape.Tsi.Application.Adoption.ImplementationReportsDto
+@using Landscape.Tsi.Application.Identity
+@{
+    ViewData["Title"] = $"Reportes de Implementación - {Model.CodigoProceso}";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Implementations">Implementaciones</a></li>
+        <li><a asp-action="ImplementationDetails" asp-route-id="@Model.ProcesoId">@Model.CodigoProceso</a></li>
+        <li aria-current="page">Reportes & Cronograma</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="impl-reports-title">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary text-white font-monospace px-2 py-1">@Model.CodigoProceso</span>
+                <span class="badge bg-secondary-subtle text-secondary border">Familia: @Model.FamiliaNombre</span>
+                @if (Model.FechaInicioVigenciaContrato.HasValue && Model.FechaFinVigenciaContrato.HasValue)
+                {
+                    <span class="badge bg-success-subtle text-success border border-success">
+                        Vigencia Contrato: @Model.FechaInicioVigenciaContrato.Value.ToString("dd/MM/yyyy") - @Model.FechaFinVigenciaContrato.Value.ToString("dd/MM/yyyy")
+                    </span>
+                }
+            </div>
+            <h1 id="impl-reports-title" class="h2 mb-1">Reportes de Implementación & Grado de Adopción</h1>
+            <p class="supporting-text mb-0">
+                Tecnología Estándar Corporativa:
+                @if (!string.IsNullOrWhiteSpace(Model.TecnologiaEstandarNombre) && !Model.TecnologiaEstandarNombre.Equals("Por definir", StringComparison.OrdinalIgnoreCase))
+                {
+                    <strong class="text-primary">⭐ @Model.TecnologiaEstandarNombre</strong>
+                }
+                else
+                {
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">⚠️ Por definir</span>
+                }
+                @(string.IsNullOrWhiteSpace(Model.VendorNombre) ? "" : $"· Fabricante: {Model.VendorNombre}")
+                @(string.IsNullOrWhiteSpace(Model.LiderCorporativo) ? "" : $"· Líder TSI: {Model.LiderCorporativo}")
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" asp-action="ImplementationDetails" asp-route-id="@Model.ProcesoId">
+                Volver al Detalle
+            </a>
+            <button type="button" class="btn btn-outline-primary" onclick="window.print();">
+                🖨️ Imprimir Reporte
+            </button>
+        </div>
+    </div>
+
+    <!-- Navegación de Pestañas de Reportería -->
+    <ul class="nav nav-pills mb-4 gap-2 border-bottom pb-3" id="reportsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="tab-alineamiento" data-bs-toggle="tab" data-bs-target="#pane-alineamiento" type="button" role="tab" aria-controls="pane-alineamiento" aria-selected="true">
+                📋 1) Grado de Adopción y Alineamiento Corporativo
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-cronograma" data-bs-toggle="tab" data-bs-target="#pane-cronograma" type="button" role="tab" aria-controls="pane-cronograma" aria-selected="false">
+                ⏱️ 2) Cronograma de Abordaje & Timeline Visual
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="reportsTabsContent">
+        <!-- PESTAÑA 1: GRADO DE ADOPCIÓN Y ALINEAMIENTO CORPORATIVO -->
+        <div class="tab-pane fade show active" id="pane-alineamiento" role="tabpanel" aria-labelledby="tab-alineamiento">
+            <!-- Tarjetas KPI -->
+            <div class="kpi-grid mb-4" aria-label="Indicadores de Alineamiento Corporativo">
+                <div class="kpi-card">
+                    <span>Subsidiarias Convocadas</span>
+                    <strong class="text-dark">@Model.TotalEmpresasConvocadas</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>Subsidiarias Aplicables</span>
+                    <strong class="text-primary">@Model.TotalEmpresasAplicables</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>Alineadas / En Producción</span>
+                    <strong class="text-success">@Model.TotalEmpresasAlineadas</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>En Proceso de Despliegue</span>
+                    <strong class="text-warning">@Model.TotalEmpresasEnDespliegue</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>Pendientes de Iniciar</span>
+                    <strong class="text-muted">@Model.TotalEmpresasPendientes</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>No Aplica</span>
+                    <strong class="text-secondary">@Model.TotalEmpresasNoAplica</strong>
+                </div>
+                <div class="kpi-card">
+                    <span>% Cumplimiento Global</span>
+                    <strong class="text-success">@Model.PorcentajeAlineamiento%</strong>
+                </div>
+            </div>
+
+            <!-- Barra de Avance Global -->
+            <div class="card p-3 shadow-sm border-0 mb-4 bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold text-dark">Nivel Global de Alineamiento al Estándar Corporativo (@Model.TecnologiaEstandarNombre):</span>
+                    <span class="fw-bold fs-5 text-success">@Model.PorcentajeAlineamiento%</span>
+                </div>
+                <div class="progress" style="height: 16px;">
+                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: @Model.PorcentajeAlineamiento%" aria-valuenow="@Model.PorcentajeAlineamiento" aria-valuemin="0" aria-valuemax="100">
+                        @Model.PorcentajeAlineamiento%
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between text-muted small mt-1">
+                    <span>@Model.TotalEmpresasAlineadas de @Model.TotalEmpresasAplicables empresas aplicables en producción</span>
+                    <span>Meta: 100% de subsidiarias corporativas</span>
+                </div>
+            </div>
+
+            <!-- Tabla de Detalle de Alineamiento por Empresa -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light py-3">
+                    <h2 class="h5 mb-0 text-dark">Matriz de Alineamiento Técnico por Empresa Subsidiaria</h2>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Empresa Subsidiaria</th>
+                                    <th scope="col">País</th>
+                                    <th scope="col">Tecnología AS-IS</th>
+                                    <th scope="col">Alineamiento al Estándar</th>
+                                    <th scope="col">Fecha Abordaje / Go-Live</th>
+                                    <th scope="col">Especialista Técnico</th>
+                                    <th scope="col">Arquitectura Implementada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var fila in Model.FilasAlineamiento)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong class="text-dark">@fila.EmpresaNombre</strong>
+                                        <div class="text-muted small">@fila.Rubro</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-secondary border">@(fila.Pais ?? "—")</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            @if (!fila.Aplica || fila.EstadoImplementacion == "NO_APLICA")
+                                            {
+                                                <span class="badge rounded-pill bg-secondary" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Gris: No aplica"></span>
+                                                <span class="text-muted small">No aplica</span>
+                                            }
+                                            else if (fila.EstadoImplementacion == "IMPLEMENTADO" || fila.EstadoImplementacion == "ALINEADO")
+                                            {
+                                                var isStd = string.Equals(fila.TecnologiaAsIs, Model.TecnologiaEstandarNombre, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(fila.TecnologiaAsIs);
+                                                var asIsText = string.IsNullOrWhiteSpace(fila.TecnologiaAsIs) ? Model.TecnologiaEstandarNombre : fila.TecnologiaAsIs;
+                                                <span class="badge rounded-pill bg-success" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Verde: Alineado al estándar"></span>
+                                                <div>
+                                                    <span class="fw-semibold text-success">@asIsText</span>
+                                                    @if (isStd)
+                                                    {
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:0.68rem;">⭐ Estándar</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-light text-secondary border ms-1" style="font-size:0.68rem;">Propia</span>
+                                                    }
+                                                </div>
+                                            }
+                                            else if (fila.EstadoImplementacion == "EN_DESPLIEGUE")
+                                            {
+                                                <span class="badge rounded-pill bg-warning text-dark" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Amarillo: En despliegue o migración"></span>
+                                                <div>
+                                                    <span class="fw-semibold text-dark">@(string.IsNullOrWhiteSpace(fila.TecnologiaAsIs) ? "En migración al estándar" : fila.TecnologiaAsIs)</span>
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.68rem;">En despliegue</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge rounded-pill bg-danger" style="width:10px;height:10px;padding:0;flex-shrink:0;" title="Rojo: No alineado / Pendiente"></span>
+                                                <div>
+                                                    <span class="fw-semibold text-danger">@(string.IsNullOrWhiteSpace(fila.TecnologiaAsIs) ? "Sin registrar" : fila.TecnologiaAsIs)</span>
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size:0.68rem;">No alineado</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (!fila.Aplica || fila.EstadoImplementacion == "NO_APLICA")
+                                        {
+                                            <span class="badge bg-secondary text-white">⚪ No Aplica</span>
+                                        }
+                                        else if (fila.EstadoImplementacion == "IMPLEMENTADO" || fila.EstadoImplementacion == "ALINEADO")
+                                        {
+                                            <span class="badge bg-success text-white">✅ Alineada (En Producción)</span>
+                                        }
+                                        else if (fila.EstadoImplementacion == "EN_DESPLIEGUE")
+                                        {
+                                            <span class="badge bg-warning text-dark">🚀 En Despliegue</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger">⏳ No Alineada / Pendiente</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (fila.FechaInicioAdopcion.HasValue)
+                                        {
+                                            <span class="fw-semibold text-dark text-nowrap">📅 @fila.FechaInicioAdopcion.Value.ToString("dd/MM/yyyy")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Sin fecha registrada</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(fila.EspecialistaTecnico))
+                                        {
+                                            <span class="small fw-semibold text-dark">👤 @fila.EspecialistaTecnico</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Sin asignar</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-1">
+                                            @if (!string.IsNullOrWhiteSpace(fila.UrlArquitectura))
+                                            {
+                                                <a href="@fila.UrlArquitectura" target="_blank" rel="noopener noreferrer" class="badge bg-info-subtle text-dark border border-info text-decoration-none">
+                                                    🔗 Repositorio / Wiki
+                                                </a>
+                                            }
+                                            @if (fila.TieneArchivo)
+                                            {
+                                                <a asp-action="DownloadArchitectureFile" asp-route-procesoEmpresaId="@fila.ProcesoEmpresaId" class="badge bg-success-subtle text-success border border-success text-decoration-none">
+                                                    📥 @(fila.NombreArchivoArquitectura ?? "Diagrama de Arquitectura")
+                                                </a>
+                                            }
+                                            @if (string.IsNullOrWhiteSpace(fila.UrlArquitectura) && !fila.TieneArchivo)
+                                            {
+                                                <span class="text-muted small">Sin archivo o URL</span>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 2: CRONOGRAMA DE ABORDAJE & TIMELINE VISUAL -->
+        <div class="tab-pane fade" id="pane-cronograma" role="tabpanel" aria-labelledby="tab-cronograma">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+                    <div>
+                        <h2 class="h5 mb-0 text-dark">Línea de Tiempo y Cronograma de Abordaje a la Tecnología Estándar</h2>
+                        <small class="text-muted">Proyección cronológica mensual del onboarding técnico de cada subsidiaria y absorción acumulada del estándar corporativo.</small>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 720px; overflow: auto;">
+                        <table class="table table-sm table-bordered align-middle text-center mb-0" id="tableTimelineAdopcion" style="font-size:0.875rem;">
+                            <thead class="table-light sticky-top" style="z-index: 2;">
+                                <tr>
+                                    <th scope="col" rowspan="2" style="width: 40px;" class="align-middle">#</th>
+                                    <th scope="col" rowspan="2" class="text-start align-middle" style="min-width: 180px;">Empresa Subsidiaria</th>
+                                    <th scope="col" rowspan="2" class="align-middle" style="min-width: 90px;">País</th>
+                                    <th scope="col" rowspan="2" class="text-start align-middle" style="min-width: 160px;">Especialista Técnico</th>
+                                    <th scope="col" rowspan="2" class="align-middle" style="min-width: 130px;">Estado</th>
+                                    <th scope="col" colspan="@Model.PeriodosTimeline.Count" class="bg-primary text-white py-2">
+                                        Línea Cronológica de Abordaje / Adopción Efectiva (Mes a Mes)
+                                    </th>
+                                </tr>
+                                <tr>
+                                    @foreach (var periodo in Model.PeriodosTimeline)
+                                    {
+                                        <th scope="col" class="fw-bold text-nowrap px-2" style="min-width: 80px; vertical-align: bottom;">
+                                            @periodo.PeriodoLabel
+                                        </th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var fila in Model.FilasTimeline)
+                            {
+                                <tr>
+                                    <td class="text-muted small">@fila.Secuencia</td>
+                                    <td class="text-start fw-bold text-dark text-nowrap">@fila.EmpresaNombre</td>
+                                    <td><span class="badge bg-light text-secondary border">@(fila.Pais ?? "—")</span></td>
+                                    <td class="text-start small text-truncate" style="max-width: 160px;" title="@fila.EspecialistaTecnico">
+                                        @(string.IsNullOrWhiteSpace(fila.EspecialistaTecnico) ? "—" : fila.EspecialistaTecnico)
+                                    </td>
+                                    <td>
+                                        @if (fila.EstadoImplementacion == "IMPLEMENTADO" || fila.EstadoImplementacion == "ALINEADO")
+                                        {
+                                            <span class="badge bg-success text-white">Implementado</span>
+                                        }
+                                        else if (fila.EstadoImplementacion == "EN_DESPLIEGUE")
+                                        {
+                                            <span class="badge bg-warning text-dark">En Despliegue</span>
+                                        }
+                                        else if (fila.EstadoImplementacion == "NO_APLICA")
+                                        {
+                                            <span class="badge bg-secondary text-white">No Aplica</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-secondary border">Pendiente</span>
+                                        }
+                                    </td>
+                                    @foreach (var periodo in Model.PeriodosTimeline)
+                                    {
+                                        var isMarked = fila.HitoAbordajePorPeriodo.TryGetValue(periodo.PeriodoKey, out var active) && active;
+                                        <td class="@(isMarked ? "bg-success-subtle fw-bold" : "")">
+                                            @if (isMarked)
+                                            {
+                                                <span class="badge bg-success text-white fw-bold px-2 py-1 shadow-sm" title="Abordaje: @(fila.FechaInicioAdopcion?.ToString("dd/MM/yyyy") ?? periodo.PeriodoLabel)">
+                                                    ✓ Abordó
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted opacity-25">·</span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                            <tfoot class="table-dark" style="font-size:0.85rem;">
+                                <!-- Fila de Total Acumulado de Empresas Abordadas -->
+                                <tr class="table-primary text-dark fw-bold border-top border-2 border-primary">
+                                    <td colspan="5" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
+                                        SUBSIDIARIAS ABORDADAS ACUMULADAS:
+                                    </td>
+                                    @foreach (var periodo in Model.PeriodosTimeline)
+                                    {
+                                        var count = Model.EmpresasAcumuladasPorHito.GetValueOrDefault(periodo.PeriodoKey, 0);
+                                        <td class="text-center fw-bold bg-dark border-start text-info">
+                                            @(count > 0 ? count.ToString() : "—")
+                                        </td>
+                                    }
+                                </tr>
+                                <!-- Fila de Porcentaje Acumulado de Adopción -->
+                                <tr class="table-success text-dark fw-bold">
+                                    <td colspan="5" class="text-end fw-bold text-uppercase text-nowrap" style="letter-spacing:0.5px;">
+                                        % ADOPCIÓN CORPORATIVA ACUMULADA:
+                                    </td>
+                                    @foreach (var periodo in Model.PeriodosTimeline)
+                                    {
+                                        var pct = Model.PorcentajeAcumuladoPorHito.GetValueOrDefault(periodo.PeriodoKey, 0.0);
+                                        <td class="text-center fw-bold bg-dark border-start text-success">
+                                            @(pct > 0 ? $"{pct}%" : "—")
+                                        </td>
+                                    }
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

@@ -93,3 +93,21 @@ Para cada empresa subsidiaria convocada:
 ## 5. Backlog de Futuras Evoluciones
 
 - **[BACKLOG-TSI-01] Entidad Servicio y Tarifario por Rango de Horas**: Incorporación de la entidad `Servicio` (Implementación, Migración, Operación) y su tarifario por rangos de horas de mano de obra (tipo driver) para proyectar el costo de servicios profesionales por subsidiaria. Detalle de especificación técnica en [`backlog-entidad-servicio-y-tarifario.md`](./backlog-entidad-servicio-y-tarifario.md).
+
+---
+
+## 6. Módulo de Procesos de Implementación y Avance Técnico
+
+A partir de septiembre 2026, el ciclo de vida de adopción se extiende formalmente con procesos de tipo `IMPLEMENTACION` (`dbo.TProcesoAdopcionTSI.tipoProceso`):
+
+### 6.1. Atributos de Implementación y Gobernanza
+- **Vigencia Contractual Proyectada**: `fechaInicioVigenciaContrato` y `fechaFinVigenciaContrato` a nivel de proceso.
+- **Tecnología Estándar Decretada**: Relación `idTecnologiaEstandar` con la tecnología aprobada en la fase de evaluación previa. Si aún no se decretó, la interfaz muestra el estado "Por definir".
+- **Especialista Técnico Responsable Dual**: Cada subsidiaria puede asignar su responsable técnico seleccionando flexiblemente un contacto interno (`idContactoEmpresaSubsidiaria`) o un especialista del partner adjudicado (`idContactoPartner`).
+- **Arquitectura Implementada**: Soporte para registrar la URL de arquitectura o adjuntar directamente el archivo digital de arquitectura técnica (`archivoArquitecturaContenido`, `archivoArquitecturaNombre`, `archivoArquitecturaContentType`) con descarga segura.
+- **Semáforo Visual de Alineamiento**:
+  - Verde: Alineado al estándar corporativo.
+  - Amarillo: En proceso de despliegue o migración hacia el estándar.
+  - Rojo: No alineado (tecnología divergente).
+- **Reportería Ejecutiva**: Rotación a 90 grados de encabezados de drivers y capacidades en las pestañas de volumetría y capacidades, con inicialización segura en 0 para empresas sin capturas formalizadas.
+

@@ -17,10 +17,11 @@ namespace Landscape.Tsi.Web.Controllers;
 
 [Authorize(Policy = Permissions.CatalogView)]
 [Route("Administration/AdoptionProcess")]
-public sealed class AdoptionProcessController(
+public sealed partial class AdoptionProcessController(
     IAdoptionProcessService adoptionService,
     IServiceManagementService serviceManagement,
-    CatalogDbContext dbContext) : Controller
+    CatalogDbContext dbContext,
+    IWebHostEnvironment webHostEnvironment) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)

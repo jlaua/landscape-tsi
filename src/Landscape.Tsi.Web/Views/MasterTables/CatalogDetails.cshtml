@@ -1192,7 +1192,13 @@
                 <p class="eyebrow">TECNOLOGÍAS DEL FABRICANTE</p>
                 <h2 id="vendor-technologies-card-title" class="h4 mb-0">Tecnologías TSI Asociadas <span class="result-count">(@vendorTechs.Count)</span></h2>
             </div>
-            <div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#vendor-technologies-modal" data-vendor-id="@Model.Record.Id" data-vendor-name="@(Model.Record.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{Model.Record.Id}")" data-initial-tab="associate">
+                    🔍 Asociar Tecnología
+                </button>
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#vendor-technologies-modal" data-vendor-id="@Model.Record.Id" data-vendor-name="@(Model.Record.DisplayValues.GetValueOrDefault("nombreVendor") ?? $"Vendor #{Model.Record.Id}")" data-initial-tab="create">
+                    ➕ Nueva Tecnología TSI
+                </button>
                 <a class="md-button md-button-tonal" asp-action="Catalog" asp-route-catalogRoute="tecnologia-tsi">Ir al Catálogo de Tecnologías</a>
             </div>
         </div>
@@ -1214,7 +1220,7 @@
                             <th scope="col">Estado de Adopción</th>
                             <th scope="col">Licenciamiento</th>
                             <th scope="col">Entorno</th>
-                            <th scope="col" style="text-align: right;"><span class="visually-hidden">Acciones</span></th>
+                            <th scope="col" style="text-align: right; min-width: 170px;"><span class="visually-hidden">Acciones</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1239,8 +1245,13 @@
                                 </td>
                                 <td data-label="Licenciamiento">@(tech.Licenciamiento ?? "—")</td>
                                 <td data-label="Entorno">@(tech.Entorno ?? "—")</td>
-                                <td data-label="Acciones" class="table-actions">
-                                    <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@tech.Id">Ver detalle</a>
+                                <td data-label="Acciones" class="table-actions text-end pe-2">
+                                    <div class="btn-group btn-group-sm">
+                                        <a class="md-button md-button-text" asp-action="CatalogDetails" asp-route-catalogRoute="tecnologia-tsi" asp-route-id="@tech.Id">Ver detalle</a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-details-disassociate-tech" data-vendor-id="@Model.Record.Id" data-tech-id="@tech.Id" data-tech-name="@tech.NombreCorporativo" title="Desasociar del fabricante">
+                                            Desasociar
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -1439,6 +1450,12 @@
 @if (Model.Definition.IsDeletable && User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogDelete))
 {
     <script src="~/js/domain-delete-impact.js" asp-append-version="true"></script>
+}
+
+@if (Model.Definition.Route == "vendor")
+{
+    @await Html.PartialAsync("_VendorTechnologiesModal")
+    <script src="~/js/vendor-admin.js" asp-append-version="true"></script>
 }
 
 @if (Model.Definition.Route == "building-block")
