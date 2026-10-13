@@ -27,19 +27,20 @@ public sealed partial class AdoptionProcessService
         {
             var empresasProceso = processCompanies.Where(cp => cp.IdProcesoAdopcionTSI == p.IdProcesoAdopcionTSI).ToList();
             var totalConvocadas = empresasProceso.Count;
-            var totalNoAplica = empresasProceso.Count(cp => !cp.Aplica || cp.EstadoImplementacion == "NO_APLICA");
-            var totalAlineadas = empresasProceso.Count(cp => cp.Aplica && (cp.EstadoImplementacion == "IMPLEMENTADO" || cp.EstadoImplementacion == "ALINEADO"));
-            var totalEnDespliegue = empresasProceso.Count(cp => cp.Aplica && cp.EstadoImplementacion == "EN_DESPLIEGUE");
-            var totalPendientes = empresasProceso.Count(cp => cp.Aplica && (cp.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(cp.EstadoImplementacion)));
+            var totalNoAplica = empresasProceso.Count(cp => cp.EstadoImplementacion == "NO_APLICA");
+            var totalAlineadas = empresasProceso.Count(cp => cp.EstadoImplementacion == "IMPLEMENTADO" || cp.EstadoImplementacion == "ALINEADO");
+            var totalEnDespliegue = empresasProceso.Count(cp => cp.EstadoImplementacion == "EN_DESPLIEGUE");
+            var totalPendientes = empresasProceso.Count(cp => cp.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(cp.EstadoImplementacion));
 
-            var aplicables = totalConvocadas - totalNoAplica;
-            var pct = aplicables > 0 ? Math.Round((double)totalAlineadas / aplicables * 100.0, 1) : 0.0;
+            var pct = totalConvocadas > 0 ? Math.Round((double)totalAlineadas / totalConvocadas * 100.0, 1) : 0.0;
 
             var estadoNombre = states.GetValueOrDefault(p.IdEstadoAdopcionTSI, "Planificada");
             var isBaja = p.NombreProceso.Contains("CANCELAD", StringComparison.OrdinalIgnoreCase)
                          || p.CodigoProceso.StartsWith("BAJA-", StringComparison.OrdinalIgnoreCase)
                          || string.Equals(estadoNombre, "CANCELADO", StringComparison.OrdinalIgnoreCase)
-                         || string.Equals(estadoNombre, "CANCELADA", StringComparison.OrdinalIgnoreCase);
+                         || string.Equals(estadoNombre, "CANCELADA", StringComparison.OrdinalIgnoreCase)
+                         || p.NombreProceso.StartsWith("[DADO DE BAJA", StringComparison.OrdinalIgnoreCase)
+                         || p.NombreProceso.StartsWith("[DADA DE BAJA", StringComparison.OrdinalIgnoreCase);
 
             var isTerminada = !isBaja && (
                 string.Equals(estadoNombre, "IMPLEMENTADO", StringComparison.OrdinalIgnoreCase) ||
@@ -376,6 +377,87 @@ public sealed partial class AdoptionProcessService
         return new AdoptionResult(true, "Datos de implementación de la subsidiaria actualizados exitosamente.", pae.IdProcesoAdopcionEmpresa);
     }
 
+    public async Task<AdoptionResult> DecommissionImplementationProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var proc = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId && p.TipoProceso == "IMPLEMENTACION", cancellationToken);
+        if (proc is null)
+        {
+            return new AdoptionResult(false, $"No se encontró la solicitud de implementación #{procesoId}.");
+        }
+
+        var cancelState = await dbContext.TechnologyAdoptionStates.FirstOrDefaultAsync(s => s.Nombre != null && s.Nombre.ToUpper().Contains("CANCEL"), cancellationToken);
+        if (cancelState != null)
+        {
+            proc.IdEstadoAdopcionTSI = cancelState.Id;
+        }
+
+        var motivo = string.IsNullOrWhiteSpace(motivoBaja) ? "Sin motivo especificado" : motivoBaja.Trim();
+        proc.Objetivo = $"[DADA DE BAJA: {motivo}] {proc.Objetivo}".Trim();
+        if (!proc.NombreProceso.StartsWith("[DADA DE BAJA", StringComparison.OrdinalIgnoreCase))
+        {
+            proc.NombreProceso = $"[DADA DE BAJA: {motivo}] {proc.NombreProceso}".Trim();
+        }
+        proc.FechaEstimadaCierre = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrail.RecordUpdateAsync("proceso-implementacion", "TProcesoAdopcionTSI", proc.IdProcesoAdopcionTSI, proc.NombreProceso,
+            actorUserId, correlationId, $"Solicitud de implementación '{proc.CodigoProceso}' dada de baja. Motivo: {motivo}", cancellationToken);
+
+        return new AdoptionResult(true, $"La solicitud de implementación '{proc.CodigoProceso}' ha sido dada de baja exitosamente.");
+    }
+
+    public async Task<AdoptionResult> DeleteImplementationProcessAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        return await DeleteProcessCascadeAsync(procesoId, actorUserId, correlationId, cancellationToken);
+    }
+
+    public async Task<AdoptionResult> ManageImplementationCompaniesAsync(int procesoId, IEnumerable<int> selectedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        var proc = await dbContext.AdoptionProcesses.FirstOrDefaultAsync(p => p.IdProcesoAdopcionTSI == procesoId && p.TipoProceso == "IMPLEMENTACION", cancellationToken);
+        if (proc is null)
+        {
+            return new AdoptionResult(false, $"No se encontró la solicitud de implementación #{procesoId}.");
+        }
+
+        var targetIds = selectedCompanyIds.Distinct().ToHashSet();
+        var existing = await dbContext.AdoptionProcessCompanies
+            .Where(cp => cp.IdProcesoAdopcionTSI == procesoId)
+            .ToListAsync(cancellationToken);
+
+        var existingIds = existing.Select(e => e.IdEmpresaSubsidiaria).ToHashSet();
+
+        // 1. Eliminar empresas desmarcadas
+        var toRemove = existing.Where(e => !targetIds.Contains(e.IdEmpresaSubsidiaria)).ToList();
+        if (toRemove.Count > 0)
+        {
+            dbContext.AdoptionProcessCompanies.RemoveRange(toRemove);
+        }
+
+        // 2. Agregar empresas marcadas nuevas
+        var toAdd = targetIds.Where(id => !existingIds.Contains(id)).ToList();
+        foreach (var companyId in toAdd)
+        {
+            dbContext.AdoptionProcessCompanies.Add(new TProcesoAdopcionEmpresa
+            {
+                IdProcesoAdopcionTSI = procesoId,
+                IdEmpresaSubsidiaria = companyId,
+                Aplica = true,
+                EstadoImplementacion = "PENDIENTE",
+                FechaIncorporacion = DateTime.UtcNow.Date,
+                FechaModificacion = DateTime.UtcNow,
+                UsuarioModificacion = "SYSTEM"
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrail.RecordUpdateAsync("proceso-implementacion-empresas", "TProcesoAdopcionTSI", procesoId, proc.NombreProceso,
+            actorUserId, correlationId, $"Convocatoria de empresas actualizada: {toAdd.Count} agregadas, {toRemove.Count} removidas.", cancellationToken);
+
+        return new AdoptionResult(true, "Convocatoria de empresas actualizada exitosamente.");
+    }
+
     public async Task<ImplementationReportsDto?> GetImplementationReportsAsync(int procesoId, CancellationToken cancellationToken = default)
     {
         var proc = await dbContext.AdoptionProcesses.AsNoTracking()
@@ -407,12 +489,12 @@ public sealed partial class AdoptionProcessService
             .ToListAsync(cancellationToken);
 
         var totalConvocadas = processCompanies.Count;
-        var totalNoAplica = processCompanies.Count(cp => !cp.Aplica || cp.EstadoImplementacion == "NO_APLICA");
-        var totalAlineadas = processCompanies.Count(cp => cp.Aplica && (cp.EstadoImplementacion == "IMPLEMENTADO" || cp.EstadoImplementacion == "ALINEADO"));
-        var totalEnDespliegue = processCompanies.Count(cp => cp.Aplica && cp.EstadoImplementacion == "EN_DESPLIEGUE");
-        var totalPendientes = processCompanies.Count(cp => cp.Aplica && (cp.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(cp.EstadoImplementacion)));
-        var aplicables = totalConvocadas - totalNoAplica;
-        var pctAlineamiento = aplicables > 0 ? Math.Round((double)totalAlineadas / aplicables * 100.0, 1) : 0.0;
+        var totalNoAplica = processCompanies.Count(cp => cp.EstadoImplementacion == "NO_APLICA");
+        var totalAlineadas = processCompanies.Count(cp => cp.EstadoImplementacion == "IMPLEMENTADO" || cp.EstadoImplementacion == "ALINEADO");
+        var totalEnDespliegue = processCompanies.Count(cp => cp.EstadoImplementacion == "EN_DESPLIEGUE");
+        var totalPendientes = processCompanies.Count(cp => cp.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(cp.EstadoImplementacion));
+        var aplicables = totalConvocadas;
+        var pctAlineamiento = totalConvocadas > 0 ? Math.Round((double)totalAlineadas / totalConvocadas * 100.0, 1) : 0.0;
 
         var orderedCompanyIds = ParseOrderedCompanyIds(proc.OrdenEmpresas);
         var companyOrderMap = new Dictionary<int, int>();

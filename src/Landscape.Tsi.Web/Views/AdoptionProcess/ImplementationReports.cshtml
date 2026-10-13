@@ -75,10 +75,6 @@
                     <strong class="text-dark">@Model.TotalEmpresasConvocadas</strong>
                 </div>
                 <div class="kpi-card">
-                    <span>Subsidiarias Aplicables</span>
-                    <strong class="text-primary">@Model.TotalEmpresasAplicables</strong>
-                </div>
-                <div class="kpi-card">
                     <span>Alineadas / En Producción</span>
                     <strong class="text-success">@Model.TotalEmpresasAlineadas</strong>
                 </div>
@@ -89,10 +85,6 @@
                 <div class="kpi-card">
                     <span>Pendientes de Iniciar</span>
                     <strong class="text-muted">@Model.TotalEmpresasPendientes</strong>
-                </div>
-                <div class="kpi-card">
-                    <span>No Aplica</span>
-                    <strong class="text-secondary">@Model.TotalEmpresasNoAplica</strong>
                 </div>
                 <div class="kpi-card">
                     <span>% Cumplimiento Global</span>
@@ -112,8 +104,8 @@
                     </div>
                 </div>
                 <div class="d-flex justify-content-between text-muted small mt-1">
-                    <span>@Model.TotalEmpresasAlineadas de @Model.TotalEmpresasAplicables empresas aplicables en producción</span>
-                    <span>Meta: 100% de subsidiarias corporativas</span>
+                    <span>@Model.TotalEmpresasAlineadas de @Model.TotalEmpresasConvocadas empresas convocadas en producción</span>
+                    <span>Meta: 100% de subsidiarias convocadas</span>
                 </div>
             </div>
 

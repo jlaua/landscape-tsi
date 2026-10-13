@@ -197,7 +197,7 @@
                         <div class="small">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <strong class="text-primary">@p.PorcentajeAdopcion%</strong>
-                                <span class="text-muted" style="font-size:0.75rem;">@p.EmpresasAlineadas / @(p.TotalEmpresas - p.EmpresasNoAplica) impl.</span>
+                                <span class="text-muted" style="font-size:0.75rem;">@p.EmpresasAlineadas / @p.TotalEmpresas convocadas</span>
                             </div>
                             <div class="progress" style="height: 6px;">
                                 <div class="progress-bar bg-success" role="progressbar" style="width: @p.PorcentajeAdopcion%" aria-valuenow="@p.PorcentajeAdopcion" aria-valuemin="0" aria-valuemax="100"></div>
@@ -205,12 +205,29 @@
                         </div>
                     </td>
                     <td data-label="Acciones" class="text-end text-nowrap">
-                        <a class="btn btn-sm btn-outline-info text-dark" asp-action="ImplementationReports" asp-route-id="@p.Id" title="Ver grado de adopción y cronograma de abordaje">
-                            📊 Reportes & Cronograma
-                        </a>
-                        <a class="btn btn-sm btn-outline-primary ms-1" asp-action="ImplementationDetails" asp-route-id="@p.Id" title="Ver detalle de implementación">
-                            Detalle
-                        </a>
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <a class="btn btn-sm btn-outline-info text-dark" asp-action="ImplementationReports" asp-route-id="@p.Id" title="Ver grado de adopción y cronograma de abordaje">
+                                📊 Reportes
+                            </a>
+                            <a class="btn btn-sm btn-outline-primary" asp-action="ImplementationDetails" asp-route-id="@p.Id" title="Ver detalle de implementación">
+                                Detalle
+                            </a>
+                            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="EditImplementation" asp-route-id="@p.Id" title="Editar parámetros de la solicitud">
+                                    Editar
+                                </a>
+                                @if (p.IsActivo)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-trigger-baja" data-id="@p.Id" data-code="@p.Codigo" data-name="@p.Nombre" title="Dar de baja esta solicitud">
+                                        Dar de baja
+                                    </button>
+                                }
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-trigger-eliminar" data-id="@p.Id" data-code="@p.Codigo" data-name="@p.Nombre" title="Eliminar solicitud">
+                                    🗑️ Eliminar
+                                </button>
+                            }
+                        </div>
                     </td>
                 </tr>
             }
@@ -218,3 +235,113 @@
         </table>
     </div>
 </section>
+
+<!-- MODAL DAR DE BAJA -->
+<div class="modal fade" id="modalDarDeBajaImpl" tabindex="-1" aria-labelledby="modalBajaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <form id="formDarDeBajaImpl" method="post" action="">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-danger-subtle py-2">
+                    <h5 class="modal-title h6 text-danger fw-bold" id="modalBajaLabel">⚠️ Dar de Baja Solicitud de Implementación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">¿Estás seguro de que deseas dar de baja la siguiente solicitud de implementación?</p>
+                    <div class="card p-2 bg-light border mb-3">
+                        <strong id="bajaModalCode" class="text-primary font-monospace"></strong>
+                        <div id="bajaModalName" class="text-dark small"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="bajaMotivoInput">Motivo o Justificación de la Baja *</label>
+                        <textarea class="form-control form-control-sm" name="motivoBaja" id="bajaMotivoInput" rows="3" placeholder="Indica el motivo por el cual se cancela o discontinúa esta implementación..." required></textarea>
+                    </div>
+                    <p class="small text-muted mb-0">La solicitud cambiará de estado a <strong>CANCELADO</strong> y quedará registrada en la pista de auditoría.</p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3 fw-semibold">Confirmar Baja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR SOLICITUD -->
+<div class="modal fade" id="modalEliminarImpl" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <form id="formEliminarImpl" method="post" action="">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-danger text-white py-2">
+                    <h5 class="modal-title h6 fw-bold" id="modalEliminarLabel">🗑️ Eliminar Solicitud de Implementación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">¿Confirmas la eliminación permanente de la siguiente solicitud de implementación?</p>
+                    <div class="card p-2 bg-light border mb-3">
+                        <strong id="eliminarModalCode" class="text-danger font-monospace"></strong>
+                        <div id="eliminarModalName" class="text-dark small"></div>
+                    </div>
+                    <div class="alert alert-warning small mb-0 py-2">
+                        <strong>Atención:</strong> Esta acción eliminará el registro de la solicitud y sus vínculos de subsidiarias convocadas de forma irreversible.
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3 fw-semibold">Sí, Eliminar Permanentemente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Modal Dar de baja
+            const modalBajaEl = document.getElementById('modalDarDeBajaImpl');
+            const bsModalBaja = modalBajaEl ? new bootstrap.Modal(modalBajaEl) : null;
+            const formBaja = document.getElementById('formDarDeBajaImpl');
+            const codeBaja = document.getElementById('bajaModalCode');
+            const nameBaja = document.getElementById('bajaModalName');
+
+            document.querySelectorAll('.btn-trigger-baja').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = this.getAttribute('data-id');
+                    const code = this.getAttribute('data-code');
+                    const name = this.getAttribute('data-name');
+
+                    if (formBaja) formBaja.action = `/AdoptionProcess/Implementations/${id}/Decommission`;
+                    if (codeBaja) codeBaja.textContent = code;
+                    if (nameBaja) nameBaja.textContent = name;
+                    const motivoInput = document.getElementById('bajaMotivoInput');
+                    if (motivoInput) motivoInput.value = '';
+
+                    if (bsModalBaja) bsModalBaja.show();
+                });
+            });
+
+            // Modal Eliminar
+            const modalEliminarEl = document.getElementById('modalEliminarImpl');
+            const bsModalEliminar = modalEliminarEl ? new bootstrap.Modal(modalEliminarEl) : null;
+            const formEliminar = document.getElementById('formEliminarImpl');
+            const codeEliminar = document.getElementById('eliminarModalCode');
+            const nameEliminar = document.getElementById('eliminarModalName');
+
+            document.querySelectorAll('.btn-trigger-eliminar').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = this.getAttribute('data-id');
+                    const code = this.getAttribute('data-code');
+                    const name = this.getAttribute('data-name');
+
+                    if (formEliminar) formEliminar.action = `/AdoptionProcess/Implementations/${id}/Delete`;
+                    if (codeEliminar) codeEliminar.textContent = code;
+                    if (nameEliminar) nameEliminar.textContent = name;
+
+                    if (bsModalEliminar) bsModalEliminar.show();
+                });
+            });
+        });
+    </script>
+}

@@ -8,4 +8,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Landscape.Tsi.Tests/Landscape.Tsi.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Landscape.Tsi.McpServer/Landscape.Tsi.McpServer.csproj" />
+  </Folder>
 </Solution>

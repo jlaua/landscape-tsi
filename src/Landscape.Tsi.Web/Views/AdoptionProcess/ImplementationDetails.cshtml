@@ -4,12 +4,10 @@
     var p = Model.Process;
     ViewData["Title"] = $"{p.Codigo} - Detalle de Implementación";
     var totalConvocadas = p.Empresas.Count;
-    var totalNoAplica = p.Empresas.Count(e => !e.Aplica || e.EstadoImplementacion == "NO_APLICA");
-    var totalAlineadas = p.Empresas.Count(e => e.Aplica && (e.EstadoImplementacion == "IMPLEMENTADO" || e.EstadoImplementacion == "ALINEADO"));
-    var totalEnDespliegue = p.Empresas.Count(e => e.Aplica && e.EstadoImplementacion == "EN_DESPLIEGUE");
-    var totalPendientes = p.Empresas.Count(e => e.Aplica && (e.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(e.EstadoImplementacion)));
-    var totalAplicables = totalConvocadas - totalNoAplica;
-    var pctAdopcion = totalAplicables > 0 ? Math.Round((double)totalAlineadas / totalAplicables * 100.0, 1) : 0.0;
+    var totalAlineadas = p.Empresas.Count(e => e.EstadoImplementacion == "IMPLEMENTADO" || e.EstadoImplementacion == "ALINEADO");
+    var totalEnDespliegue = p.Empresas.Count(e => e.EstadoImplementacion == "EN_DESPLIEGUE");
+    var totalPendientes = p.Empresas.Count(e => e.EstadoImplementacion == "PENDIENTE" || string.IsNullOrWhiteSpace(e.EstadoImplementacion));
+    var pctAdopcion = totalConvocadas > 0 ? Math.Round((double)totalAlineadas / totalConvocadas * 100.0, 1) : 0.0;
 }
 
 <nav aria-label="Ruta de navegación">
@@ -60,6 +58,12 @@
             </p>
         </div>
         <div class="d-flex gap-2">
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <a class="btn btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" asp-action="EditImplementation" asp-route-id="@p.Id" title="Editar parámetros contractuales y generales">
+                    <span>✏️ Editar Parámetros</span>
+                </a>
+            }
             <a class="btn btn-outline-info text-dark fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" asp-action="ImplementationReports" asp-route-id="@p.Id">
                 <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 <span>📊 Reportes & Cronograma</span>
@@ -100,10 +104,6 @@
             <strong class="text-muted">@totalPendientes</strong>
         </div>
         <div class="kpi-card">
-            <span>No Aplica</span>
-            <strong class="text-secondary">@totalNoAplica</strong>
-        </div>
-        <div class="kpi-card">
             <span>% Adopción Corporativa</span>
             <strong class="text-primary">@pctAdopcion%</strong>
         </div>
@@ -113,7 +113,7 @@
     <div class="card p-3 shadow-sm border-0 mb-4 bg-light">
         <div class="d-flex justify-content-between align-items-center mb-1">
             <span class="small fw-bold text-dark">Nivel Global de Adopción de la Tecnología Estándar:</span>
-            <span class="small fw-bold text-primary">@pctAdopcion% (@totalAlineadas de @totalAplicables subsidiarias aplicables)</span>
+            <span class="small fw-bold text-primary">@pctAdopcion% (@totalAlineadas de @totalConvocadas subsidiarias convocadas)</span>
         </div>
         <div class="progress" style="height: 12px;">
             <div class="progress-bar bg-success" role="progressbar" style="width: @pctAdopcion%" aria-valuenow="@pctAdopcion" aria-valuemin="0" aria-valuemax="100"></div>
@@ -122,11 +122,25 @@
 
     <!-- Ficha Técnica del Proceso y Contrato Corporativo -->
     <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-light py-3">
+        <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0 text-dark">📝 Parámetros del Proceso y Contrato Corporativo</h2>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <a class="btn btn-sm btn-outline-secondary" asp-action="EditImplementation" asp-route-id="@p.Id">
+                    ✏️ Editar Parámetros
+                </a>
+            }
         </div>
         <div class="card-body">
             <div class="row g-3">
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Familia Tecnológica</span>
+                    <strong class="text-primary">🏷️ @p.FamiliaNombre</strong>
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block">Building Block Asociado</span>
+                    <strong>🏛️ @p.BuildingBlockNombre</strong>
+                </div>
                 <div class="col-md-3">
                     <span class="text-muted small d-block">Líder Corporativo TSI</span>
                     <strong>@(p.LiderCorporativo ?? "No asignado")</strong>
@@ -166,8 +180,8 @@
 
                 @if (!string.IsNullOrWhiteSpace(p.ProcesoEvaluacionOrigenNombre))
                 {
-                    <div class="col-12">
-                        <span class="text-muted small d-block">Evaluación TSI de Origen</span>
+                    <div class="col-md-3">
+                        <span class="text-muted small d-block">Evaluación TSI de Origen (Referencia)</span>
                         <a asp-action="Details" asp-route-id="@p.ProcesoEvaluacionOrigenId" class="badge bg-light text-primary border text-decoration-none">
                             🔍 @p.ProcesoEvaluacionOrigenNombre
                         </a>
@@ -200,6 +214,12 @@
                 <h2 class="h5 mb-0 text-dark">🏢 Subsidiarias Participantes y Abordaje Técnico</h2>
                 <small class="text-muted">Seguimiento de la fecha de inicio/abordaje, especialista técnico responsable y documentación de arquitectura.</small>
             </div>
+            @if (User.HasClaim(CustomClaimTypes.Permission, Permissions.CatalogEdit))
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalGestionarConvocatoria">
+                    ➕ Gestionar Convocatoria
+                </button>
+            }
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -466,9 +486,11 @@
                         </div>
 
                         <div class="col-md-12">
-                            <label for="modalEspecialistaSelect" class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                            <label for="modalEspecialistaSelect" class="form-label fw-semibold d-flex justify-content-between align-items-center mb-1">
                                 <span>Especialista Técnico a Cargo</span>
-                                <small class="text-muted fw-normal">Subsidiaria o Partner Adjudicado</small>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnOpenSpecialistModalFromProgress">
+                                    👤 Buscar / Registrar Nuevo
+                                </button>
                             </label>
                             <select id="modalEspecialistaSelect" class="form-select">
                                 <option value="">-- Seleccionar Especialista Técnico --</option>
@@ -511,6 +533,172 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL GESTIONAR CONVOCATORIA DE EMPRESAS -->
+<div class="modal fade" id="modalGestionarConvocatoria" tabindex="-1" aria-labelledby="modalGestionarConvocatoriaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow">
+            <form asp-action="ManageCompanies" asp-route-id="@p.Id" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header bg-light py-2">
+                    <h5 class="modal-title h6 fw-bold text-dark" id="modalGestionarConvocatoriaLabel">🏢 Convocatoria de Empresas Subsidiarias — @p.Codigo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">
+                        Marca las empresas subsidiarias que deben participar en la implementación de este estándar tecnológico corporativo.
+                        El <strong>Grado de Adopción (100%)</strong> se calcula exclusivamente en base a las subsidiarias que queden convocadas.
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                        <div class="input-group input-group-sm flex-grow-1">
+                            <span class="input-group-text bg-white">🔎</span>
+                            <input type="text" id="inputFilterConvocatoria" class="form-control" placeholder="Buscar subsidiaria en el catálogo..." autocomplete="off" />
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCheckAllModalConvo">Marcar Todas</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnUncheckAllModalConvo">Desmarcar Todas</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0" id="tableGestionConvocatoria">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 60px;" class="text-center">Convocar</th>
+                                    <th>Empresa Subsidiaria</th>
+                                    <th style="width: 160px;" class="text-center">Estado Actual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var comp in Model.TodasLasEmpresas)
+                            {
+                                var estaConvocada = p.Empresas.Any(e => e.EmpresaId == comp.Id);
+                                var empData = p.Empresas.FirstOrDefault(e => e.EmpresaId == comp.Id);
+                                <tr class="tr-convo-row">
+                                    <td class="text-center">
+                                        <input type="checkbox" name="selectedCompanyIds" value="@comp.Id" class="form-check-input chk-modal-convo-item" @(estaConvocada ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <strong class="text-dark">@comp.Label</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (estaConvocada)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success">
+                                                @(empData?.EstadoImplementacion ?? "CONVOCADA")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border">
+                                                No Convocada
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold">💾 Guardar Convocatoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA SELECCIONAR O CREAR ESPECIALISTA TÉCNICO -->
+<div class="modal fade" id="modalEspecialistaPicker" tabindex="-1" aria-labelledby="modalEspDetailTitle" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-light py-2">
+                <h5 class="modal-title h6" id="modalEspDetailTitle">👤 Especialista Técnico — <span id="modalEspCompanyLabel" class="text-primary fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="espModalDetailTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-detail-existentes-btn" data-bs-toggle="tab" data-bs-target="#pane-detail-existentes" type="button" role="tab" aria-selected="true">
+                            🔍 Especialistas Registrados
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-detail-nuevo-btn" data-bs-toggle="tab" data-bs-target="#pane-detail-nuevo" type="button" role="tab" aria-selected="false">
+                            ➕ Registrar Nuevo Especialista
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="espModalDetailTabsContent">
+                    <div class="tab-pane fade show active" id="pane-detail-existentes" role="tabpanel">
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-white">🔎</span>
+                            <input type="text" id="inputFilterDetailSpecialists" class="form-control" placeholder="Buscar por nombre, cargo o correo..." autocomplete="off" />
+                        </div>
+                        <div id="loadingDetailSpecialists" class="text-center py-4 d-none">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <span class="text-muted small ms-2">Cargando especialistas disponibles...</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Cargo / Rol</th>
+                                        <th>Correo</th>
+                                        <th>Origen</th>
+                                        <th class="text-end">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyDetailSpecialists">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="noDetailSpecialistsMessage" class="text-center py-4 text-muted small d-none">
+                            No se encontraron especialistas registrados. Puedes registrar uno en la pestaña <strong>"Registrar Nuevo Especialista"</strong>.
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="pane-detail-nuevo" role="tabpanel">
+                        <form id="formDetailCreateNewSpecialist" autocomplete="off">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nombre Completo del Especialista *</label>
+                                    <input type="text" id="newDetailEspNombre" class="form-control form-control-sm" placeholder="Ej: Ing. Carlos Pérez" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Cargo / Rol</label>
+                                    <input type="text" id="newDetailEspRol" class="form-control form-control-sm" placeholder="Ej: Especialista Cloud / Seguridad TI" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Correo Electrónico</label>
+                                    <input type="email" id="newDetailEspEmail" class="form-control form-control-sm" placeholder="ejemplo@empresa.com" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Teléfono</label>
+                                    <input type="text" id="newDetailEspTelefono" class="form-control form-control-sm" placeholder="+51 999 888 777" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-semibold">Especialidad / Plataformas</label>
+                                    <input type="text" id="newDetailEspPlataformas" class="form-control form-control-sm" placeholder="Ej: Cloudflare, AWS, Redes, WAF" />
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelDetailCreateSpecialist">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" id="btnSubmitDetailNewSpecialist">
+                                    💾 Guardar y Asignar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 @section Scripts {
     <script>
@@ -791,6 +979,234 @@
                     syncTechValue();
                     syncSpecialistValue();
                 });
+            }
+
+            // GESTIÓN DE CONVOCATORIA (Filtro y Selección Masiva)
+            const inputFilterConvo = document.getElementById('inputFilterConvocatoria');
+            if (inputFilterConvo) {
+                inputFilterConvo.addEventListener('input', function () {
+                    const term = this.value.toLowerCase().trim();
+                    document.querySelectorAll('.tr-convo-row').forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(term) ? '' : 'none';
+                    });
+                });
+            }
+
+            const btnCheckAllConvo = document.getElementById('btnCheckAllModalConvo');
+            const btnUncheckAllConvo = document.getElementById('btnUncheckAllModalConvo');
+            if (btnCheckAllConvo) {
+                btnCheckAllConvo.addEventListener('click', () => {
+                    document.querySelectorAll('.chk-modal-convo-item').forEach(c => c.checked = true);
+                });
+            }
+            if (btnUncheckAllConvo) {
+                btnUncheckAllConvo.addEventListener('click', () => {
+                    document.querySelectorAll('.chk-modal-convo-item').forEach(c => c.checked = false);
+                });
+            }
+
+            // MODAL PICKER DE ESPECIALISTA DESDE AVANCE
+            let currentEditingEmpresaId = null;
+            let currentEditingEmpresaName = '';
+            document.querySelectorAll('.btn-edit-company-progress').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    currentEditingEmpresaId = parseInt(this.dataset.empresaId, 10);
+                    currentEditingEmpresaName = this.dataset.name || '';
+                });
+            });
+
+            const modalPickerEl = document.getElementById('modalEspecialistaPicker');
+            const bsPickerModal = modalPickerEl ? new bootstrap.Modal(modalPickerEl) : null;
+            const btnOpenPicker = document.getElementById('btnOpenSpecialistModalFromProgress');
+
+            if (btnOpenPicker) {
+                btnOpenPicker.addEventListener('click', function () {
+                    if (!currentEditingEmpresaId) return;
+
+                    const labelComp = document.getElementById('modalEspCompanyLabel');
+                    if (labelComp) labelComp.textContent = currentEditingEmpresaName;
+
+                    const inputFilter = document.getElementById('inputFilterDetailSpecialists');
+                    if (inputFilter) inputFilter.value = '';
+
+                    const formNew = document.getElementById('formDetailCreateNewSpecialist');
+                    if (formNew) formNew.reset();
+
+                    const tabBtn = document.getElementById('tab-detail-existentes-btn');
+                    if (tabBtn) new bootstrap.Tab(tabBtn).show();
+
+                    loadDetailSpecialists(currentEditingEmpresaId);
+
+                    if (bsPickerModal) bsPickerModal.show();
+                });
+            }
+
+            let detailSpecialists = [];
+            const tbodyDetail = document.getElementById('tbodyDetailSpecialists');
+            const loadingDetail = document.getElementById('loadingDetailSpecialists');
+            const noDetailMsg = document.getElementById('noDetailSpecialistsMessage');
+
+            async function loadDetailSpecialists(empresaId) {
+                if (!tbodyDetail) return;
+                tbodyDetail.innerHTML = '';
+                if (loadingDetail) loadingDetail.classList.remove('d-none');
+                if (noDetailMsg) noDetailMsg.classList.add('d-none');
+
+                try {
+                    const res = await fetch(`/AdoptionProcess/Implementations/Api/SpecialistsLookup?empresaId=${empresaId}`);
+                    if (!res.ok) throw new Error('Error al cargar especialistas');
+                    const data = await res.json();
+
+                    detailSpecialists = [];
+                    if (data.companyContacts) {
+                        data.companyContacts.forEach(c => {
+                            detailSpecialists.push({
+                                id: c.id,
+                                nombre: c.nombre,
+                                rol: c.rol || 'Especialista',
+                                email: c.email || '—',
+                                origen: 'Subsidiaria',
+                                isCompany: true
+                            });
+                        });
+                    }
+                    if (data.partnerContacts) {
+                        data.partnerContacts.forEach(p => {
+                            detailSpecialists.push({
+                                id: p.id,
+                                nombre: p.nombre,
+                                rol: p.rol || 'Especialista Partner',
+                                email: p.email || '—',
+                                origen: p.partnerNombre || 'Partner',
+                                isCompany: false
+                            });
+                        });
+                    }
+
+                    renderDetailSpecialistsTable(detailSpecialists);
+                } catch (e) {
+                    console.error('Error cargando especialistas:', e);
+                } finally {
+                    if (loadingDetail) loadingDetail.classList.add('d-none');
+                }
+            }
+
+            function renderDetailSpecialistsTable(list) {
+                if (!tbodyDetail) return;
+                tbodyDetail.innerHTML = '';
+
+                if (list.length === 0) {
+                    if (noDetailMsg) noDetailMsg.classList.remove('d-none');
+                    return;
+                }
+                if (noDetailMsg) noDetailMsg.classList.add('d-none');
+
+                list.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${escapeHtml(item.nombre)}</strong></td>
+                        <td class="text-muted small">${escapeHtml(item.rol)}</td>
+                        <td class="text-muted small">${escapeHtml(item.email)}</td>
+                        <td><span class="badge ${item.isCompany ? 'bg-primary-subtle text-primary border' : 'bg-secondary-subtle text-secondary border'}" style="font-size: 0.7rem;">${escapeHtml(item.origen)}</span></td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-primary btn-sm py-0 px-2 btn-pick-spec" data-name="${escapeHtml(item.nombre)}" data-rol="${escapeHtml(item.rol)}">
+                                Asignar
+                            </button>
+                        </td>
+                    `;
+                    tbodyDetail.appendChild(tr);
+                });
+
+                tbodyDetail.querySelectorAll('.btn-pick-spec').forEach(b => {
+                    b.addEventListener('click', function () {
+                        const name = this.getAttribute('data-name');
+                        const rol = this.getAttribute('data-rol');
+                        applySpecialistToProgress(name, rol);
+                    });
+                });
+            }
+
+            function applySpecialistToProgress(name, rol) {
+                const fullName = name + (rol ? ` (${rol})` : '');
+                if (txtCustomEsp) txtCustomEsp.value = fullName;
+                if (hidEsp) hidEsp.value = fullName;
+                if (selEsp) selEsp.value = '__CUSTOM__';
+                if (groupCustomEsp) groupCustomEsp.style.display = 'block';
+
+                if (bsPickerModal) bsPickerModal.hide();
+            }
+
+            const inputFilterDetail = document.getElementById('inputFilterDetailSpecialists');
+            if (inputFilterDetail) {
+                inputFilterDetail.addEventListener('input', function () {
+                    const term = this.value.toLowerCase().trim();
+                    if (!term) {
+                        renderDetailSpecialistsTable(detailSpecialists);
+                        return;
+                    }
+                    const filtered = detailSpecialists.filter(s =>
+                        s.nombre.toLowerCase().includes(term) ||
+                        s.rol.toLowerCase().includes(term) ||
+                        s.email.toLowerCase().includes(term)
+                    );
+                    renderDetailSpecialistsTable(filtered);
+                });
+            }
+
+            // Registrar nuevo especialista desde detalle
+            const formDetailNew = document.getElementById('formDetailCreateNewSpecialist');
+            if (formDetailNew) {
+                formDetailNew.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    if (!currentEditingEmpresaId) return;
+
+                    const nombre = document.getElementById('newDetailEspNombre').value.trim();
+                    const rol = document.getElementById('newDetailEspRol').value.trim();
+                    const email = document.getElementById('newDetailEspEmail').value.trim();
+                    const telefono = document.getElementById('newDetailEspTelefono').value.trim();
+                    const plataformas = document.getElementById('newDetailEspPlataformas').value.trim();
+
+                    if (!nombre) {
+                        alert('El nombre es obligatorio.');
+                        return;
+                    }
+
+                    const submitBtn = document.getElementById('btnSubmitDetailNewSpecialist');
+                    if (submitBtn) submitBtn.disabled = true;
+
+                    try {
+                        const res = await fetch('/AdoptionProcess/Implementations/Api/CreateSpecialist', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                empresaId: currentEditingEmpresaId,
+                                nombre,
+                                rol,
+                                email,
+                                telefono,
+                                plataformas
+                            })
+                        });
+
+                        const result = await res.json();
+                        if (result.success) {
+                            applySpecialistToProgress(result.nombre, result.rol);
+                        } else {
+                            alert(result.message || 'Error al guardar especialista.');
+                        }
+                    } catch (err) {
+                        console.error('Error registrando especialista:', err);
+                        alert('Ocurrió un error al guardar.');
+                    } finally {
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
             }
         });
     </script>

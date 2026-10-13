@@ -48,6 +48,9 @@ public interface IAdoptionProcessService
     Task<AdoptionResult> CreateImplementationProcessAsync(CreateImplementationProcessCommand command, CancellationToken cancellationToken = default);
     Task<AdoptionResult> UpdateImplementationProcessAsync(UpdateImplementationProcessCommand command, CancellationToken cancellationToken = default);
     Task<AdoptionResult> UpdateImplementationCompanyAsync(UpdateImplementationCompanyCommand command, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> DecommissionImplementationProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> DeleteImplementationProcessAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
+    Task<AdoptionResult> ManageImplementationCompaniesAsync(int procesoId, IEnumerable<int> selectedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default);
     Task<ImplementationReportsDto?> GetImplementationReportsAsync(int procesoId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StandardTechnologyDto>> GetCorporateStandardsByFamilyAsync(int? familiaId, CancellationToken cancellationToken = default);
 }

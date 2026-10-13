@@ -139,3 +139,19 @@ El módulo de reportería de implementaciones MUST disponer las cabeceras de dri
 #### Scenario: Volumetría con valor por defecto cero
 - **WHEN** un proceso cuenta con drivers definidos en la plantilla corporativa pero una empresa convocada no ha ingresado consumos
 - **THEN** el reporte de volumetría muestra un valor por defecto de 0 en lugar de datos residuales o inventados.
+
+### Requirement: Mantenimiento y Ciclo de Vida de Procesos de Implementación
+El sistema MUST permitir la edición integral de los datos generales del proceso de implementación, la baja formal auditada con justificación explícita y la eliminación segura de procesos de implementación.
+
+#### Scenario: Edición de proceso de implementación
+- **WHEN** un usuario autorizado actualiza los datos generales de una solicitud de implementación (nombre, fechas de contrato, tecnología estándar, líder corporativo)
+- **THEN** el sistema persiste las modificaciones y genera un evento de auditoría con la trazabilidad del cambio.
+
+#### Scenario: Baja justificada de proceso de implementación
+- **WHEN** un usuario autorizado da de baja una solicitud de implementación ingresando el motivo
+- **THEN** el sistema actualiza el estado a cancelado, prefija el objetivo con la causal de baja y registra el evento inmutable de auditoría.
+
+#### Scenario: Gestión dinámica de empresas subsidiarias convocadas
+- **WHEN** un usuario actualiza el grupo de empresas subsidiarias convocadas a una implementación
+- **THEN** el sistema incorpora las nuevas empresas seleccionadas con estado inicial pendiente y desvincula las empresas removidas sin corromper la integridad referencial.
+

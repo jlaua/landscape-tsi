@@ -113,7 +113,10 @@ public sealed partial class AdoptionProcessController
             var eval = await dbContext.AdoptionProcesses.AsNoTracking().FirstOrDefaultAsync(x => x.IdProcesoAdopcionTSI == evaluacionId.Value, cancellationToken);
             if (eval is null) return View("CreateImplementation", model);
 
-            model.Nombre = $"Implementación Corporativa - {eval.NombreProceso}";
+            if (string.IsNullOrWhiteSpace(model.Nombre))
+            {
+                model.Nombre = $"Implementación Corporativa - {eval.NombreProceso}";
+            }
             model.BuildingBlockId = eval.IdBuildingBlock;
             model.LiderCorporativo = eval.LiderCorporativoTSI;
 
@@ -138,16 +141,16 @@ public sealed partial class AdoptionProcessController
 
             // Precargar empresas convocadas en la evaluación
             var evalCompanies = await dbContext.AdoptionProcessCompanies.AsNoTracking()
-                .Where(cp => cp.IdProcesoAdopcionTSI == evaluacionId.Value)
+                .Where(cp => cp.IdProcesoAdopcionTSI == evaluacionId.Value && cp.Aplica)
                 .ToDictionaryAsync(cp => cp.IdEmpresaSubsidiaria, cancellationToken);
 
             foreach (var sub in model.Subsidiaries)
             {
                 if (evalCompanies.TryGetValue(sub.EmpresaId, out var ec))
                 {
-                    sub.Selected = ec.Aplica;
-                    sub.Aplica = ec.Aplica;
-                    sub.JustificacionNoAplica = ec.JustificacionNoAplica;
+                    sub.Selected = true;
+                    sub.Aplica = true;
+                    sub.JustificacionNoAplica = null;
                     sub.ContactoFocalId = ec.IdContactoEmpresaSubsidiaria;
                 }
             }
@@ -188,12 +191,12 @@ public sealed partial class AdoptionProcessController
             .Select(s => new ConveneImplementationCompanyInput(
                 s.EmpresaId,
                 s.ContactoFocalId,
-                s.Aplica,
-                s.JustificacionNoAplica,
+                true,
+                null,
                 s.FechaInicioAdopcion,
                 s.EspecialistaTecnico,
                 s.UrlArquitectura,
-                s.Aplica ? s.EstadoImplementacion : "NO_APLICA",
+                s.EstadoImplementacion,
                 s.TecnologiaAsIs))
             .ToList();
 
@@ -294,6 +297,11 @@ public sealed partial class AdoptionProcessController
                                      })
                                      .ToListAsync(cancellationToken);
 
+        var allCompanies = await dbContext.Companies.AsNoTracking()
+            .OrderBy(c => c.Nombre)
+            .Select(c => new CatalogOption(c.Id, $"{c.Nombre} ({c.Pais})"))
+            .ToListAsync(cancellationToken);
+
         var model = new ImplementationDetailsViewModel
         {
             Process = detail,
@@ -301,7 +309,8 @@ public sealed partial class AdoptionProcessController
             Familias = familias,
             TecnologiasDisponibles = techOptions,
             EspecialistasEmpresas = companyContacts,
-            EspecialistasPartners = partnerContacts
+            EspecialistasPartners = partnerContacts,
+            TodasLasEmpresas = allCompanies
         };
 
         return View("ImplementationDetails", model);
@@ -381,6 +390,156 @@ public sealed partial class AdoptionProcessController
         }
 
         return RedirectToAction("ImplementationDetails", new { id = form.ProcesoId });
+    }
+
+    [HttpGet("Implementations/{id:int}/Edit")]
+    [HttpGet("/AdoptionProcess/Implementations/{id:int}/Edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> EditImplementation(int id, CancellationToken cancellationToken)
+    {
+        var p = await dbContext.AdoptionProcesses.AsNoTracking().FirstOrDefaultAsync(x => x.IdProcesoAdopcionTSI == id && x.TipoProceso == "IMPLEMENTACION", cancellationToken);
+        if (p is null) return NotFound();
+
+        var model = new EditImplementationViewModel
+        {
+            Id = p.IdProcesoAdopcionTSI,
+            Codigo = p.CodigoProceso,
+            Nombre = p.NombreProceso,
+            FamiliaId = p.IdFamilia,
+            TecnologiaEstandarId = p.IdTecnologiaEstandar ?? 0,
+            BuildingBlockId = p.IdBuildingBlock,
+            FechaInicioVigenciaContrato = p.FechaInicioVigenciaContrato,
+            FechaFinVigenciaContrato = p.FechaFinVigenciaContrato,
+            NumeroContratoCorporativo = p.NumeroContratoCorporativo,
+            EstadoAdopcionId = p.IdEstadoAdopcionTSI,
+            Objetivo = p.Objetivo,
+            Alcance = p.Alcance,
+            LiderCorporativo = p.LiderCorporativoTSI,
+            FechaInicio = p.FechaInicio,
+            FechaEstimadaCierre = p.FechaEstimadaCierre
+        };
+
+        await PopulateEditImplementationCatalogsAsync(model, cancellationToken);
+        return View("EditImplementation", model);
+    }
+
+    [HttpPost("Implementations/{id:int}/Edit")]
+    [HttpPost("/AdoptionProcess/Implementations/{id:int}/Edit")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateImplementation(int id, EditImplementationViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            await PopulateEditImplementationCatalogsAsync(model, cancellationToken);
+            return View("EditImplementation", model);
+        }
+
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var cmd = new UpdateImplementationProcessCommand(
+            id,
+            model.Nombre.Trim(),
+            model.FamiliaId,
+            model.TecnologiaEstandarId > 0 ? model.TecnologiaEstandarId : null,
+            model.BuildingBlockId,
+            model.FechaInicioVigenciaContrato,
+            model.FechaFinVigenciaContrato,
+            model.NumeroContratoCorporativo?.Trim(),
+            model.EstadoAdopcionId,
+            model.Objetivo?.Trim(),
+            model.Alcance?.Trim(),
+            model.LiderCorporativo?.Trim(),
+            model.FechaInicio,
+            model.FechaEstimadaCierre,
+            actor.Value,
+            HttpContext.TraceIdentifier);
+
+        var result = await adoptionService.UpdateImplementationProcessAsync(cmd, cancellationToken);
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Message;
+            await PopulateEditImplementationCatalogsAsync(model, cancellationToken);
+            return View("EditImplementation", model);
+        }
+
+        TempData["SuccessMessage"] = "Solicitud de implementación actualizada exitosamente.";
+        return RedirectToAction("ImplementationDetails", new { id });
+    }
+
+    [HttpPost("Implementations/{id:int}/Decommission")]
+    [HttpPost("/AdoptionProcess/Implementations/{id:int}/Decommission")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DecommissionImplementation(int id, string? motivoBaja, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.DecommissionImplementationProcessAsync(id, motivoBaja ?? "Solicitud dada de baja", actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+        return RedirectToAction("Implementations");
+    }
+
+    [HttpPost("Implementations/{id:int}/Delete")]
+    [HttpPost("/AdoptionProcess/Implementations/{id:int}/Delete")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteImplementation(int id, string? returnUrl, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.DeleteImplementationProcessAsync(id, actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+        {
+            TempData["SuccessMessage"] = "La solicitud de implementación fue eliminada exitosamente.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+        return RedirectToAction("Implementations");
+    }
+
+    [HttpPost("Implementations/{id:int}/ManageCompanies")]
+    [HttpPost("/AdoptionProcess/Implementations/{id:int}/ManageCompanies")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ManageCompanies(int id, [FromForm] List<int> selectedCompanyIds, CancellationToken cancellationToken)
+    {
+        var actor = ActorId();
+        if (actor is null) return Forbid();
+
+        var result = await adoptionService.ManageImplementationCompaniesAsync(id, selectedCompanyIds ?? [], actor.Value, HttpContext.TraceIdentifier, cancellationToken);
+        if (result.Succeeded)
+        {
+            TempData["SuccessMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
+
+        return RedirectToAction("ImplementationDetails", new { id });
     }
 
     [HttpGet("Implementations/Architecture/Download/{procesoEmpresaId:int}")]
@@ -473,6 +632,92 @@ public sealed partial class AdoptionProcessController
         return Json(new { companyContacts, partnerContacts });
     }
 
+    [HttpGet("Implementations/Api/EvaluationData/{evaluacionId:int}")]
+    [HttpGet("/AdoptionProcess/Implementations/Api/EvaluationData/{evaluacionId:int}")]
+    public async Task<IActionResult> GetEvaluationDataApi(int evaluacionId, CancellationToken cancellationToken)
+    {
+        var eval = await dbContext.AdoptionProcesses.AsNoTracking().FirstOrDefaultAsync(x => x.IdProcesoAdopcionTSI == evaluacionId, cancellationToken);
+        if (eval is null) return NotFound();
+
+        int? familiaId = null;
+        if (eval.IdBuildingBlock > 0)
+        {
+            var bb = await dbContext.BuildingBlocks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == eval.IdBuildingBlock, cancellationToken);
+            familiaId = bb?.IdFamilia;
+        }
+
+        int? techId = null;
+        string? techName = null;
+        DateTime? inicioContrato = null;
+        DateTime? finContrato = null;
+
+        var std = await dbContext.StandardTechnologyHistories.AsNoTracking()
+            .Where(s => s.IdBuildingBlock == eval.IdBuildingBlock && s.RolEstandar == "PRINCIPAL" && s.EstadoVigencia == "ACTIVO_VIGENTE")
+            .OrderByDescending(s => s.FechaRegistro)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (std is not null)
+        {
+            techId = std.IdTecnologiaTSI;
+            inicioContrato = std.FechaInicioVigencia;
+            finContrato = std.FechaFinVigencia;
+            var tech = await dbContext.Technologies.AsNoTracking().FirstOrDefaultAsync(t => t.Id == std.IdTecnologiaTSI, cancellationToken);
+            techName = tech?.NombreCorporativo;
+        }
+
+        var convenedCompanyIds = await dbContext.AdoptionProcessCompanies.AsNoTracking()
+            .Where(cp => cp.IdProcesoAdopcionTSI == evaluacionId && cp.Aplica)
+            .Select(cp => cp.IdEmpresaSubsidiaria)
+            .ToListAsync(cancellationToken);
+
+        return Json(new
+        {
+            buildingBlockId = eval.IdBuildingBlock,
+            familiaId,
+            liderCorporativo = eval.LiderCorporativoTSI,
+            tecnologiaEstandarId = techId,
+            tecnologiaEstandarNombre = techName,
+            fechaInicioVigenciaContrato = inicioContrato?.ToString("yyyy-MM-dd"),
+            fechaFinVigenciaContrato = finContrato?.ToString("yyyy-MM-dd"),
+            convenedCompanyIds
+        });
+    }
+
+    [HttpPost("Implementations/Api/CreateSpecialist")]
+    [HttpPost("/AdoptionProcess/Implementations/Api/CreateSpecialist")]
+    [Authorize(Policy = Permissions.CatalogEdit)]
+    public async Task<IActionResult> CreateSpecialistApi([FromBody] CreateSpecialistFormModel form, CancellationToken cancellationToken)
+    {
+        if (form.EmpresaId <= 0 || string.IsNullOrWhiteSpace(form.Nombre))
+        {
+            return BadRequest(new { success = false, message = "Empresa y Nombre son obligatorios." });
+        }
+
+        var contact = new Landscape.Tsi.Domain.Catalogs.TContactoEmpresaSubsidiaria
+        {
+            IdEmpresaSubsidiaria = form.EmpresaId,
+            NombreContactoEmpresaSubsidiaria = form.Nombre.Trim(),
+            Rol = form.Rol?.Trim(),
+            Email = form.Email?.Trim(),
+            Telefono = form.Telefono?.Trim(),
+            EspecialistaEnQuePlataformas = form.Plataformas?.Trim()
+        };
+
+        dbContext.CompanyContacts.Add(contact);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            success = true,
+            id = contact.Id,
+            empresaId = contact.IdEmpresaSubsidiaria,
+            nombre = contact.NombreContactoEmpresaSubsidiaria,
+            rol = contact.Rol,
+            email = contact.Email,
+            plataformas = contact.EspecialistaEnQuePlataformas
+        });
+    }
+
     private async Task PopulateCreateImplementationCatalogsAsync(CreateImplementationViewModel model, CancellationToken cancellationToken)
     {
         model.Familias = await dbContext.Families.AsNoTracking()
@@ -525,11 +770,36 @@ public sealed partial class AdoptionProcessController
                 EmpresaNombre = c.Nombre ?? $"Empresa #{c.Id}",
                 Pais = c.Pais,
                 Rubro = c.Rubro,
-                Selected = true,
+                Selected = false,
                 Aplica = true,
                 EstadoImplementacion = "PENDIENTE",
                 EspecialistasDisponibles = contactsByComp.GetValueOrDefault(c.Id, [])
             }).ToList();
         }
+    }
+
+    private async Task PopulateEditImplementationCatalogsAsync(EditImplementationViewModel model, CancellationToken cancellationToken)
+    {
+        model.Familias = await dbContext.Families.AsNoTracking()
+            .OrderBy(f => f.Nombre)
+            .Select(f => new CatalogOption(f.Id, f.Nombre ?? $"Familia #{f.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.EstadosAdopcion = await dbContext.TechnologyAdoptionStates.AsNoTracking()
+            .OrderBy(s => s.Nombre)
+            .Select(s => new CatalogOption(s.Id, s.Nombre ?? $"Estado #{s.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.BuildingBlocks = await dbContext.BuildingBlocks.AsNoTracking()
+            .OrderBy(b => b.Nombre)
+            .Select(b => new CatalogOption(b.Id, b.Nombre ?? $"Building Block #{b.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.TecnologiasDisponibles = await dbContext.Technologies.AsNoTracking()
+            .OrderBy(t => t.NombreCorporativo)
+            .Select(t => new CatalogOption(t.Id, t.NombreCorporativo ?? $"Tecnología #{t.Id}"))
+            .ToListAsync(cancellationToken);
+
+        model.EstandaresDecretados = await adoptionService.GetCorporateStandardsByFamilyAsync(model.FamiliaId, cancellationToken);
     }
 }

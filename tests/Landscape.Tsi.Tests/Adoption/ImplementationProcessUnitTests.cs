@@ -268,4 +268,66 @@ public sealed class ImplementationProcessUnitTests
         Assert.Equal("Cloudflare Partner LATAM", model.EspecialistasPartners[0].PartnerNombre);
         Assert.Equal(45, model.EspecialistasPartners[0].TecnologiaId);
     }
+
+    [Fact]
+    public void EditImplementationViewModel_BindsPropertiesProperly()
+    {
+        var model = new EditImplementationViewModel
+        {
+            Id = 5,
+            Codigo = "IMPL-2026-005",
+            Nombre = "Implementación EDR CrowdStrike",
+            FamiliaId = 2,
+            TecnologiaEstandarId = 15,
+            BuildingBlockId = 4,
+            FechaInicioVigenciaContrato = new DateTime(2026, 2, 1),
+            FechaFinVigenciaContrato = new DateTime(2028, 2, 1),
+            NumeroContratoCorporativo = "CTR-CS-2026",
+            EstadoAdopcionId = 3,
+            Objetivo = "Proteger endpoints",
+            Alcance = "Todas las subsidiarias",
+            LiderCorporativo = "Líder Ciberseguridad",
+            FechaInicio = new DateTime(2026, 2, 15),
+            FechaEstimadaCierre = new DateTime(2027, 2, 15)
+        };
+
+        Assert.Equal(5, model.Id);
+        Assert.Equal("IMPL-2026-005", model.Codigo);
+        Assert.Equal("Implementación EDR CrowdStrike", model.Nombre);
+        Assert.Equal(2, model.FamiliaId);
+        Assert.Equal(15, model.TecnologiaEstandarId);
+        Assert.Equal(4, model.BuildingBlockId);
+        Assert.Equal("CTR-CS-2026", model.NumeroContratoCorporativo);
+        Assert.Equal(3, model.EstadoAdopcionId);
+    }
+
+    [Fact]
+    public void ManageImplementationCompaniesFormModel_InitializesEmptyCompanyList()
+    {
+        var form = new ManageImplementationCompaniesFormModel();
+        Assert.NotNull(form.SelectedCompanyIds);
+        Assert.Empty(form.SelectedCompanyIds);
+    }
+
+    [Fact]
+    public void CreateSpecialistFormModel_StoresInputFields()
+    {
+        var form = new CreateSpecialistFormModel
+        {
+            EmpresaId = 10,
+            Nombre = "Ing. Martin Vizcarra",
+            Rol = "DevSecOps",
+            Email = "mvizcarra@subsidiaria.com",
+            Telefono = "+51 987654321",
+            Plataformas = "AWS, Kubernetes"
+        };
+
+        Assert.Equal(10, form.EmpresaId);
+        Assert.Equal("Ing. Martin Vizcarra", form.Nombre);
+        Assert.Equal("DevSecOps", form.Rol);
+        Assert.Equal("mvizcarra@subsidiaria.com", form.Email);
+        Assert.Equal("+51 987654321", form.Telefono);
+        Assert.Equal("AWS, Kubernetes", form.Plataformas);
+    }
 }
+

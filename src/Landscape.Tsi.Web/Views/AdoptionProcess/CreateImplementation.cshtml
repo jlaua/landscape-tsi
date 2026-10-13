@@ -27,7 +27,7 @@
         </div>
     }
 
-    <form asp-action="SaveImplementation" method="post" id="formCreateImplementation">
+    <form asp-action="SaveImplementation" method="post" id="formCreateImplementation" autocomplete="off">
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
@@ -40,13 +40,13 @@
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label asp-for="Codigo" class="form-label fw-semibold">Código de Solicitud *</label>
-                        <input asp-for="Codigo" class="form-control font-monospace fw-bold" required />
+                        <input asp-for="Codigo" class="form-control font-monospace fw-bold" autocomplete="off" required />
                         <span asp-validation-for="Codigo" class="text-danger small"></span>
                     </div>
 
                     <div class="col-md-5">
                         <label asp-for="Nombre" class="form-label fw-semibold">Nombre de la Solicitud de Implementación *</label>
-                        <input asp-for="Nombre" class="form-control" placeholder="Ej: Implementación Corporativa de WAAP Cloudflare 2026" required />
+                        <input asp-for="Nombre" class="form-control" placeholder="Ej: Implementación Corporativa de WAAP Cloudflare 2026" autocomplete="off" required />
                         <span asp-validation-for="Nombre" class="text-danger small"></span>
                     </div>
 
@@ -59,7 +59,7 @@
                                 <option value="@ev.Id" selected="@(Model.ProcesoEvaluacionOrigenId == ev.Id ? "selected" : null)">@ev.Label</option>
                             }
                         </select>
-                        <small class="text-muted">Si proviene de una evaluación, se precargan estándar y empresas convocadas.</small>
+                        <small class="text-muted">Si proviene de una evaluación, se precargan estándar y empresas convocadas sin alterar el nombre ingresado.</small>
                     </div>
 
                     <div class="col-md-4">
@@ -112,7 +112,7 @@
                     <!-- Datos del Nuevo Contrato -->
                     <div class="col-md-4">
                         <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Marco Corporativo</label>
-                        <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="Ej: CTR-CORP-2026-WAAP-001" />
+                        <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="Ej: CTR-CORP-2026-WAAP-001" autocomplete="off" />
                     </div>
 
                     <div class="col-md-4">
@@ -127,7 +127,7 @@
 
                     <div class="col-md-4">
                         <label asp-for="LiderCorporativo" class="form-label fw-semibold">Líder Corporativo TSI</label>
-                        <input asp-for="LiderCorporativo" class="form-control" placeholder="Ej: Especialista de Ciberseguridad / TSI" />
+                        <input asp-for="LiderCorporativo" class="form-control" placeholder="Ej: Especialista de Ciberseguridad / TSI" autocomplete="off" />
                     </div>
 
                     <div class="col-md-4">
@@ -158,9 +158,12 @@
             <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
                 <div>
                     <h2 class="h5 mb-0 text-dark">🏢 2. Convocatoria de Empresas y Parámetros de Abordaje</h2>
-                    <small class="text-muted">Define las subsidiarias participantes, fecha de inicio en la tecnología, especialista técnico a cargo y arquitectura.</small>
+                    <small class="text-muted">Define las subsidiarias participantes (el 100% de la adopción se calcula en función a las empresas convocadas), fecha de abordaje y especialista técnico.</small>
                 </div>
-                <div class="d-flex gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary text-white px-2 py-2" id="badgeCounterConvocadas">
+                        Convocadas: 0 / @Model.Subsidiaries.Count
+                    </span>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAllSubs">Seleccionar Todas</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDeselectAllSubs">Limpiar Selección</button>
                 </div>
@@ -170,13 +173,12 @@
                     <table class="table table-hover table-striped align-middle mb-0" id="tableSubsidiaries">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col" style="width: 40px;" class="text-center">Convocar</th>
+                                <th scope="col" style="width: 70px;" class="text-center">Convocar</th>
                                 <th scope="col">Empresa Subsidiaria</th>
-                                <th scope="col" style="width: 90px;" class="text-center">Aplica</th>
                                 <th scope="col" style="width: 170px;">Fecha Abordaje / Inicio</th>
-                                <th scope="col">Especialista Técnico</th>
+                                <th scope="col" style="width: 320px;">Especialista Técnico</th>
                                 <th scope="col">URL de Arquitectura</th>
-                                <th scope="col" style="width: 140px;">Estado Inicial</th>
+                                <th scope="col" style="width: 150px;">Estado Inicial</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -188,29 +190,24 @@
                                     <input type="hidden" name="Subsidiaries[@i].EmpresaId" value="@sub.EmpresaId" />
                                     <input type="hidden" name="Subsidiaries[@i].EmpresaNombre" value="@sub.EmpresaNombre" />
                                     <input type="hidden" name="Subsidiaries[@i].Pais" value="@sub.Pais" />
-                                    <input type="checkbox" name="Subsidiaries[@i].Selected" value="true" class="form-check-input chk-sub-convene" @(sub.Selected ? "checked" : "") />
+                                    <input type="checkbox" name="Subsidiaries[@i].Selected" value="true" class="form-check-input chk-sub-convene" id="chk_sub_@sub.EmpresaId" @(sub.Selected ? "checked" : "") title="Marcar para convocar esta subsidiaria a la implementación" />
                                 </td>
                                 <td>
-                                    <strong class="text-dark">@sub.EmpresaNombre</strong>
+                                    <label for="chk_sub_@sub.EmpresaId" class="fw-semibold text-dark mb-0 cursor-pointer d-block">
+                                        @sub.EmpresaNombre
+                                    </label>
                                     <div class="text-muted small">@sub.Pais · @sub.Rubro</div>
                                 </td>
-                                <td class="text-center">
-                                    <input type="checkbox" name="Subsidiaries[@i].Aplica" value="true" class="form-check-input chk-sub-aplica" @(sub.Aplica ? "checked" : "") title="Marca si la empresa debe implementar la tecnología" />
+                                <td>
+                                    <input type="date" name="Subsidiaries[@i].FechaInicioAdopcion" value="@(sub.FechaInicioAdopcion?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm input-sub-fecha" title="Fecha en la que la subsidiaria se sube a la tecnología" />
                                 </td>
                                 <td>
-                                    <input type="date" name="Subsidiaries[@i].FechaInicioAdopcion" value="@(sub.FechaInicioAdopcion?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm input-sub-fecha" title="Fecha en la que la subsidiaria se subió o se subirá a la tecnología" />
-                                </td>
-                                <td>
-                                    <input type="text" name="Subsidiaries[@i].EspecialistaTecnico" value="@sub.EspecialistaTecnico" class="form-control form-control-sm" placeholder="Ingeniero / Especialista..." list="datalist_esp_@sub.EmpresaId" />
-                                    @if (sub.EspecialistasDisponibles.Count > 0)
-                                    {
-                                        <datalist id="datalist_esp_@sub.EmpresaId">
-                                            @foreach (var esp in sub.EspecialistasDisponibles)
-                                            {
-                                                <option value="@esp.Label"></option>
-                                            }
-                                        </datalist>
-                                    }
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" name="Subsidiaries[@i].EspecialistaTecnico" id="input_esp_@sub.EmpresaId" value="@sub.EspecialistaTecnico" class="form-control form-control-sm" placeholder="Sin especialista asignado..." />
+                                        <button type="button" class="btn btn-outline-secondary btn-open-specialist-picker" data-empresa-id="@sub.EmpresaId" data-empresa-nombre="@sub.EmpresaNombre" title="Seleccionar o crear especialista para @sub.EmpresaNombre">
+                                            👤 Buscar / Crear
+                                        </button>
+                                    </div>
                                 </td>
                                 <td>
                                     <input type="url" name="Subsidiaries[@i].UrlArquitectura" value="@sub.UrlArquitectura" class="form-control form-control-sm" placeholder="https://confluence / repo / wiki..." />
@@ -220,7 +217,6 @@
                                         <option value="PENDIENTE" selected="@(sub.EstadoImplementacion == "PENDIENTE" ? "selected" : null)">⏳ Pendiente</option>
                                         <option value="EN_DESPLIEGUE" selected="@(sub.EstadoImplementacion == "EN_DESPLIEGUE" ? "selected" : null)">🚀 En Despliegue</option>
                                         <option value="IMPLEMENTADO" selected="@(sub.EstadoImplementacion == "IMPLEMENTADO" ? "selected" : null)">✅ Implementado</option>
-                                        <option value="NO_APLICA" selected="@(sub.EstadoImplementacion == "NO_APLICA" ? "selected" : null)">⚪ No Aplica</option>
                                     </select>
                                 </td>
                             </tr>
@@ -241,10 +237,113 @@
     </form>
 </section>
 
+<!-- MODAL PARA SELECCIONAR O CREAR ESPECIALISTA TÉCNICO -->
+<div class="modal fade" id="modalEspecialistaPicker" tabindex="-1" aria-labelledby="modalEspTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-light py-2">
+                <h5 class="modal-title h6" id="modalEspTitle">👤 Especialista Técnico — <span id="modalEspCompanyLabel" class="text-primary fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="espModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-existentes-btn" data-bs-toggle="tab" data-bs-target="#pane-existentes" type="button" role="tab" aria-selected="true">
+                            🔍 Especialistas Registrados
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-nuevo-btn" data-bs-toggle="tab" data-bs-target="#pane-nuevo" type="button" role="tab" aria-selected="false">
+                            ➕ Registrar Nuevo Especialista
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="espModalTabsContent">
+                    <!-- PANE 1: LISTADO Y FILTRO DE ESPECIALISTAS -->
+                    <div class="tab-pane fade show active" id="pane-existentes" role="tabpanel">
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-white">🔎</span>
+                            <input type="text" id="inputFilterSpecialists" class="form-control" placeholder="Buscar por nombre, cargo o correo..." autocomplete="off" />
+                        </div>
+                        <div id="loadingSpecialists" class="text-center py-4 d-none">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <span class="text-muted small ms-2">Cargando especialistas disponibles...</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0" id="tableModalSpecialists">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Cargo / Rol</th>
+                                        <th>Correo</th>
+                                        <th>Origen</th>
+                                        <th class="text-end">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyModalSpecialists">
+                                    <!-- Inyección dinámica -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="noSpecialistsMessage" class="text-center py-4 text-muted small d-none">
+                            No se encontraron especialistas registrados para esta subsidiaria. Puedes registrar uno en la pestaña <strong>"Registrar Nuevo Especialista"</strong>.
+                        </div>
+                    </div>
+
+                    <!-- PANE 2: REGISTRO DE NUEVO ESPECIALISTA -->
+                    <div class="tab-pane fade" id="pane-nuevo" role="tabpanel">
+                        <form id="formCreateNewSpecialist" autocomplete="off">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nombre Completo del Especialista *</label>
+                                    <input type="text" id="newEspNombre" class="form-control form-control-sm" placeholder="Ej: Ing. Carlos Pérez" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Cargo / Rol</label>
+                                    <input type="text" id="newEspRol" class="form-control form-control-sm" placeholder="Ej: Especialista Cloud / Seguridad TI" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Correo Electrónico</label>
+                                    <input type="email" id="newEspEmail" class="form-control form-control-sm" placeholder="ejemplo@empresa.com" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Teléfono</label>
+                                    <input type="text" id="newEspTelefono" class="form-control form-control-sm" placeholder="+51 999 888 777" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-semibold">Especialidad / Plataformas en las que es experto</label>
+                                    <input type="text" id="newEspPlataformas" class="form-control form-control-sm" placeholder="Ej: Cloudflare, AWS, Redes, WAF" />
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelCreateSpecialist">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" id="btnSubmitNewSpecialist">
+                                    💾 Guardar y Asignar a la Empresa
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Actualizar contador de empresas convocadas
+            function updateConveneCounter() {
+                const total = document.querySelectorAll('.chk-sub-convene').length;
+                const checked = document.querySelectorAll('.chk-sub-convene:checked').length;
+                const badge = document.getElementById('badgeCounterConvocadas');
+                if (badge) {
+                    badge.textContent = `Convocadas: ${checked} / ${total}`;
+                }
+            }
+
             // Seleccionar / Deseleccionar todas las empresas
             const btnAll = document.getElementById('btnSelectAllSubs');
             const btnNone = document.getElementById('btnDeselectAllSubs');
@@ -253,43 +352,296 @@
             if (btnAll) {
                 btnAll.addEventListener('click', () => {
                     chkConvenes.forEach(c => c.checked = true);
+                    updateConveneCounter();
                 });
             }
             if (btnNone) {
                 btnNone.addEventListener('click', () => {
                     chkConvenes.forEach(c => c.checked = false);
+                    updateConveneCounter();
                 });
             }
 
-            // Si se cambia la evaluación de origen, recargar página con el parámetro
+            chkConvenes.forEach(c => {
+                c.addEventListener('change', updateConveneCounter);
+            });
+            updateConveneCounter();
+
+            // Carga Asíncrona (AJAX) al cambiar la Evaluación TSI de Origen
+            // ¡Prevalece el nombre ingresado por el usuario sin recargas ni borrado!
             const selEval = document.getElementById('selectEvaluacionOrigen');
             if (selEval) {
-                selEval.addEventListener('change', function () {
+                selEval.addEventListener('change', async function () {
                     const evalId = this.value;
-                    const url = new URL(window.location.href);
-                    if (evalId) {
-                        url.searchParams.set('evaluacionId', evalId);
-                    } else {
-                        url.searchParams.delete('evaluacionId');
+                    if (!evalId) return;
+
+                    try {
+                        const res = await fetch('/AdoptionProcess/Implementations/Api/EvaluationData/' + evalId);
+                        if (!res.ok) return;
+                        const data = await res.json();
+
+                        // Actualizar combos si vinieron datos de la evaluación
+                        if (data.familiaId) {
+                            const selFam = document.getElementById('selectFamilia');
+                            if (selFam) selFam.value = data.familiaId;
+                        }
+                        if (data.tecnologiaEstandarId) {
+                            const selTech = document.getElementById('selectTecnologiaEstandar');
+                            if (selTech) selTech.value = data.tecnologiaEstandarId;
+                        }
+                        if (data.buildingBlockId) {
+                            const selBB = document.getElementById('selectBuildingBlock');
+                            if (selBB) selBB.value = data.buildingBlockId;
+                        }
+                        if (data.fechaInicioVigenciaContrato) {
+                            const dtInicio = document.getElementById('FechaInicioVigenciaContrato');
+                            if (dtInicio && !dtInicio.value) dtInicio.value = data.fechaInicioVigenciaContrato;
+                        }
+                        if (data.fechaFinVigenciaContrato) {
+                            const dtFin = document.getElementById('FechaFinVigenciaContrato');
+                            if (dtFin && !dtFin.value) dtFin.value = data.fechaFinVigenciaContrato;
+                        }
+                        if (data.liderCorporativo) {
+                            const inputLider = document.getElementById('LiderCorporativo');
+                            if (inputLider && !inputLider.value) inputLider.value = data.liderCorporativo;
+                        }
+
+                        // Convocatoria de empresas: seleccionar las convocadas en la evaluación
+                        if (data.convenedCompanyIds && data.convenedCompanyIds.length > 0) {
+                            const setIds = new Set(data.convenedCompanyIds);
+                            document.querySelectorAll('.chk-sub-convene').forEach(chk => {
+                                const row = chk.closest('tr');
+                                const empId = parseInt(row.getAttribute('data-empresa-row'), 10);
+                                chk.checked = setIds.has(empId);
+                            });
+                            updateConveneCounter();
+                        }
+                    } catch (e) {
+                        console.error('Error al precargar datos de la evaluación de origen:', e);
                     }
-                    window.location.href = url.toString();
                 });
             }
 
-            // Sincronizar estado cuando se desmarca 'Aplica'
-            document.querySelectorAll('.chk-sub-aplica').forEach(chk => {
-                chk.addEventListener('change', function () {
-                    const row = this.closest('tr');
-                    const selEstado = row.querySelector('.select-sub-estado');
-                    if (selEstado) {
-                        if (!this.checked) {
-                            selEstado.value = 'NO_APLICA';
-                        } else if (selEstado.value === 'NO_APLICA') {
-                            selEstado.value = 'PENDIENTE';
-                        }
+            // GESTIÓN DEL MODAL DE ESPECIALISTAS
+            let activeEmpresaId = null;
+            let activeEmpresaNombre = '';
+            let activeTargetInput = null;
+            let currentSpecialists = [];
+
+            const modalEl = document.getElementById('modalEspecialistaPicker');
+            const bsModal = modalEl ? new bootstrap.Modal(modalEl) : null;
+            const labelCompany = document.getElementById('modalEspCompanyLabel');
+            const tbodySpecialists = document.getElementById('tbodyModalSpecialists');
+            const loadingSpecialists = document.getElementById('loadingSpecialists');
+            const noSpecialistsMsg = document.getElementById('noSpecialistsMessage');
+            const inputFilter = document.getElementById('inputFilterSpecialists');
+
+            document.querySelectorAll('.btn-open-specialist-picker').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    activeEmpresaId = parseInt(this.getAttribute('data-empresa-id'), 10);
+                    activeEmpresaNombre = this.getAttribute('data-empresa-nombre') || '';
+                    activeTargetInput = document.getElementById('input_esp_' + activeEmpresaId);
+
+                    if (labelCompany) labelCompany.textContent = activeEmpresaNombre;
+                    if (inputFilter) inputFilter.value = '';
+
+                    // Resetear formulario nuevo
+                    const formNuevo = document.getElementById('formCreateNewSpecialist');
+                    if (formNuevo) formNuevo.reset();
+
+                    // Ir a pestaña 1
+                    const tabBtn = document.getElementById('tab-existentes-btn');
+                    if (tabBtn) {
+                        const tab = new bootstrap.Tab(tabBtn);
+                        tab.show();
                     }
+
+                    // Cargar especialistas de esta empresa
+                    loadSpecialists(activeEmpresaId);
+
+                    if (bsModal) bsModal.show();
                 });
             });
+
+            async function loadSpecialists(empresaId) {
+                if (!tbodySpecialists) return;
+                tbodySpecialists.innerHTML = '';
+                if (loadingSpecialists) loadingSpecialists.classList.remove('d-none');
+                if (noSpecialistsMsg) noSpecialistsMsg.classList.add('d-none');
+
+                try {
+                    const res = await fetch(`/AdoptionProcess/Implementations/Api/SpecialistsLookup?empresaId=${empresaId}`);
+                    if (!res.ok) throw new Error('Error al consultar especialistas');
+                    const data = await res.json();
+
+                    currentSpecialists = [];
+                    if (data.companyContacts) {
+                        data.companyContacts.forEach(c => {
+                            currentSpecialists.push({
+                                id: c.id,
+                                nombre: c.nombre,
+                                rol: c.rol || 'Especialista',
+                                email: c.email || '—',
+                                origen: 'Subsidiaria',
+                                isCompany: true
+                            });
+                        });
+                    }
+                    if (data.partnerContacts) {
+                        data.partnerContacts.forEach(p => {
+                            currentSpecialists.push({
+                                id: p.id,
+                                nombre: p.nombre,
+                                rol: p.rol || 'Especialista Partner',
+                                email: p.email || '—',
+                                origen: p.partnerNombre || 'Partner',
+                                isCompany: false
+                            });
+                        });
+                    }
+
+                    renderSpecialistsTable(currentSpecialists);
+                } catch (e) {
+                    console.error('Error cargando especialistas:', e);
+                } finally {
+                    if (loadingSpecialists) loadingSpecialists.classList.add('d-none');
+                }
+            }
+
+            function renderSpecialistsTable(list) {
+                if (!tbodySpecialists) return;
+                tbodySpecialists.innerHTML = '';
+
+                if (list.length === 0) {
+                    if (noSpecialistsMsg) noSpecialistsMsg.classList.remove('d-none');
+                    return;
+                }
+                if (noSpecialistsMsg) noSpecialistsMsg.classList.add('d-none');
+
+                list.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${escapeHtml(item.nombre)}</strong></td>
+                        <td class="text-muted small">${escapeHtml(item.rol)}</td>
+                        <td class="text-muted small">${escapeHtml(item.email)}</td>
+                        <td><span class="badge ${item.isCompany ? 'bg-primary-subtle text-primary border' : 'bg-secondary-subtle text-secondary border'}" style="font-size: 0.7rem;">${escapeHtml(item.origen)}</span></td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-primary btn-sm py-0 px-2 btn-assign-specialist" data-name="${escapeHtml(item.nombre)}" data-rol="${escapeHtml(item.rol)}">
+                                Asignar
+                            </button>
+                        </td>
+                    `;
+                    tbodySpecialists.appendChild(tr);
+                });
+
+                tbodySpecialists.querySelectorAll('.btn-assign-specialist').forEach(b => {
+                    b.addEventListener('click', function () {
+                        const name = this.getAttribute('data-name');
+                        const rol = this.getAttribute('data-rol');
+                        assignSpecialistToActiveInput(name, rol);
+                    });
+                });
+            }
+
+            function assignSpecialistToActiveInput(name, rol) {
+                if (activeTargetInput) {
+                    activeTargetInput.value = name + (rol ? ` (${rol})` : '');
+                }
+                // Si la empresa no estaba marcada como convocada, marcarla
+                if (activeEmpresaId) {
+                    const chk = document.getElementById('chk_sub_' + activeEmpresaId);
+                    if (chk && !chk.checked) {
+                        chk.checked = true;
+                        updateConveneCounter();
+                    }
+                }
+                if (bsModal) bsModal.hide();
+            }
+
+            // Filtro de búsqueda en la tabla de especialistas
+            if (inputFilter) {
+                inputFilter.addEventListener('input', function () {
+                    const term = this.value.toLowerCase().trim();
+                    if (!term) {
+                        renderSpecialistsTable(currentSpecialists);
+                        return;
+                    }
+                    const filtered = currentSpecialists.filter(s =>
+                        s.nombre.toLowerCase().includes(term) ||
+                        s.rol.toLowerCase().includes(term) ||
+                        s.email.toLowerCase().includes(term)
+                    );
+                    renderSpecialistsTable(filtered);
+                });
+            }
+
+            // Registro de Nuevo Especialista vía API
+            const formNuevoEsp = document.getElementById('formCreateNewSpecialist');
+            if (formNuevoEsp) {
+                formNuevoEsp.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    if (!activeEmpresaId) return;
+
+                    const nombre = document.getElementById('newEspNombre').value.trim();
+                    const rol = document.getElementById('newEspRol').value.trim();
+                    const email = document.getElementById('newEspEmail').value.trim();
+                    const telefono = document.getElementById('newEspTelefono').value.trim();
+                    const plataformas = document.getElementById('newEspPlataformas').value.trim();
+
+                    if (!nombre) {
+                        alert('El nombre del especialista es obligatorio.');
+                        return;
+                    }
+
+                    const submitBtn = document.getElementById('btnSubmitNewSpecialist');
+                    if (submitBtn) submitBtn.disabled = true;
+
+                    try {
+                        const res = await fetch('/AdoptionProcess/Implementations/Api/CreateSpecialist', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                empresaId: activeEmpresaId,
+                                nombre: nombre,
+                                rol: rol,
+                                email: email,
+                                telefono: telefono,
+                                plataformas: plataformas
+                            })
+                        });
+
+                        const result = await res.json();
+                        if (result.success) {
+                            assignSpecialistToActiveInput(result.nombre, result.rol);
+                        } else {
+                            alert(result.message || 'Error al registrar especialista.');
+                        }
+                    } catch (err) {
+                        console.error('Error registrando especialista:', err);
+                        alert('Ocurrió un error al guardar el especialista.');
+                    } finally {
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            const btnCancelCreate = document.getElementById('btnCancelCreateSpecialist');
+            if (btnCancelCreate) {
+                btnCancelCreate.addEventListener('click', () => {
+                    const tabBtn = document.getElementById('tab-existentes-btn');
+                    if (tabBtn) {
+                        const tab = new bootstrap.Tab(tabBtn);
+                        tab.show();
+                    }
+                });
+            }
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            }
         });
     </script>
 }

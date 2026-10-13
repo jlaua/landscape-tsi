@@ -638,6 +638,15 @@ public sealed class AdoptionProcessHttpTests
                 1, 1, 1, 0, 0, 0, 100.0, [fila], [periodo], [filaTimeline], new Dictionary<string, int> { ["2026-09"] = 1 }, new Dictionary<string, double> { ["2026-09"] = 100.0 }));
         }
 
+        public Task<AdoptionResult> DecommissionImplementationProcessAsync(int procesoId, string motivoBaja, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> DeleteImplementationProcessAsync(int procesoId, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
+        public Task<AdoptionResult> ManageImplementationCompaniesAsync(int procesoId, IEnumerable<int> selectedCompanyIds, Guid actorUserId, string correlationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AdoptionResult(true, "Ok"));
+
         public Task<IReadOnlyList<StandardTechnologyDto>> GetCorporateStandardsByFamilyAsync(int? familiaId, CancellationToken cancellationToken = default)
         {
             IReadOnlyList<StandardTechnologyDto> list = [

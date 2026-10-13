@@ -1,0 +1,167 @@
+@model Landscape.Tsi.Web.Models.EditImplementationViewModel
+@{
+    ViewData["Title"] = $"Editar Solicitud - {Model.Codigo}";
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb-list">
+        <li><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+        <li><a asp-action="Implementations">Implementaciones</a></li>
+        <li><a asp-action="ImplementationDetails" asp-route-id="@Model.Id">@Model.Codigo</a></li>
+        <li aria-current="page">Editar</li>
+    </ol>
+</nav>
+
+<section class="admin-shell" aria-labelledby="edit-impl-title">
+    <div class="mb-4">
+        <p class="eyebrow text-uppercase text-primary fw-semibold mb-1">PROCESOS DE ADOPCIÓN TSI · EDICIÓN</p>
+        <h1 id="edit-impl-title" class="h2 mb-1">Editar Solicitud de Implementación</h1>
+        <p class="supporting-text mb-0">
+            Modificación de parámetros contractuales, tecnología estándar, líderes y cronograma general de la solicitud <strong class="font-monospace text-dark">@Model.Codigo</strong>.
+        </p>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="app-alert app-alert-error mb-3" role="alert">
+            <strong>Atención: </strong> @error
+        </div>
+    }
+
+    <form asp-action="EditImplementation" asp-route-id="@Model.Id" method="post" autocomplete="off">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="Codigo" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light py-3">
+                <h2 class="h5 mb-0 text-dark">📋 Parámetros de la Solicitud y Contrato Corporativo</h2>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Código de Solicitud</label>
+                        <input value="@Model.Codigo" class="form-control font-monospace fw-bold bg-light" readonly />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Nombre" class="form-label fw-semibold">Nombre de la Solicitud de Implementación *</label>
+                        <input asp-for="Nombre" class="form-control" required />
+                        <span asp-validation-for="Nombre" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="EstadoAdopcionId" class="form-label fw-semibold">Estado de la Solicitud *</label>
+                        <select asp-for="EstadoAdopcionId" class="form-select fw-semibold" required>
+                            @foreach (var s in Model.EstadosAdopcion)
+                            {
+                                <option value="@s.Id" selected="@(Model.EstadoAdopcionId == s.Id ? "selected" : null)">@s.Label</option>
+                            }
+                        </select>
+                        <span asp-validation-for="EstadoAdopcionId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FamiliaId" class="form-label fw-semibold">Familia Tecnológica</label>
+                        <select asp-for="FamiliaId" class="form-select" id="selectEditFamilia">
+                            <option value="">-- Sin Familia Asignada --</option>
+                            @foreach (var f in Model.Familias)
+                            {
+                                <option value="@f.Id" selected="@(Model.FamiliaId == f.Id ? "selected" : null)">@f.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label asp-for="TecnologiaEstandarId" class="form-label fw-semibold">Tecnología Estándar Decretada *</label>
+                        <select asp-for="TecnologiaEstandarId" class="form-select fw-semibold" required>
+                            <option value="">-- Seleccionar Tecnología Estándar --</option>
+                            @if (Model.EstandaresDecretados.Count > 0)
+                            {
+                                <optgroup label="⭐ Estándares Decretados en Evaluaciones TSI">
+                                    @foreach (var std in Model.EstandaresDecretados)
+                                    {
+                                        <option value="@std.TecnologiaId" selected="@(Model.TecnologiaEstandarId == std.TecnologiaId ? "selected" : null)">
+                                            @std.TecnologiaNombre (@std.RolEstandar) [BB #@std.BuildingBlockId]
+                                        </option>
+                                    }
+                                </optgroup>
+                            }
+                            <optgroup label="📦 Todas las Tecnologías del Catálogo TSI">
+                                @foreach (var t in Model.TecnologiasDisponibles)
+                                {
+                                    <option value="@t.Id" selected="@(Model.TecnologiaEstandarId == t.Id ? "selected" : null)">@t.Label</option>
+                                }
+                            </optgroup>
+                        </select>
+                        <span asp-validation-for="TecnologiaEstandarId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="BuildingBlockId" class="form-label fw-semibold">Building Block Asociado</label>
+                        <select asp-for="BuildingBlockId" class="form-select">
+                            <option value="">-- Opcional / General TSI --</option>
+                            @foreach (var b in Model.BuildingBlocks)
+                            {
+                                <option value="@b.Id" selected="@(Model.BuildingBlockId == b.Id ? "selected" : null)">@b.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Datos del Nuevo Contrato -->
+                    <div class="col-md-4">
+                        <label asp-for="NumeroContratoCorporativo" class="form-label fw-semibold">N° Contrato Marco Corporativo</label>
+                        <input asp-for="NumeroContratoCorporativo" class="form-control" placeholder="Ej: CTR-CORP-2026-WAAP-001" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaInicioVigenciaContrato" class="form-label fw-semibold">Inicio Vigencia del Nuevo Contrato</label>
+                        <input asp-for="FechaInicioVigenciaContrato" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaFinVigenciaContrato" class="form-label fw-semibold">Fin Vigencia del Nuevo Contrato</label>
+                        <input asp-for="FechaFinVigenciaContrato" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="LiderCorporativo" class="form-label fw-semibold">Líder Corporativo TSI</label>
+                        <input asp-for="LiderCorporativo" class="form-control" placeholder="Ej: Especialista de Ciberseguridad / TSI" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaInicio" class="form-label fw-semibold">Fecha Inicio de Solicitud *</label>
+                        <input asp-for="FechaInicio" type="date" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label asp-for="FechaEstimadaCierre" class="form-label fw-semibold">Fecha Estimada de Cierre</label>
+                        <input asp-for="FechaEstimadaCierre" type="date" class="form-control" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Objetivo" class="form-label fw-semibold">Objetivo de la Implementación</label>
+                        <textarea asp-for="Objetivo" class="form-control" rows="3" placeholder="Propósito de la adopción corporativa de esta tecnología..."></textarea>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Alcance" class="form-label fw-semibold">Alcance</label>
+                        <textarea asp-for="Alcance" class="form-control" rows="3" placeholder="Subsidiarias objetivo, aplicaciones críticas o perímetros cubiertos..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-3 mb-5">
+            <a asp-action="ImplementationDetails" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                💾 Guardar Cambios
+            </button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

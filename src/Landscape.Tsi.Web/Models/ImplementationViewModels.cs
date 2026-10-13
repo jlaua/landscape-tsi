@@ -154,6 +154,7 @@ public sealed class ImplementationDetailsViewModel
     public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
     public IReadOnlyList<CompanySpecialistDto> EspecialistasEmpresas { get; set; } = [];
     public IReadOnlyList<PartnerSpecialistDto> EspecialistasPartners { get; set; } = [];
+    public IReadOnlyList<CatalogOption> TodasLasEmpresas { get; set; } = [];
 }
 
 public sealed class UpdateImplementationCompanyFormModel
@@ -170,3 +171,75 @@ public sealed class UpdateImplementationCompanyFormModel
     public string? TecnologiaAsIs { get; set; }
     public IFormFile? ArchivoArquitectura { get; set; }
 }
+
+public sealed class EditImplementationViewModel
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "El código es obligatorio.")]
+    [StringLength(50)]
+    public string Codigo { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El nombre de la solicitud de implementación es obligatorio.")]
+    [StringLength(200)]
+    public string Nombre { get; set; } = string.Empty;
+
+    public int? FamiliaId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar la tecnología estándar decretada.")]
+    public int TecnologiaEstandarId { get; set; }
+
+    public int? BuildingBlockId { get; set; }
+
+    [DataType(DataType.Date)]
+    public DateTime? FechaInicioVigenciaContrato { get; set; }
+
+    [DataType(DataType.Date)]
+    public DateTime? FechaFinVigenciaContrato { get; set; }
+
+    [StringLength(100)]
+    public string? NumeroContratoCorporativo { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un estado.")]
+    public int EstadoAdopcionId { get; set; } = 1;
+
+    [StringLength(1000)]
+    public string? Objetivo { get; set; }
+
+    [StringLength(1000)]
+    public string? Alcance { get; set; }
+
+    [StringLength(150)]
+    public string? LiderCorporativo { get; set; }
+
+    public DateTime FechaInicio { get; set; } = DateTime.Today;
+    public DateTime? FechaEstimadaCierre { get; set; }
+
+    // Catálogos
+    public IReadOnlyList<CatalogOption> Familias { get; set; } = [];
+    public IReadOnlyList<CatalogOption> TecnologiasDisponibles { get; set; } = [];
+    public IReadOnlyList<StandardTechnologyDto> EstandaresDecretados { get; set; } = [];
+    public IReadOnlyList<CatalogOption> BuildingBlocks { get; set; } = [];
+    public IReadOnlyList<CatalogOption> EstadosAdopcion { get; set; } = [];
+}
+
+public sealed class CreateSpecialistFormModel
+{
+    [Required]
+    public int EmpresaId { get; set; }
+
+    [Required(ErrorMessage = "El nombre del especialista es obligatorio.")]
+    public string Nombre { get; set; } = string.Empty;
+
+    public string? Rol { get; set; }
+    public string? Email { get; set; }
+    public string? Telefono { get; set; }
+    public string? Plataformas { get; set; }
+}
+
+public sealed class ManageImplementationCompaniesFormModel
+{
+    public int ProcesoId { get; set; }
+    public List<int> SelectedCompanyIds { get; set; } = [];
+}
+

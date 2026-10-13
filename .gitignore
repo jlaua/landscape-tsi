@@ -490,3 +490,7 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 docs/private/
+
+# Temporary files
+tmp_form.pdf
+tmp_*

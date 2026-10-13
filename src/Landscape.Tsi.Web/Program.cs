@@ -1,9 +1,11 @@
 using System.Threading.RateLimiting;
 
 using Landscape.Tsi.Application.Identity;
+using Landscape.Tsi.Application.Mcp;
 using Landscape.Tsi.Domain.Identity;
 using Landscape.Tsi.Infrastructure;
 using Landscape.Tsi.Infrastructure.Identity;
+using Landscape.Tsi.Web.Mcp;
 
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +32,7 @@ if (!string.IsNullOrWhiteSpace(bootstrapPassword) &&
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
+builder.Services.AddLandscapeMcp();
 
 var authentication = builder.Services.AddAuthentication(options =>
 {
@@ -152,6 +155,8 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapStaticAssets();
+
+app.MapMcpEndpoints();
 
 app.MapControllerRoute(
     name: "default",
